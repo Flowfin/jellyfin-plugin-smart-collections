@@ -17,6 +17,13 @@ public class ManifestArtifactTests
     /// <c>- name</c> entry per line until a line that is not an entry. Reading it this way keeps
     /// the test project free of a YAML dependency carried for one list.
     /// </summary>
+    /// <remarks>
+    /// An entry's indentation is not read. YAML admits a sequence at the key's own column and
+    /// indented under it, both mean the same list, and which one this file carries is the
+    /// formatter's choice rather than the manifest's meaning. A parser that insisted on column
+    /// zero would fail the day the file is reformatted and report it as a missing artefact, which
+    /// is the wrong failure with the wrong name on it.
+    /// </remarks>
     /// <returns>The artefact names the manifest lists, in the order it lists them.</returns>
     private static List<string> ListedArtifacts()
     {
@@ -40,12 +47,14 @@ public class ManifestArtifactTests
                 continue;
             }
 
-            if (!line.StartsWith("- ", StringComparison.Ordinal))
+            var entry = line.TrimStart();
+
+            if (!entry.StartsWith("- ", StringComparison.Ordinal))
             {
                 break;
             }
 
-            listed.Add(line[2..].Trim().Trim('"'));
+            listed.Add(entry[2..].Trim().Trim('"'));
         }
 
         return listed;

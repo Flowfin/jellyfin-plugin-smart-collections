@@ -21,10 +21,10 @@ Do not install this on a server you care about yet.
 Two lines are supported, and each one gets its own package, because they host
 different runtimes:
 
-| Server line | Runtime the server hosts |
-| --- | --- |
-| Jellyfin 10.11 | .NET 9 |
-| Jellyfin 12.0 | .NET 10 |
+| Server line    | Runtime the server hosts |
+| -------------- | ------------------------ |
+| Jellyfin 10.11 | .NET 9                   |
+| Jellyfin 12.0  | .NET 10                  |
 
 That table is read from the server's own project file rather than from
 documentation:
@@ -68,19 +68,19 @@ for it to belong, and how the collection is ordered.
 
 ```json
 {
-  "schemaVersion": 1,
-  "id": "nineties-thrillers",
-  "name": "Nineties Thrillers",
-  "collects": ["Movie"],
-  "match": {
-    "all": [
-      { "field": "genres", "operator": "contains", "value": "Thriller" },
-      { "field": "productionYear", "operator": "atLeast", "value": 1990 },
-      { "field": "productionYear", "operator": "atMost", "value": 1999 }
-    ]
-  },
-  "order": { "field": "sortName", "direction": "ascending" },
-  "limit": 200
+    "schemaVersion": 1,
+    "id": "nineties-thrillers",
+    "name": "Nineties Thrillers",
+    "collects": ["Movie"],
+    "match": {
+        "all": [
+            { "field": "genres", "operator": "contains", "value": "Thriller" },
+            { "field": "productionYear", "operator": "atLeast", "value": 1990 },
+            { "field": "productionYear", "operator": "atMost", "value": 1999 }
+        ]
+    },
+    "order": { "field": "sortName", "direction": "ascending" },
+    "limit": 200
 }
 ```
 

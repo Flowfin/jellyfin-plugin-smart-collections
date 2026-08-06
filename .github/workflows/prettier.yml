@@ -1,0 +1,80 @@
+# Format the files the configuration page ships (#14).
+#
+# The page ships HTML today and will ship JavaScript and CSS once the rule
+# editor lands, and until this job existed nothing read any of it. Formatting
+# then drifts one change at a time and a reviewer spends attention on whitespace
+# instead of on the change.
+#
+# Prettier rather than a tool per file type, because one configuration covers
+# HTML, CSS, JavaScript, JSON, YAML and Markdown, and this repository carries all
+# six. The alternative is several linters, several configurations and several
+# ways to disagree.
+#
+# The version is pinned here rather than resolved on the day. An unpinned
+# formatter changes its own defaults on a major release and reds a pull request
+# that touched nothing, which is the failure #74 removed from the workflow audit
+# and is not worth reintroducing. Raising it is a change to this file, with the
+# reformatting it implies in the same commit.
+#
+# What is not pinned is the registry the version is fetched from, because no
+# lock file is checked in. Adding one would add an npm manifest to a repository
+# that has none, for a single development-time tool. That cost is not paid here
+# and the residual risk is stated instead: the pin fixes the version, not the
+# bytes the registry serves for it.
+#
+# Whether this job's name is in the branch ruleset's required set is a fact of
+# the ruleset rather than of this file (#20). Print it:
+#
+#   gh api repos/iderex/jellyfin-plugin-smart-collections/rulesets/20465770 \
+#     --jq '[.rules[] | select(.type=="required_status_checks")
+#           | .parameters.required_status_checks[].context]'
+
+name: Prettier
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# Deny-all at the workflow level; the job below grants only what it reads.
+permissions: {}
+
+# Cancel a superseded run on the same ref. This is a lint, not a publish, so
+# dropping an obsolete run is safe.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prettier:
+    # The check run takes this name, and that is the string #20 puts in the
+    # required list. Renaming it renames the required context.
+    name: Front-end format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # checkout the tree to read it
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes via git, so do not persist the GITHUB_TOKEN in
+          # .git/config.
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Pinned so a runner image bump is not a silent change to what the
+          # formatter runs on.
+          node-version: "24"
+
+      - name: Check the formatting
+        # The command a contributor runs locally, with the version pinned. The
+        # rule set it applies is .prettierrc.yaml and the set of files it reads
+        # is .prettierignore, both checked in next to this file.
+        run: npx --yes prettier@3.9.6 --check .

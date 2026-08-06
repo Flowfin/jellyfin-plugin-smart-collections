@@ -1,0 +1,31 @@
+# How the front-end files this plugin ships are formatted (#14).
+#
+# The configuration is checked in rather than left to whatever Prettier defaults
+# to on the day a run happens, so the rule set a contributor reads is the rule
+# set the check applies. Almost everything here is Prettier's default and is not
+# restated: a setting written down is a setting somebody has to keep true, and
+# the defaults move only on a major version this repository chooses to take.
+#
+# YAML rather than JSON for this file, because the reason a setting exists is
+# worth more than the setting, and JSON cannot carry a comment.
+#
+# The one departure from the defaults:
+endOfLine: auto
+# Prettier defaults to `lf`, which would red every text file in this repository
+# on a Windows clone for a reason that has nothing to do with formatting. Git,
+# not Prettier, decides the line endings here, and it already decides them the
+# same way for everyone: no blob in the tree carries a carriage return, and a
+# working copy materialises whatever the clone's own git config asks for.
+#
+#   git config --get core.autocrlf
+#   true
+#   for f in $(git ls-files); do git show "origin/master:$f" | grep -qU $'\r' && echo "$f"; done
+#
+# The second command prints nothing, so the repository holds LF throughout and
+# `lf` here would be checking the checkout rather than the change. `auto` reads
+# each file's existing endings and reports only what a contributor can actually
+# fix, which leaves the check saying the same thing on Linux and on Windows.
+#
+# What this gives up is Prettier refusing a stray carriage return. That refusal
+# is not lost: git normalises on the way in, and the scan above is what proves
+# the state rather than assumes it.
