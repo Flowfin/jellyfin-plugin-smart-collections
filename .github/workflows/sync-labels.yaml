@@ -11,7 +11,7 @@ permissions: {}
 
 jobs:
   call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/sync-labels.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master
+    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/sync-labels.yaml@master
     permissions:
       issues: write # labels are written through the issues API
     secrets:
