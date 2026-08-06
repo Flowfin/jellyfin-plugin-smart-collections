@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Jellyfin.Plugin.Template.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- The plugin project excludes the Jellyfin runtime assets, because the server
+       supplies them at load time. A test process has no server, so the same two
+       packages are referenced here without that exclusion, which is what puts
+       MediaBrowser.Common and MediaBrowser.Model next to the test assembly. -->
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="10.9.11" />
+    <PackageReference Include="Jellyfin.Model" Version="10.9.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jellyfin.Plugin.Template\Jellyfin.Plugin.Template.csproj" />
+  </ItemGroup>
+
+</Project>
