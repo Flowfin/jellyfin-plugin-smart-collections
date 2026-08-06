@@ -18,7 +18,7 @@ public class ConfigurationPageResourceTests
         // The same expression GetPages() uses to build EmbeddedResourcePath.
         var advertised = string.Format(
             CultureInfo.InvariantCulture,
-            "{0}.Configuration.configPage.html",
+            "{0}.Configuration.configPage.htmlX",
             pluginType.Namespace);
 
         Assert.Contains(advertised, pluginType.Assembly.GetManifestResourceNames());
