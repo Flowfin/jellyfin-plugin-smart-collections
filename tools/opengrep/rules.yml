@@ -110,8 +110,15 @@ rules:
       - pattern-either:
           - pattern-regex: '\.To(Lower|Upper)\s*\(\s*\)'
           - pattern-regex: '\.(StartsWith|EndsWith|IndexOf)\s*\(\s*"[^"]*"\s*\)'
+          # Both spellings of the type, and a window that runs to the
+          # statement's semicolon rather than to the first closing parenthesis.
+          # An argument holding a call of its own closes a parenthesis before
+          # the comparison argument is reached, and a window stopping there
+          # would refuse `string.Compare(a.Trim(), b, StringComparison.Ordinal)`
+          # for lacking the comparison it names. Measured on that line rather
+          # than supposed.
           - patterns:
-              - pattern-regex: '\bstring\.Compare\s*\([^)]*\)'
+              - pattern-regex: '\b[Ss]tring\.Compare\s*\([^;]*;'
               - pattern-not-regex: "StringComparison"
     paths:
       include:
