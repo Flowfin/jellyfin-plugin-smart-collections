@@ -1,0 +1,127 @@
+# The invariants this plugin holds that a lint can refuse (#16).
+#
+# Each rule is one invariant, and the comment above it says what failure it
+# prevents rather than what it matches. A rule without that sentence is a rule
+# nobody can argue with later.
+#
+# These are generic-mode token patterns rather than C# semantic analysis. The
+# shapes are string-level and the same shape appears in C#, in JavaScript and in
+# YAML, so a rule that needs no language parser gives the same verdict on every
+# file it reads and cannot mis-parse a file into a silent pass.
+#
+# Every rule carries two fixtures under fixtures/, one that must fire it and one
+# near miss that must not, and tools/opengrep/check-fixtures.js runs the rules
+# over both and refuses a rule whose fixtures do not behave. A rule shipping
+# without its fixtures is refused there rather than reviewed for.
+#
+# The scan of the working tree excludes the fixture directory, because the
+# fixtures hold the shapes these rules exist to refuse. The rules name that
+# directory in their include list so the fixture run reaches them at all.
+#
+# Run it locally exactly as the workflow does:
+#
+#   opengrep scan --config tools/opengrep/rules.yml --error \
+#     --exclude tools/opengrep/fixtures .
+#   node tools/opengrep/check-fixtures.js
+rules:
+  # A rule document is text an operator wrote, and a pattern built from it is
+  # evaluated on a server task thread. A catastrophic backtracking pattern there
+  # runs for an unbounded time and the thread it holds is one the server needs
+  # for everything else, so the failure is a server that stops rather than a
+  # rule that answers slowly. A match timeout turns that into a refusal.
+  #
+  # The rule language refuses regular expressions today, so this holds the
+  # refusal at the level below the validator: the day a pattern is accepted, the
+  # construction still has to carry the timeout.
+  #
+  # The test project is out of scope on purpose. Its patterns are written by
+  # hand against text that is checked in, so no operator input reaches them, and
+  # a rule that fires there would be refusing the wrong thing.
+  - id: regex-without-a-match-timeout
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Construct a regular expression with a match timeout. A pattern built from
+      a rule document is untrusted input evaluated on a server task thread, and
+      one that backtracks catastrophically holds that thread for an unbounded
+      time.
+    patterns:
+      - pattern-regex: 'new\s+Regex\s*\([^)]*\)'
+      - pattern-not-regex: "TimeSpan"
+    paths:
+      include:
+        - "Jellyfin.Plugin.SmartCollections/**/*.cs"
+        - "tools/opengrep/fixtures/**"
+
+  # A rule with a relative date has to mean the same thing every time it is
+  # evaluated from the same inputs. A clock read where the evaluation happens is
+  # an input nothing declared and nothing recorded, so the same document
+  # produces a different collection on every run and no test can hold it. The
+  # instant an evaluation used arrives as an argument instead.
+  #
+  # DateTimeOffset is named alongside DateTime because the failure is reading a
+  # clock, not the type that reads it.
+  #
+  # The include list is the engine's path today. #68 moves that code into an
+  # engine project of its own, and this list names the new path at the same time.
+  - id: ambient-clock-in-the-engine
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Do not read a clock inside the engine. The instant an evaluation runs at
+      is an input: it arrives as an argument and is recorded with the result, so
+      a rule carrying a relative date answers the same way twice.
+    patterns:
+      - pattern-regex: '\b(DateTime|DateTimeOffset)\.(Now|UtcNow|Today)\b'
+    paths:
+      include:
+        - "Jellyfin.Plugin.SmartCollections/Rules/**/*.cs"
+        - "tools/opengrep/fixtures/**"
+
+  # A comparison that reads the server's culture makes rule matching depend on
+  # where the server is installed. The same document then collects one set of
+  # items in one locale and another set in the next, which is the property this
+  # plugin exists to hold. The Turkish dotless i is the shape people meet first:
+  # an upper-cased "i" is not "I" there, so a case-insensitive match written
+  # with ToUpper stops matching.
+  #
+  # ToLowerInvariant and ToUpperInvariant are not refused. They name the culture
+  # they use, which is the whole ask.
+  - id: culture-sensitive-string-comparison
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Name the comparison. Use an explicit StringComparison or CultureInfo, or
+      the Invariant form, so rule matching does not change with the server's
+      locale.
+    patterns:
+      - pattern-either:
+          - pattern-regex: '\.To(Lower|Upper)\s*\(\s*\)'
+          - pattern-regex: '\.(StartsWith|EndsWith|IndexOf)\s*\(\s*"[^"]*"\s*\)'
+          - patterns:
+              - pattern-regex: '\bstring\.Compare\s*\([^)]*\)'
+              - pattern-not-regex: "StringComparison"
+    paths:
+      include:
+        - "Jellyfin.Plugin.SmartCollections/**/*.cs"
+        - "tools/opengrep/fixtures/**"
+
+  # The engine reads library metadata and answers. It makes no outbound call,
+  # and that is what lets the suite state that no test needs a machine trust
+  # store: there is nothing to trust. A network client appearing there is a
+  # change of what the engine is for, and it is an argument to have on an issue
+  # rather than a line to merge.
+  #
+  # The include list is the engine's path today, and #68 moves it with the code.
+  - id: network-client-in-the-engine
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      The engine makes no outbound call. A network client here changes what the
+      engine is for, which belongs on an issue rather than in a diff.
+    patterns:
+      - pattern-regex: '\b(HttpClient|IHttpClientFactory|HttpRequestMessage|WebClient|WebRequest|System\.Net\.Http|System\.Net\.Sockets)\b'
+    paths:
+      include:
+        - "Jellyfin.Plugin.SmartCollections/Rules/**/*.cs"
+        - "tools/opengrep/fixtures/**"
