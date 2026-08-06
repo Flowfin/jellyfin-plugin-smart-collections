@@ -1,0 +1,51 @@
+name: Feature request
+description: A rule you want to write that the plugin cannot express, or behaviour it should have
+labels: ["enhancement"]
+assignees: ["iderex"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Some limits of the rule language are deliberate rather than missing.
+        [README.md](https://github.com/iderex/jellyfin-plugin-smart-collections/blob/master/README.md#what-a-rule-deliberately-cannot-say)
+        lists the ones chosen so far and why. Asking for one of those again is
+        fine; say what changed your mind about the reason.
+
+  - type: textarea
+    id: rule
+    attributes:
+      label: The rule you want to write
+      description: >
+        Write it as a rule document, even if the plugin would reject it today.
+        A concrete document says more about what you need than a description of
+        it does.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: collection
+    attributes:
+      label: What that collection would hold
+      description: In your own library, not in the abstract.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do instead today
+      description: >
+        A manual collection, a different plugin, or nothing. This is the measure
+        of what the feature is worth.
+    validations:
+      required: false
+
+  - type: input
+    id: server-version
+    attributes:
+      label: Jellyfin server version
+      description: Some things are only possible on one server line.
+      placeholder: 10.11.11
+    validations:
+      required: false

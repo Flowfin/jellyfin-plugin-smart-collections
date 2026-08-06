@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/iderex/jellyfin-plugin-smart-collections/security/advisories/new
+    about: Anything with a security dimension goes here privately, never into a public issue.
+  - name: Jellyfin server problem
+    url: https://github.com/jellyfin/jellyfin/issues
+    about: If the server misbehaves without this plugin installed, it belongs upstream.

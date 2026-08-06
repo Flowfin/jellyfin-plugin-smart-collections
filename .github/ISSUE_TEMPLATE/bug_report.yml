@@ -1,0 +1,76 @@
+name: Bug report
+description: Something the plugin does that it should not, or does not do that it should
+labels: ["bug"]
+assignees: ["iderex"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Anything with a security dimension does not belong here. Use the private
+        route in [SECURITY.md](https://github.com/iderex/jellyfin-plugin-smart-collections/blob/master/SECURITY.md)
+        instead, because a public issue is a disclosure.
+
+  - type: input
+    id: server-version
+    attributes:
+      label: Jellyfin server version
+      description: The full version, from Dashboard, and the line it belongs to.
+      placeholder: 10.11.11
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: From the server's plugin list, or the commit if you built it yourself.
+      placeholder: 0.1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: rule-document
+    attributes:
+      label: The rule document that reproduces it
+      description: >
+        Paste the whole document, not an excerpt. Without it a report about a
+        collection cannot be acted on, because the collection's contents are a
+        function of the rule. Replace anything private in the collection name;
+        leave the structure alone.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected the collection to hold
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What it held instead
+      description: Item counts help. So does one item that should not be there, or one that should.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to get from one to the other
+      description: The shortest path you know from a fresh install to the wrong collection.
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: >
+        From the server log, around the refresh that went wrong. Paths and item
+        names in a log can identify a library, so read what you paste.
+      render: text
+    validations:
+      required: false
