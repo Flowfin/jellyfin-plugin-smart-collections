@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/iderex/jellyfin-plugin-smart-collections/blob/master/Jellyfin.Plugin.SmartCollections/Rules/rule-document.schema.json",
+  "title": "Smart Collections rule document",
+  "description": "One rule document per collection. This file declares the envelope every version of the format carries. The rule inside the envelope is not declared here yet: the field vocabulary, the operator set, the value types, the item scope and the rule identity each arrive with the issue that decides them, and each adds its members to this schema at the same time as it adds its stage to the validator. A document is refused by Jellyfin.Plugin.SmartCollections.Rules.RuleDocumentValidator rather than by a schema processor, so that a refusal can carry a pointer into the document and a message in the words an operator reads. This file is what an editor points at, and a test holds its schemaVersion bounds to the constants that validator declares.",
+  "type": "object",
+  "required": ["schemaVersion"],
+  "properties": {
+    "schemaVersion": {
+      "description": "The version of this format the document is written in. Refused when absent, because a document without one would be read as whatever shape the installed plugin happens to expect. Refused when higher than the plugin reads, because a newer version may have changed what an existing member means, and reading as far as it parses would apply a rule that means something else.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1
+    }
+  }
+}
