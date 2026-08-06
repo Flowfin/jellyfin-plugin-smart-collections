@@ -1,0 +1,208 @@
+# Deterministic pull-request hygiene checks (#15). Every other check in this
+# repository reasons about the CODE: the build compiles it, the test suite
+# asserts on it, CodeQL scans it, the unicode guard reads its bytes. Whether the
+# change is linked to an issue, whether a version bump brought its changelog
+# entry, whether it is large enough to need a closer look, and whether engine
+# code moved without its tests are properties of the PULL REQUEST rather than of
+# the code, and nothing here covered that class.
+#
+# The means is a workflow plus one first-party script step, not a hosted review
+# bot: the merge gate should be readable in this tree and should not depend on a
+# third-party service holding write access to it.
+#
+# The checks are tiered by confidence, so the gate does not red a reasonable
+# pull request:
+#
+#   FAIL, high confidence, near-zero false positive:
+#     - the body carries an issue reference
+#     - a build.yaml version bump also touches CHANGELOG.md
+#
+#   WARN, annotation only, never fails:
+#     - the diff is large
+#     - plugin code changed with no matching change under the test project
+#
+# Whether this job's name is in the branch ruleset's required set is a fact of
+# the ruleset, not of this file, and restating it here is how a header goes
+# stale. Print it:
+#
+#   gh api repos/iderex/jellyfin-plugin-smart-collections/rulesets/20465770 \
+#     --jq '[.rules[] | select(.type=="required_status_checks")
+#           | .parameters.required_status_checks[].context]'
+name: PR Hygiene
+
+on:
+  pull_request:
+    # edited: so editing the body to add the issue reference re-runs the check
+    # rather than leaving a red that the fix cannot clear.
+    types: [opened, edited, synchronize, reopened]
+
+# Deny-all at the workflow level; the job below grants only what it reads.
+permissions: {}
+
+# Cancel a superseded run on the same pull request. This is a lint, not a
+# publish, so an obsolete run is safe to drop.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hygiene:
+    name: Deterministic pull request hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # read the build.yaml patch through the pulls API
+      pull-requests: read # read the body and the changed-file list
+    steps:
+      # No checkout. Every input comes from the pull request metadata and the
+      # changed-file patches, so there is no working tree here to guard. The
+      # untrusted values - the body, the file names - are read from API objects
+      # and never interpolated into a shell `run:`, so there is no template
+      # injection surface.
+      - name: Run the hygiene checks
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const failures = [];
+            const warnings = [];
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const changed = files.map((f) => f.filename);
+            const isBot = pr.user && pr.user.type === "Bot";
+
+            // Who the FAIL tier is for.
+            //
+            // The issue convention it enforces belongs to this repository.
+            // Somebody arriving from outside cannot know which issue number a
+            // change should carry before they open it, and often no issue
+            // exists yet, so failing their contribution on it is a ritual
+            // rather than a caught slip. Applied to work from inside, the same
+            // check catches a real one, which is why the tier is narrowed by
+            // audience instead of dropped.
+            //
+            // A bot is skipped for a different reason: it cannot know the
+            // convention at all. A person outside the repository can, and is
+            // simply not the one who owes it here.
+            //
+            // author_association describes the author's relationship to THIS
+            // repository, so a collaborator later added as a member stops being
+            // exempt from that moment. COLLABORATOR is deliberately outside the
+            // inside set.
+            //
+            // The linkage is still wanted for an outside contribution. It moves
+            // to whoever handles it, and the annotation below says so where
+            // that person will read it. This skip means "not their obligation",
+            // never "linkage does not matter here".
+            const INSIDE = ["OWNER", "MEMBER"];
+            const isOutside = !INSIDE.includes(pr.author_association || "NONE");
+            const failTierApplies = !isBot && !isOutside;
+            if (isOutside && !isBot) {
+              warnings.push(
+                "The author is outside this repository (author_association: " +
+                  `${pr.author_association || "NONE"}), so the failing tier is ` +
+                  "skipped. The issue linkage is still wanted: whoever handles " +
+                  "this contribution supplies the reference, and files the issue " +
+                  "where none exists yet.",
+              );
+            }
+
+            // FAIL 1: the body references an issue.
+            //
+            // A bare `#12`, a keyword form such as `Closes #12`, and a full
+            // issue URL all satisfy it. Lenient on purpose: a pull request that
+            // is genuinely linked should never be flagged over phrasing.
+            const body = pr.body || "";
+            const hasIssueRef =
+              /(^|[^\w])#\d+\b/.test(body) ||
+              /github\.com\/[^\/\s]+\/[^\/\s]+\/issues\/\d+/i.test(body);
+            if (failTierApplies && !hasIssueRef) {
+              failures.push(
+                "The body carries no issue reference. Name the issue this " +
+                  "change addresses, for example `Closes #12` or `Refs #12`.",
+              );
+            }
+
+            // FAIL 2: a build.yaml version bump brings its changelog entry.
+            //
+            // The version line only moves in a release change, which owes a
+            // changelog entry. A change that is not a release never edits it,
+            // so this stays silent for every other pull request.
+            const manifest = files.find((f) => f.filename === "build.yaml");
+            const versionBumped =
+              manifest && manifest.patch && /^\+\s*version:/m.test(manifest.patch);
+            if (failTierApplies && versionBumped && !changed.includes("CHANGELOG.md")) {
+              failures.push(
+                "build.yaml `version:` changed and CHANGELOG.md did not. " +
+                  "Record the release in CHANGELOG.md.",
+              );
+            }
+
+            // WARN 1: the diff is large.
+            //
+            // Review quality falls off on a large diff, so a large one is worth
+            // a closer look. Large is not wrong, though: a bulk rename, a
+            // documentation import or a first landing legitimately exceeds any
+            // cap, and hard-failing those is the false positive this tier
+            // exists to avoid. Generated and lock files are excluded so the
+            // number reflects what a person wrote.
+            const isGenerated = (name) =>
+              name.endsWith("packages.lock.json") ||
+              name.endsWith(".min.js") ||
+              name.endsWith(".min.css");
+            const churn = files
+              .filter((f) => !isGenerated(f.filename))
+              .reduce((sum, f) => sum + f.additions + f.deletions, 0);
+            const WARN_AT = 400;
+            if (churn >= WARN_AT) {
+              warnings.push(
+                `This pull request changes ${churn} lines, excluding generated ` +
+                  `and lock files. Past about ${WARN_AT} lines a review starts ` +
+                  "missing things, so this one wants a closer read.",
+              );
+            }
+
+            // WARN 2: plugin code moved without the test project moving.
+            //
+            // The project directories are matched by shape rather than by their
+            // current names, because renaming the template artefacts is open
+            // work and a hard-coded directory name would silently stop matching
+            // the day it lands.
+            const isTestPath = (name) => /^[^\/]+\.Tests\//.test(name);
+            const codeChanged = changed.some(
+              (n) => n.endsWith(".cs") && !isTestPath(n),
+            );
+            const testsChanged = changed.some(isTestPath);
+            if (codeChanged && !testsChanged) {
+              warnings.push(
+                "Plugin code changed and nothing under the test project did. " +
+                  "Either the change is genuinely untestable, a refactor or a " +
+                  "comment, or it wants a test.",
+              );
+            }
+
+            for (const w of warnings) {
+              core.warning(w);
+            }
+
+            const summary = core.summary.addHeading("Pull request hygiene", 2);
+            if (failures.length === 0 && warnings.length === 0) {
+              summary.addRaw("Every hygiene check passed.");
+            } else {
+              if (failures.length) {
+                summary.addHeading("Failures", 3).addList(failures);
+              }
+              if (warnings.length) {
+                summary.addHeading("Warnings, which do not fail this check", 3).addList(warnings);
+              }
+            }
+            await summary.write();
+
+            if (failures.length) {
+              core.setFailed(failures.join(" | "));
+            }
