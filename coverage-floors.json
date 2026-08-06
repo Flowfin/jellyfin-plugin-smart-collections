@@ -1,0 +1,13 @@
+{
+  "about": "The coverage each assembly must stay at or above. Checked by .github/scripts/coverage-floor.js, which the coverage workflow runs. One entry per assembly, never one number for the repository: the host project's pages and controllers are covered through API tests, and a combined figure would let engine coverage fall while the total held steady.",
+  "howToRaise": "A floor is measured, never chosen. Run the coverage command below, read the score off the report, round it DOWN to two decimals and write that. Raise a floor in the same change that raises the coverage; a floor above the measured score reds the check immediately, which is the mistake this sentence exists to prevent.",
+  "command": "dotnet test --configuration Release --collect:\"XPlat Code Coverage\" --results-directory TestResults && node .github/scripts/coverage-floor.js TestResults",
+  "assemblies": {
+    "Jellyfin.Plugin.SmartCollections": {
+      "line": 7.13,
+      "branch": 100.0,
+      "measured": "line-rate 0.07139999999999999 and branch-rate 1 on the <package> tag of coverage.cobertura.xml, from the command above. One of the fourteen sequence points in Plugin.cs is executed, by the tests that read Plugin.Id.",
+      "branchNote": "The assembly declares no branch points today, so Cobertura reports branch-rate 1 over an empty denominator and this floor is satisfied vacuously. It is recorded at the measured value anyway: the first branch that arrives without a test reaching it drops the rate below 100 and reds the check, which is the failure this floor is for. That direction has not been watched biting, because adding a branch to the plugin to watch it is not this change's to make."
+    }
+  }
+}
