@@ -3,3 +3,7 @@ obj/
 .vs/
 .idea/
 artifacts
+
+# Where `dotnet test --results-directory` puts the coverage report the floor
+# check reads. The report is a measurement of one run, not a fact of the tree.
+TestResults/
