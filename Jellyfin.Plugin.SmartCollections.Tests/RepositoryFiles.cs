@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace Jellyfin.Plugin.Template.Tests;
+namespace Jellyfin.Plugin.SmartCollections.Tests;
 
 /// <summary>
 /// Locates files that live at the repository root rather than inside a project, so a test can

@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Xunit;
 
-namespace Jellyfin.Plugin.Template.Tests;
+namespace Jellyfin.Plugin.SmartCollections.Tests;
 
 /// <summary>
 /// The sign-off gate refuses a commit and then tells the contributor which two documents to
