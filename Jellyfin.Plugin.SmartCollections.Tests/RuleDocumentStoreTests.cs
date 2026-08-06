@@ -95,6 +95,11 @@ public sealed class RuleDocumentStoreTests : IDisposable
     /// later. A name carrying a separator or a parent segment would compose into a path outside
     /// the directory the store was given, which turns saving a rule into writing a file wherever
     /// the server process can reach.
+    ///
+    /// The backslash cases are the reason this is a theory rather than one assertion. A backslash
+    /// is an ordinary character in a file name on Linux, so the framework's own file-name helpers
+    /// accept one there and refuse it on Windows. This plugin ships to both, and these cases hold
+    /// the store to one answer on either.
     /// </summary>
     [Theory]
     [InlineData("../escaped")]

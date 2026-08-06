@@ -110,6 +110,13 @@ public sealed class RuleDocumentStore
     /// which turns "save a rule" into "write a file wherever the server process can reach". The
     /// check is here, in the one place every read and every write goes through, rather than at
     /// each caller.
+    ///
+    /// Both separators are named, and not because one of them is redundant. A backslash is an
+    /// ordinary character in a file name on Linux, so <see cref="Path.GetFileName(string)"/> and
+    /// <see cref="Path.GetInvalidFileNameChars"/> let one through there and refuse it on Windows.
+    /// This plugin ships to both, and a name that is a bare file name on one server and a path on
+    /// the other is worse than either answer: it is accepted where it is written and escapes where
+    /// it is read. The store answers the same way on every platform instead.
     /// </remarks>
     /// <param name="name">The document name, without its extension.</param>
     /// <returns>The full path of the document.</returns>
@@ -118,7 +125,9 @@ public sealed class RuleDocumentStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-        if (!string.Equals(Path.GetFileName(name), name, StringComparison.Ordinal)
+        if (name.Contains('/', StringComparison.Ordinal)
+            || name.Contains('\\', StringComparison.Ordinal)
+            || !string.Equals(Path.GetFileName(name), name, StringComparison.Ordinal)
             || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
             || string.Equals(name, "..", StringComparison.Ordinal)
             || string.Equals(name, ".", StringComparison.Ordinal))
