@@ -4,10 +4,11 @@
   "command": "dotnet test --configuration Release --collect:\"XPlat Code Coverage\" --results-directory TestResults && node .github/scripts/coverage-floor.js TestResults",
   "assemblies": {
     "Jellyfin.Plugin.SmartCollections": {
-      "line": 7.13,
-      "branch": 100.0,
-      "measured": "line-rate 0.07139999999999999 and branch-rate 1 on the <package> tag of coverage.cobertura.xml, from the command above. One of the fourteen sequence points in Plugin.cs is executed, by the tests that read Plugin.Id.",
-      "branchNote": "The assembly declares no branch points today, so Cobertura reports branch-rate 1 over an empty denominator and this floor is satisfied vacuously. It is recorded at the measured value anyway: the first branch that arrives without a test reaching it drops the rate below 100 and reds the check, which is the failure this floor is for. That direction has not been watched biting, because adding a branch to the plugin to watch it is not this change's to make."
+      "line": 87.82,
+      "branch": 94.11,
+      "measured": "line-rate 0.8782 and branch-rate 0.9411 on the <package> tag of coverage.cobertura.xml, from the command above.",
+      "lineNote": "Everything still unreached is in Plugin.cs: the constructor, the name, the instance and the page list, which need a server to construct. Nothing under Rules/ is unreached.",
+      "branchNote": "The branch figure moved DOWN from a recorded 100.00, and that is the floor becoming real rather than the suite weakening. The previous entry said so in this field: the assembly declared no branch points at all, so Cobertura reported branch-rate 1 over an empty denominator and the floor was satisfied vacuously. There are seventeen branch points now and sixteen are executed. The one that is not is the discard arm of the value-kind description in RuleDocumentValidator, which the compiler requires for exhaustiveness and no input reaches, because a member that is absent is refused before anything describes its kind."
     }
   }
 }
