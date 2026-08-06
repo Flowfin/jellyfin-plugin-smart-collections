@@ -45,8 +45,20 @@ rules:
       a rule document is untrusted input evaluated on a server task thread, and
       one that backtracks catastrophically holds that thread for an unbounded
       time.
+    # The window runs to the statement's semicolon rather than to the first
+    # closing parenthesis. A pattern literal holds parentheses more often than
+    # not, and a window that stopped at the first one would end inside the
+    # pattern, never reach the timeout argument that follows it, and refuse a
+    # correctly written call. The fixtures next door are written with a
+    # parenthesised pattern for that reason.
     patterns:
-      - pattern-regex: 'new\s+Regex\s*\([^)]*\)'
+      - pattern-either:
+          - pattern-regex: 'new\s+Regex\s*\([^;]*;'
+          # The target-typed form, where the type is on the field and the
+          # construction says only `new(`. It is how every regular expression in
+          # this repository is written today, so a rule reading `new Regex(`
+          # alone would miss the spelling people here actually use.
+          - pattern-regex: '\bRegex\s+\w+\s*=\s*new\s*\([^;]*;'
       - pattern-not-regex: "TimeSpan"
     paths:
       include:
