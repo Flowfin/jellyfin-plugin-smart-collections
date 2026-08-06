@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Template</title>
+    <title>Smart Collections</title>
 </head>
 <body>
-    <div id="TemplateConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <div id="SmartCollectionsConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
         <div data-role="content">
             <div class="content-primary">
-                <form id="TemplateConfigForm">
+                <form id="SmartCollectionsConfigForm">
                     <div class="selectContainer">
                         <label class="selectLabel" for="Options">Several Options</label>
                         <select is="emby-select" id="Options" name="Options" class="emby-select-withcolor emby-select">
@@ -41,14 +41,14 @@
             </div>
         </div>
         <script type="text/javascript">
-            var TemplateConfig = {
+            var SmartCollectionsConfig = {
                 pluginUniqueId: '70dd8311-1053-4eb7-8406-8df766b2d040'
             };
 
-            document.querySelector('#TemplateConfigPage')
+            document.querySelector('#SmartCollectionsConfigPage')
                 .addEventListener('pageshow', function() {
                     Dashboard.showLoadingMsg();
-                    ApiClient.getPluginConfiguration(TemplateConfig.pluginUniqueId).then(function (config) {
+                    ApiClient.getPluginConfiguration(SmartCollectionsConfig.pluginUniqueId).then(function (config) {
                         document.querySelector('#Options').value = config.Options;
                         document.querySelector('#AnInteger').value = config.AnInteger;
                         document.querySelector('#TrueFalseSetting').checked = config.TrueFalseSetting;
@@ -57,15 +57,15 @@
                     });
                 });
 
-            document.querySelector('#TemplateConfigForm')
+            document.querySelector('#SmartCollectionsConfigForm')
                 .addEventListener('submit', function(e) {
                 Dashboard.showLoadingMsg();
-                ApiClient.getPluginConfiguration(TemplateConfig.pluginUniqueId).then(function (config) {
+                ApiClient.getPluginConfiguration(SmartCollectionsConfig.pluginUniqueId).then(function (config) {
                     config.Options = document.querySelector('#Options').value;
                     config.AnInteger = document.querySelector('#AnInteger').value;
                     config.TrueFalseSetting = document.querySelector('#TrueFalseSetting').checked;
                     config.AString = document.querySelector('#AString').value;
-                    ApiClient.updatePluginConfiguration(TemplateConfig.pluginUniqueId, config).then(function (result) {
+                    ApiClient.updatePluginConfiguration(SmartCollectionsConfig.pluginUniqueId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
                     });
                 });

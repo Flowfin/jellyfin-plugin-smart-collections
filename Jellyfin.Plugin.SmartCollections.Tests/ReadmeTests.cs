@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Xunit;
 
-namespace Jellyfin.Plugin.Template.Tests;
+namespace Jellyfin.Plugin.SmartCollections.Tests;
 
 /// <summary>
 /// The front page is the first thing a visitor and the catalogue entry show, and it carries a

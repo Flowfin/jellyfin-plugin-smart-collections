@@ -1,7 +1,7 @@
 using System.Globalization;
 using Xunit;
 
-namespace Jellyfin.Plugin.Template.Tests;
+namespace Jellyfin.Plugin.SmartCollections.Tests;
 
 /// <summary>
 /// The configuration page is shipped as an embedded resource and located at run time by a

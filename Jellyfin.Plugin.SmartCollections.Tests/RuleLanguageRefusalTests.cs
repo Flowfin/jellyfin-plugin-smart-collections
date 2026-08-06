@@ -3,7 +3,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
 
-namespace Jellyfin.Plugin.Template.Tests;
+namespace Jellyfin.Plugin.SmartCollections.Tests;
 
 /// <summary>
 /// The refusals are the part of the rule language a reader cannot infer from the vocabulary, so

@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Xunit;
 
-namespace Jellyfin.Plugin.Template.Tests;
+namespace Jellyfin.Plugin.SmartCollections.Tests;
 
 /// <summary>
 /// The plugin's identifier is written in three places and read by three different things: the
@@ -49,7 +49,7 @@ public class PluginIdentityTests
     public void ConfigurationPageSendsSettingsToThisPluginsId()
     {
         var page = RepositoryFiles.ReadFromRoot(
-            "Jellyfin.Plugin.Template/Configuration/configPage.html");
+            "Jellyfin.Plugin.SmartCollections/Configuration/configPage.html");
 
         Assert.Contains(
             "pluginUniqueId: '" + PluginId().ToString("D", System.Globalization.CultureInfo.InvariantCulture) + "'",
@@ -64,7 +64,7 @@ public class PluginIdentityTests
         Assert.DoesNotContain(TemplateGuid, RepositoryFiles.ReadFromRoot("build.yaml"), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(
             TemplateGuid,
-            RepositoryFiles.ReadFromRoot("Jellyfin.Plugin.Template/Configuration/configPage.html"),
+            RepositoryFiles.ReadFromRoot("Jellyfin.Plugin.SmartCollections/Configuration/configPage.html"),
             StringComparison.OrdinalIgnoreCase);
     }
 
