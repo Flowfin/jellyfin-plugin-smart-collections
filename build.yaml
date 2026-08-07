@@ -1,5 +1,5 @@
 ---
-name: "Template"
+name: "Smart Collections"
 guid: "70dd8311-1053-4eb7-8406-8df766b2d040"
 version: "1.0.0.0"
 # The oldest Jellyfin server on the 10.11 line this package claims to load on. The 12.0 line
@@ -7,12 +7,13 @@ version: "1.0.0.0"
 # the other.
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-overview: "Short description about your plugin"
+overview: "Collections filled from a rule over library metadata. Under development, and installing it does nothing yet."
 description: >
-  This is a longer description that can span more than one
-  line and include details about your plugin.
+  A Jellyfin collection is normally a list an administrator keeps by hand. This is being built so a collection is described once as a rule over library metadata, and then holds whatever matches the rule as the library changes.
+
+  It is not built yet. Installing it today does nothing.
 category: "General"
-owner: "jellyfin"
+owner: "Flowfin"
 artifacts:
   - "Jellyfin.Plugin.SmartCollections.dll"
 changelog: >
