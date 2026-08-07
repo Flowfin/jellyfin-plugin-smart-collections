@@ -4,6 +4,7 @@
 # server that upgrades across the line boundary has to see an update rather than a second entry.
 name: "Smart Collections"
 guid: "70dd8311-1053-4eb7-8406-8df766b2d040"
+imageUrl: "https://raw.githubusercontent.com/Flowfin/jellyfin-plugin-smart-collections/master/img/logo.png"
 version: "1.0.0.0"
 # Jellyfin 12.0 moves the server to .NET 10, so a package carrying the 10.11 ABI does not load
 # there. This is the 12.0 line's floor.

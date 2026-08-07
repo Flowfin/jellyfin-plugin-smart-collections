@@ -1,6 +1,7 @@
 ---
 name: "Smart Collections"
 guid: "70dd8311-1053-4eb7-8406-8df766b2d040"
+imageUrl: "https://raw.githubusercontent.com/Flowfin/jellyfin-plugin-smart-collections/master/img/logo.png"
 version: "1.0.0.0"
 # The oldest Jellyfin server on the 10.11 line this package claims to load on. The 12.0 line
 # has its own manifest in build-jf12.yaml, because a package built for one will not load on
