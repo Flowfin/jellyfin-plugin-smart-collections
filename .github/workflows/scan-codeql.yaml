@@ -9,8 +9,16 @@ on:
     - cron: "24 2 * * 4"
   workflow_dispatch:
 
+# Deny-all at the workflow level; the job below grants only what the shared
+# workflow reads.
+permissions: {}
+
 jobs:
   call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/scan-codeql.yaml@master
+    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/scan-codeql.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master
+    permissions:
+      security-events: write # upload the CodeQL results into the code-scanning tab
+      contents: read # check out the tree to analyse
+      actions: read # read the workflow run the results are attributed to
     with:
       repository-name: iderex/jellyfin-plugin-smart-collections
