@@ -12,23 +12,38 @@
     <CodeAnalysisRuleSet>../jellyfin.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
 
+  <!-- The server SDK version each line's package is built against. These are properties
+       rather than literals on the references so a build can be pointed at a different one
+       from the command line, which is what the ABI floor check does (#11). A build that
+       overrides nothing gets exactly the versions that were here before.
+
+       There is one property per line rather than one shared property, because restore is a
+       cross-targeting operation: it resolves every target framework whatever -f says, so a
+       single overridden property would push one line's version at the other line as well.
+       Measured rather than supposed: with one property, -f net10.0 -p:...=12.0.0-rc4 fails
+       restore with NU1202 naming net9.0. -->
+  <PropertyGroup>
+    <JellyfinSdkVersionNet9 Condition="'$(JellyfinSdkVersionNet9)' == ''">10.11.11</JellyfinSdkVersionNet9>
+    <JellyfinSdkVersionNet10 Condition="'$(JellyfinSdkVersionNet10)' == ''">12.0.0-rc4</JellyfinSdkVersionNet10>
+  </PropertyGroup>
+
   <!-- The server supplies these at load time, so their runtime assets stay out of the package
        on both lines. The version follows the target framework: each server line ships the SDK
        built against the runtime that line hosts. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-    <PackageReference Include="Jellyfin.Controller" Version="10.11.11">
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinSdkVersionNet9)">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
-    <PackageReference Include="Jellyfin.Model" Version="10.11.11">
+    <PackageReference Include="Jellyfin.Model" Version="$(JellyfinSdkVersionNet9)">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-    <PackageReference Include="Jellyfin.Controller" Version="12.0.0-rc4">
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinSdkVersionNet10)">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
-    <PackageReference Include="Jellyfin.Model" Version="12.0.0-rc4">
+    <PackageReference Include="Jellyfin.Model" Version="$(JellyfinSdkVersionNet10)">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
   </ItemGroup>

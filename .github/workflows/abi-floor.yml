@@ -1,0 +1,134 @@
+# Build the plugin against the oldest server SDK each line's manifest claims to
+# load on (#11).
+#
+# A plugin compiled against a newer server SDK than the one it claims to support
+# loads on the older server and throws at the first call to a member that server
+# does not have. That failure arrives at runtime, in front of a user, and the
+# shipping build does not catch it: it compiles against the newest SDK on the
+# line, so every member added since the floor is available to it.
+#
+# The gap is real on the line this repository ships today. `InternalItemsQuery`,
+# the type the rule vocabulary maps onto, gained a property inside the 10.11
+# line:
+#
+#   props() {
+#     gh api "repos/jellyfin/jellyfin/contents/MediaBrowser.Controller/Entities/InternalItemsQuery.cs?ref=$1" \
+#       --jq .content | base64 -d | grep -oE '^\s+public [^=;{]+ \{ get' \
+#       | sed -E 's/.*public //; s/ \{ get//' | sort
+#   }
+#   props v10.11.0 > f0; props v10.11.11 > f11; comm -13 f0 f11
+#   bool? UseRawName
+#
+# Setting that property compiles against the shipping pin and does not exist on
+# a server at the floor the manifest declares, so this job is the only route by
+# which the mistake is refused before a release.
+#
+# The version each job builds against is written here rather than derived from
+# the manifest, because a `targetAbi` is a four-part server version and a
+# package version is not always the same string, which the 12.0 entry below is
+# the live example of. The two are compared by eye when either moves, and the
+# manifest each one belongs to is named on its line.
+name: ABI floor
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# Deny-all at the workflow level; the jobs below grant only what they read.
+permissions: {}
+
+# A superseded run on the same ref tells nobody anything.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  floor:
+    name: ABI floor (${{ matrix.line }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the tree to build it
+    strategy:
+      # One line failing says nothing about the other, and a reader wants both
+      # verdicts rather than the first one.
+      fail-fast: false
+      matrix:
+        include:
+          # build.yaml declares targetAbi 10.11.0.0, and Jellyfin.Controller
+          # 10.11.0 is published, so this job builds against the floor itself.
+          - line: "10.11"
+            framework: net9.0
+            property: JellyfinSdkVersionNet9
+            version: "10.11.0"
+            manifest: build.yaml
+            is-floor: "yes"
+          # build-jf12.yaml declares targetAbi 12.0.0.0 and NO PACKAGE AT OR
+          # ABOVE 12.0.0 IS PUBLISHED. The nearest is the release candidate the
+          # shipping build already pins, so this job builds against the same
+          # version the shipping build does and PROVES NOTHING THE SHIPPING
+          # BUILD DOES NOT until 12.0.0 is published and this line moves:
+          #
+          #   curl -s https://api.nuget.org/v3-flatcontainer/jellyfin.controller/index.json \
+          #     | tr ',' '\n' | grep -o '"12\.[^"]*"' | tr -d '"'
+          #   12.0.0-rc1
+          #   12.0.0-rc2
+          #   12.0.0-rc3
+          #   12.0.0-rc4
+          #   12.0.0-rcrc3
+          #
+          # It is here rather than absent so the day 12.0.0 publishes is a
+          # one-line change instead of a job somebody has to remember to add.
+          - line: "12.0"
+            framework: net10.0
+            property: JellyfinSdkVersionNet10
+            version: "12.0.0-rc4"
+            manifest: build-jf12.yaml
+            is-floor: "no"
+    steps:
+      - name: Check out the tree
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step here pushes, so the token has no reason to survive in
+          # .git/config where every later step could read it.
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          # Both target frameworks are built by this workflow across its two
+          # jobs, and the newer SDK builds the older target.
+          dotnet-version: "10.0.x"
+
+      - name: Say what this job is building against
+        env:
+          LINE: ${{ matrix.line }}
+          MANIFEST: ${{ matrix.manifest }}
+          VERSION: ${{ matrix.version }}
+          IS_FLOOR: ${{ matrix.is-floor }}
+        run: |
+          set -euo pipefail
+          echo "Server line:      $LINE"
+          echo "Manifest:         $MANIFEST"
+          grep -n 'targetAbi' "$MANIFEST"
+          echo "Building against: $VERSION"
+          if [ "$IS_FLOOR" != "yes" ]; then
+            echo "::warning::This line has no published package at the floor its manifest declares, so this job builds against the version the shipping build already uses and adds nothing to it."
+          fi
+
+      - name: Build against that version
+        env:
+          FRAMEWORK: ${{ matrix.framework }}
+          PROPERTY: ${{ matrix.property }}
+          VERSION: ${{ matrix.version }}
+        run: |
+          set -euo pipefail
+          dotnet build Jellyfin.Plugin.SmartCollections/Jellyfin.Plugin.SmartCollections.csproj \
+            --configuration Release \
+            --framework "$FRAMEWORK" \
+            -p:"$PROPERTY=$VERSION"
