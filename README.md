@@ -1,3 +1,8 @@
+> [!NOTE]
+>
+> **Part of [Flowfin](https://github.com/Flowfin).** It works with any Jellyfin
+> server, and with the Flowfin clients.
+
 # Jellyfin Smart Collections
 
 Collections from a rule engine over Jellyfin library metadata.
@@ -47,7 +52,7 @@ There is no catalogue entry yet, so the only route today is to build from a
 clone and copy the output into the server's plugin directory:
 
 ```
-git clone https://github.com/iderex/jellyfin-plugin-smart-collections
+git clone https://github.com/Flowfin/jellyfin-plugin-smart-collections
 cd jellyfin-plugin-smart-collections
 dotnet build -c Release
 ```
