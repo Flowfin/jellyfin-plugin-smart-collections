@@ -21,4 +21,11 @@ jobs:
       contents: read # check out the tree to analyse
       actions: read # read the workflow run the results are attributed to
     with:
-      repository-name: iderex/jellyfin-plugin-smart-collections
+      # The shared workflow guards its only job on `github.repository ==
+      # inputs.repository-name`, so this string decides whether anything is
+      # scanned. A stale one does not fail: the job reports as skipped, the
+      # scan silently stops happening, and the check run loses the language
+      # suffix its matrix would have added, which moves the context name a
+      # ruleset would have to match. Move this line whenever the repository
+      # moves.
+      repository-name: Flowfin/jellyfin-plugin-smart-collections
