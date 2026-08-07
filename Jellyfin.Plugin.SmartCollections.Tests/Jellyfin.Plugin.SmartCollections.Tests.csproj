@@ -12,6 +12,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The coverage collector runs inside `dotnet test`, so measuring costs a flag on
+         the command the suite already runs rather than a second tool, a second runtime
+         or a service. Collecting "XPlat Code Coverage" from `dotnet test` writes a
+         Cobertura report, and .github/scripts/coverage-floor.js holds each assembly at
+         the score recorded in coverage-floors.json, which carries the command. -->
+    <PackageReference Include="coverlet.collector" Version="10.0.1">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">

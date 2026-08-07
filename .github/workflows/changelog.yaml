@@ -11,9 +11,16 @@ on:
     types:
       - update-prep-command
 
+# Deny-all at the workflow level; the job below grants only what the shared
+# workflow reads.
+permissions: {}
+
 jobs:
   call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/changelog.yaml@master
+    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/changelog.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master
+    permissions:
+      contents: write # draft the release and push the version bump branch
+      pull-requests: write # open or update the release preparation pull request
     with:
       repository-name: jellyfin/jellyfin-plugin-template
     secrets:

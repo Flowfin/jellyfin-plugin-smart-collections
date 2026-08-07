@@ -1,0 +1,102 @@
+# Measure the code no test reaches, and hold each assembly at the score the
+# suite actually reaches (#71).
+#
+# The test check this repository already runs calls a workflow held in another
+# repository, and that workflow's last step is a plain `dotnet test`. It
+# collects nothing about itself. Read it rather than trusting this comment:
+#
+#   gh api repos/jellyfin/jellyfin-meta-plugins/contents/.github/workflows/test.yaml \
+#     --jq .content | base64 -d
+#
+# So a change that adds a branch no test reaches is green, and stays green, and
+# nobody learns otherwise until the branch runs on somebody's server. The
+# mutation testing work in the determinism milestone does not close that gap: it
+# measures what the suite fails to notice in code the suite already executes,
+# and it runs on a schedule because a full run is minutes of compute. Between
+# two scheduled runs, untested code merges without a signal.
+#
+# This job runs the suite a second time rather than adding a collector to the
+# shared one, because the shared one lives in jellyfin/jellyfin-meta-plugins and
+# is not this repository's to edit. That is a real cost, paid knowingly: the
+# suite is seconds, and the alternative is no coverage signal on a pull request
+# at all.
+#
+# The report is uploaded so a reviewer can open it instead of taking a number on
+# trust, and the floors are compared by a first-party script in the tree rather
+# than by a hosted service, for the same reason the hygiene check is: the gate
+# should be readable here and should not depend on a third party holding write
+# access.
+#
+# Whether this job's name is in the branch ruleset's required set is a fact of
+# the ruleset rather than of this file. Print it:
+#
+#   gh api repos/iderex/jellyfin-plugin-smart-collections/rulesets/20465770 \
+#     --jq '[.rules[] | select(.type=="required_status_checks")
+#           | .parameters.required_status_checks[].context]'
+name: Coverage
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# Deny-all at the workflow level; the job below grants only what it reads.
+permissions: {}
+
+# Cancel a superseded run on the same ref. This is a measurement, not a
+# publish, so dropping an obsolete run is safe.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: Coverage floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # checkout the tree to build and measure it
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes via git, so do not persist the GITHUB_TOKEN in .git/config.
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          # The version the shared test workflow defaults to, so this job and the
+          # test check measure the same build rather than two different ones:
+          #
+          #   gh api repos/jellyfin/jellyfin-meta-plugins/contents/.github/workflows/test.yaml \
+          #     --jq .content | base64 -d | grep -A2 'dotnet-version:'
+          dotnet-version: "9.0.x"
+
+      - name: Install dependencies
+        run: dotnet restore
+
+      - name: Test with coverage
+        # The collector rides the command the suite already runs; it adds a
+        # package reference to the test project and no new language, no new
+        # runtime and no service.
+        run: |
+          dotnet test --configuration Release --no-restore \
+            --collect:"XPlat Code Coverage" --results-directory TestResults
+
+      - name: Upload the coverage report
+        # Uploaded before the floor check so the report is downloadable from a
+        # run that went red, which is the run somebody wants to read.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-report
+          path: TestResults/**/*.cobertura.xml
+          if-no-files-found: error
+
+      - name: Hold each assembly at its recorded floor
+        run: node .github/scripts/coverage-floor.js TestResults
