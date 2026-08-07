@@ -1,3 +1,7 @@
+// Scratch, not for merge. This comment gives the pull request hygiene check a change to plugin
+// code with no matching change under the test project, which is the one arm of that check nothing
+// had exercised on a live run. #15 is where the gap is recorded and where the result goes.
+
 namespace Jellyfin.Plugin.SmartCollections.Rules;
 
 /// <summary>
