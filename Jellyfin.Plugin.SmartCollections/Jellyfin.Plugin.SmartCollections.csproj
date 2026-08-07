@@ -59,4 +59,12 @@
     <EmbeddedResource Include="Configuration\configPage.html" />
   </ItemGroup>
 
+  <!-- The host references the engine and the engine references nothing here, so the dependency
+       runs one way and a change that made the engine reach back into the server fails at compile
+       time. Both manifests list the engine assembly under artifacts, because a package holding
+       only this project's output would load and then fail on the first document it read. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Jellyfin.Plugin.SmartCollections.Engine\Jellyfin.Plugin.SmartCollections.Engine.csproj" />
+  </ItemGroup>
+
 </Project>

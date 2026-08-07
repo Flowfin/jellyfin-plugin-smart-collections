@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The same pair the host and the suite build for. The engine ships inside both packages,
+         so a target framework here that the host does not carry would produce an assembly no
+         package can hold. -->
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+    <!-- The namespace does not move with the assembly. Splitting the projects is a change to
+         where the boundary is, not to what any type is called, so a type this project holds is
+         still Jellyfin.Plugin.SmartCollections.Rules and no caller was edited to say otherwise.
+         The assembly name is what carries the split, and it is what the invariant lint and the
+         coverage floor name. -->
+    <RootNamespace>Jellyfin.Plugin.SmartCollections</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Nullable>enable</Nullable>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <CodeAnalysisRuleSet>../jellyfin.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+
+  <!-- The same two properties the host declares, under the same names. A build that overrides one
+       on the command line, which is what the ABI floor check does, passes global properties down
+       to every referenced project, so the floor reaches this assembly without naming it. Two
+       properties rather than one, for the reason the host project file gives: restore resolves
+       every target framework whatever -f says. -->
+  <PropertyGroup>
+    <JellyfinSdkVersionNet9 Condition="'$(JellyfinSdkVersionNet9)' == ''">10.11.11</JellyfinSdkVersionNet9>
+    <JellyfinSdkVersionNet10 Condition="'$(JellyfinSdkVersionNet10)' == ''">12.0.0-rc4</JellyfinSdkVersionNet10>
+  </PropertyGroup>
+
+  <!-- A compiled rule is an InternalItemsQuery, which is why the engine references the server SDK
+       and why that is not a leak. The runtime assets stay out for the same reason as in the host:
+       the server supplies them at load time. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinSdkVersionNet9)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Model" Version="$(JellyfinSdkVersionNet9)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinSdkVersionNet10)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Model" Version="$(JellyfinSdkVersionNet10)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SerilogAnalyzer" Version="0.15.0" PrivateAssets="All" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="All" />
+    <PackageReference Include="SmartAnalyzers.MultithreadingAnalyzer" Version="1.1.31" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- No ProjectReference. This project references nothing in this repository, and the dependency
+       running one way is what makes a reach back into the server a compile error rather than a
+       review finding. -->
+
+</Project>

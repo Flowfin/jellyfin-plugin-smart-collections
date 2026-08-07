@@ -63,6 +63,7 @@ rules:
     paths:
       include:
         - "Jellyfin.Plugin.SmartCollections/**/*.cs"
+        - "Jellyfin.Plugin.SmartCollections.Engine/**/*.cs"
         - "tools/opengrep/fixtures/**"
 
   # A rule with a relative date has to mean the same thing every time it is
@@ -74,8 +75,10 @@ rules:
   # DateTimeOffset is named alongside DateTime because the failure is reading a
   # clock, not the type that reads it.
   #
-  # The include list is the engine's path today. #68 moves that code into an
-  # engine project of its own, and this list names the new path at the same time.
+  # The include list is the engine project's path. It names the project rather
+  # than a directory inside the host, so the scope is the assembly the invariant
+  # is about and a file added anywhere in that project is covered without this
+  # list being edited again (#68).
   - id: ambient-clock-in-the-engine
     languages: [generic]
     severity: ERROR
@@ -87,7 +90,7 @@ rules:
       - pattern-regex: '\b(DateTime|DateTimeOffset)\.(Now|UtcNow|Today)\b'
     paths:
       include:
-        - "Jellyfin.Plugin.SmartCollections/Rules/**/*.cs"
+        - "Jellyfin.Plugin.SmartCollections.Engine/**/*.cs"
         - "tools/opengrep/fixtures/**"
 
   # A comparison that reads the server's culture makes rule matching depend on
@@ -123,6 +126,7 @@ rules:
     paths:
       include:
         - "Jellyfin.Plugin.SmartCollections/**/*.cs"
+        - "Jellyfin.Plugin.SmartCollections.Engine/**/*.cs"
         - "tools/opengrep/fixtures/**"
 
   # The engine reads library metadata and answers. It makes no outbound call,
@@ -131,7 +135,8 @@ rules:
   # change of what the engine is for, and it is an argument to have on an issue
   # rather than a line to merge.
   #
-  # The include list is the engine's path today, and #68 moves it with the code.
+  # The include list is the engine project's path, for the reason the clock rule
+  # above gives: the scope is the assembly, not a directory inside the host (#68).
   - id: network-client-in-the-engine
     languages: [generic]
     severity: ERROR
@@ -142,5 +147,32 @@ rules:
       - pattern-regex: '\b(HttpClient|IHttpClientFactory|HttpRequestMessage|WebClient|WebRequest|System\.Net\.Http|System\.Net\.Sockets)\b'
     paths:
       include:
-        - "Jellyfin.Plugin.SmartCollections/Rules/**/*.cs"
+        - "Jellyfin.Plugin.SmartCollections.Engine/**/*.cs"
+        - "tools/opengrep/fixtures/**"
+
+  # The engine takes what it needs as an argument. A file read here puts the file
+  # system inside the part of this plugin that is supposed to answer the same way
+  # for the same inputs: the same compiled rule then depends on what is on a disk
+  # nothing declared, and a test that wanted to exercise it needs a directory and
+  # a permission rather than a value. The host owns the rules directory, which is
+  # why RuleDocumentStore stayed there when #68 moved the rest of Rules/ across.
+  #
+  # This is the invariant #68's done condition names, and the rule that makes it
+  # refusable. Path is deliberately absent from the pattern: composing a path is
+  # arithmetic over strings and touches nothing.
+  - id: file-access-in-the-engine
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      The engine reads and writes no file. The bytes arrive as an argument, so
+      the caller owns the directory, the permission and the failure, and the
+      engine stays testable with a value.
+    patterns:
+      - pattern-either:
+          - pattern-regex: '\b(File|Directory|FileInfo|DirectoryInfo)\s*\.'
+          - pattern-regex: '\bnew\s+(FileStream|StreamReader|StreamWriter|FileInfo|DirectoryInfo)\s*\('
+          - pattern-regex: '\busing\s+System\.IO\s*;'
+    paths:
+      include:
+        - "Jellyfin.Plugin.SmartCollections.Engine/**/*.cs"
         - "tools/opengrep/fixtures/**"

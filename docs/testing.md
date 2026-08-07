@@ -55,7 +55,10 @@ Refused. It needs elevation and it changes the machine outside the test.
 Nothing replaces it, because nothing needs it. The rule engine makes no outbound
 network call at all. The guard that keeps this true rather than merely current
 is the invariant lint refusing an HTTP client type inside the engine assembly,
-which is #16, over the assembly boundary #68 creates.
+which is #16, over the assembly boundary #68 created. That boundary is the
+`Jellyfin.Plugin.SmartCollections.Engine` project, and the lint names its path
+rather than describing it, so a file added anywhere in the engine is in scope
+without the rule being edited.
 
 ## A test that boots a Jellyfin server to prove a unit-level property
 
