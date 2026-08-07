@@ -15,7 +15,7 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 public class RuleDocumentSchemaTests
 {
     private const string SchemaPath =
-        "Jellyfin.Plugin.SmartCollections/Rules/rule-document.schema.json";
+        "Jellyfin.Plugin.SmartCollections.Engine/Rules/rule-document.schema.json";
 
     private static JsonElement Schema()
     {

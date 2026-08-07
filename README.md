@@ -57,10 +57,21 @@ cd jellyfin-plugin-smart-collections
 dotnet build -c Release
 ```
 
-Copy the built assembly into a directory of its own under the server's
-`plugins` path, then restart the server. Where that path is depends on how the
-server was installed, and the server's own documentation is the authority for
-it.
+Copy the built assemblies into a directory of its own under the server's
+`plugins` path, then restart the server. There are two of them, the plugin and
+the engine it calls, and both are named in the `artifacts` list of the manifest
+the packages are built from:
+
+```
+grep -A3 '^artifacts:' build.yaml
+artifacts:
+  - "Jellyfin.Plugin.SmartCollections.Engine.dll"
+  - "Jellyfin.Plugin.SmartCollections.dll"
+```
+
+Copying one and not the other loads a plugin that fails the moment it reaches
+the missing half. Where the `plugins` path is depends on how the server was
+installed, and the server's own documentation is the authority for it.
 
 Once a catalogue entry exists, this section will name the repository URL to add
 and this paragraph will go away.

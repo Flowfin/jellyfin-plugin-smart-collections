@@ -43,8 +43,13 @@
     <PackageReference Include="Jellyfin.Model" Version="12.0.0-rc4" />
   </ItemGroup>
 
+  <!-- Both projects, named rather than reached through the host. The engine arrives transitively
+       either way, but a test that asserts something about the engine assembly should fail to
+       compile if that reference goes away rather than keep resolving through whatever the host
+       happens to reference that day. -->
   <ItemGroup>
     <ProjectReference Include="..\Jellyfin.Plugin.SmartCollections\Jellyfin.Plugin.SmartCollections.csproj" />
+    <ProjectReference Include="..\Jellyfin.Plugin.SmartCollections.Engine\Jellyfin.Plugin.SmartCollections.Engine.csproj" />
   </ItemGroup>
 
 </Project>

@@ -16,6 +16,7 @@ description: >
 category: "General"
 owner: "Flowfin"
 artifacts:
+  - "Jellyfin.Plugin.SmartCollections.Engine.dll"
   - "Jellyfin.Plugin.SmartCollections.dll"
 changelog: >
   changelog
