@@ -1,34 +1,26 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>Smart Collections</title>
-</head>
-<body>
-    <div id="SmartCollectionsConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
-        <div data-role="content">
-            <div class="content-primary">
-                <h2>Smart Collections</h2>
-                <p>
-                    This plugin has no settings yet. Nothing on this page is missing: the
-                    configuration it would edit is empty, because no part of the plugin reads a
-                    setting so far. Controls appear here as the surfaces that read them land.
-                </p>
-                <p>
-                    Rules are not settings and will not be edited here. A rule is a document per
-                    collection, and where those live and how they are edited is a separate part
-                    of the plan.
-                </p>
+    <head>
+        <meta charset="utf-8" />
+        <title>Smart Collections</title>
+    </head>
+    <body>
+        <div id="SmartCollectionsConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
+            <div data-role="content">
+                <div class="content-primary">
+                    <h2>Smart Collections</h2>
+                    <p>This plugin has no settings yet. Nothing on this page is missing: the configuration it would edit is empty, because no part of the plugin reads a setting so far. Controls appear here as the surfaces that read them land.</p>
+                    <p>Rules are not settings and will not be edited here. A rule is a document per collection, and where those live and how they are edited is a separate part of the plan.</p>
+                </div>
             </div>
+            <script type="text/javascript">
+                // The plugin's own identifier, which every getPluginConfiguration and
+                // updatePluginConfiguration call from this page has to pass. There is nothing to get
+                // or update while the configuration is empty, so it is declared and not yet used.
+                var SmartCollectionsConfig = {
+                    pluginUniqueId: "70dd8311-1053-4eb7-8406-8df766b2d040",
+                };
+            </script>
         </div>
-        <script type="text/javascript">
-            // The plugin's own identifier, which every getPluginConfiguration and
-            // updatePluginConfiguration call from this page has to pass. There is nothing to get
-            // or update while the configuration is empty, so it is declared and not yet used.
-            var SmartCollectionsConfig = {
-                pluginUniqueId: '70dd8311-1053-4eb7-8406-8df766b2d040'
-            };
-        </script>
-    </div>
-</body>
+    </body>
 </html>

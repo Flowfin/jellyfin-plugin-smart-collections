@@ -45,16 +45,26 @@ public class PluginIdentityTests
         Assert.Equal(declared, PluginId());
     }
 
+    // The quote around the identifier is the formatter's to choose, not this test's. Prettier
+    // reads the page's inline script and normalises string delimiters, so an assertion naming one
+    // quote character fails the day the formatter prefers the other, for a reason that has nothing
+    // to do with which plugin the page saves to. Either delimiter is matched and the pair has to
+    // agree, so a half-quoted value is still refused.
+    private static readonly Regex PageUniqueId = new(
+        "pluginUniqueId:[ \t]*(?<quote>['\"])(?<guid>[0-9a-fA-F-]{36})\\k<quote>",
+        RegexOptions.CultureInvariant);
+
     [Fact]
     public void ConfigurationPageSendsSettingsToThisPluginsId()
     {
         var page = RepositoryFiles.ReadFromRoot(
             "Jellyfin.Plugin.SmartCollections/Configuration/configPage.html");
 
-        Assert.Contains(
-            "pluginUniqueId: '" + PluginId().ToString("D", System.Globalization.CultureInfo.InvariantCulture) + "'",
-            page,
-            StringComparison.Ordinal);
+        var match = PageUniqueId.Match(page);
+
+        Assert.True(match.Success, "configPage.html passes no pluginUniqueId this test can read.");
+
+        Assert.Equal(PluginId(), Guid.Parse(match.Groups["guid"].Value));
     }
 
     [Fact]
