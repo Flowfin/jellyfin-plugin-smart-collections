@@ -9,6 +9,16 @@ on:
       - master
   workflow_dispatch:
 
+# Deny-all at the workflow level; the job below grants only what the shared
+# workflow reads.
+permissions: {}
+
 jobs:
   call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/build.yaml@master
+    # Pinned to a commit rather than to a branch, so the workflow this
+    # repository runs cannot change between two pushes without a change here
+    # saying so. The trailing comment records the ref the pin was taken from and
+    # is what Renovate reads to raise the update.
+    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/build.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master
+    permissions:
+      contents: read # check out the tree the package is built from
