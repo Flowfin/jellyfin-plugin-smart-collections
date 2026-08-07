@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 
 namespace Jellyfin.Plugin.SmartCollections.Tests;
 
@@ -39,4 +40,23 @@ internal static class RepositoryFiles
     /// <returns>The file's text.</returns>
     public static string ReadFromRoot(string name)
         => File.ReadAllText(Path.Combine(Root(), name));
+
+    /// <summary>
+    /// Gets the shipping manifests, one per supported server line, found by pattern rather than
+    /// by a list a test would have to be told about. A manifest added for a third line is
+    /// covered by every manifest test the moment the file exists.
+    /// </summary>
+    /// <returns>The manifest file names at the repository root, sorted.</returns>
+    public static string[] ManifestNames()
+    {
+        var names = Directory.GetFiles(Root(), "build*.yaml")
+            .Select(Path.GetFileName)
+            .Where(name => name is not null)
+            .Select(name => name!)
+            .ToArray();
+
+        Array.Sort(names, StringComparer.Ordinal);
+
+        return names;
+    }
 }
