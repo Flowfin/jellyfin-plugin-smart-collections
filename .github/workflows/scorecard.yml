@@ -30,7 +30,10 @@ on:
   schedule:
     - cron: "27 4 * * 1"
   push:
-    branches: [main]
+    # The branch this repository actually uses. Publishing the score works only
+    # from the default branch, so a name that is not one leaves this trigger
+    # unable to fire at all.
+    branches: [master]
 
 # Read-only by default; the analysis job adds only the scopes it needs. A
 # read-only top-level declaration is itself one of the Token-Permissions checks
