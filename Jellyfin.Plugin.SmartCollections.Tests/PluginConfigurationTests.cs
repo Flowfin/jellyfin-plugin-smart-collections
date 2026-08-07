@@ -95,4 +95,33 @@ public class PluginConfigurationTests
                 "The settings page carries a control with id " + id + ", and no setting is named that.");
         }
     }
+
+    /// <summary>
+    /// The other direction. The test above catches a control nothing reads; this one catches a
+    /// setting an administrator has no way to set, which is the failure that hides longer
+    /// because the page looks complete and simply does not offer the thing.
+    /// </summary>
+    /// <remarks>
+    /// Both directions together are what <c>docs/testing.md</c> names as the replacement for a
+    /// browser-driven test of this page. Both are vacuous while the plugin declares no setting,
+    /// which is the same reason the table above is empty and not a gap in the pair.
+    /// </remarks>
+    [Fact]
+    public void EverySettingHasAControlOnTheSettingsPage()
+    {
+        var page = RepositoryFiles.ReadFromRoot(
+            "Jellyfin.Plugin.SmartCollections/Configuration/configPage.html");
+
+        var controls = FormControl
+            .Matches(page)
+            .Select(control => control.Groups["id"].Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var name in DocumentedDefaults.Keys)
+        {
+            Assert.True(
+                controls.Contains(name),
+                "The setting " + name + " has no control on the settings page, so nobody can set it.");
+        }
+    }
 }
