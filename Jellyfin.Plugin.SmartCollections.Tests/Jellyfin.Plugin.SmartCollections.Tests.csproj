@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <!-- The same pair the plugin builds for. A test project on one framework cannot be built
+         alongside a plugin being built for the other, so a build of the 12.0 line would stop at
+         this project rather than at anything it is testing. -->
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
     <RootNamespace>Jellyfin.Plugin.SmartCollections.Tests</RootNamespace>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -30,9 +33,14 @@
        supplies them at load time. A test process has no server, so the same two
        packages are referenced here without that exclusion, which is what puts
        MediaBrowser.Common and MediaBrowser.Model next to the test assembly. -->
-  <ItemGroup>
-    <PackageReference Include="Jellyfin.Controller" Version="10.9.11" />
-    <PackageReference Include="Jellyfin.Model" Version="10.9.11" />
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.11" />
+    <PackageReference Include="Jellyfin.Model" Version="10.11.11" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Jellyfin.Controller" Version="12.0.0-rc4" />
+    <PackageReference Include="Jellyfin.Model" Version="12.0.0-rc4" />
   </ItemGroup>
 
   <ItemGroup>

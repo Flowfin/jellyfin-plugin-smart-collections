@@ -17,10 +17,18 @@ public class ManifestArtifactTests
     /// <c>- name</c> entry per line until a line that is not an entry. Reading it this way keeps
     /// the test project free of a YAML dependency carried for one list.
     /// </summary>
+    /// <remarks>
+    /// An entry's indentation is not read. YAML admits a sequence at the key's own column and
+    /// indented under it, both mean the same list, and which one this file carries is the
+    /// formatter's choice rather than the manifest's meaning. A parser that insisted on column
+    /// zero would fail the day the file is reformatted and report it as a missing artefact, which
+    /// is the wrong failure with the wrong name on it.
+    /// </remarks>
+    /// <param name="manifest">The manifest file name at the repository root.</param>
     /// <returns>The artefact names the manifest lists, in the order it lists them.</returns>
-    private static List<string> ListedArtifacts()
+    private static List<string> ListedArtifacts(string manifest)
     {
-        var lines = RepositoryFiles.ReadFromRoot("build.yaml")
+        var lines = RepositoryFiles.ReadFromRoot(manifest)
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Split('\n');
 
@@ -40,12 +48,14 @@ public class ManifestArtifactTests
                 continue;
             }
 
-            if (!line.StartsWith("- ", StringComparison.Ordinal))
+            var entry = line.TrimStart();
+
+            if (!entry.StartsWith("- ", StringComparison.Ordinal))
             {
                 break;
             }
 
-            listed.Add(line[2..].Trim().Trim('"'));
+            listed.Add(entry[2..].Trim().Trim('"'));
         }
 
         return listed;
@@ -54,12 +64,19 @@ public class ManifestArtifactTests
     [Fact]
     public void ManifestArtifactsAreExactlyTheAssembliesTheBuildProduces()
     {
-        var listed = ListedArtifacts();
+        var manifests = RepositoryFiles.ManifestNames();
 
-        Assert.True(listed.Count > 0, "build.yaml declares no artifacts: entries this test can read.");
+        Assert.NotEmpty(manifests);
 
-        Assert.Equal(
-            new[] { typeof(Plugin).Assembly.GetName().Name + ".dll" },
-            listed);
+        foreach (var manifest in manifests)
+        {
+            var listed = ListedArtifacts(manifest);
+
+            Assert.True(listed.Count > 0, manifest + " declares no artifacts: entries this test can read.");
+
+            Assert.Equal(
+                new[] { typeof(Plugin).Assembly.GetName().Name + ".dll" },
+                listed);
+        }
     }
 }

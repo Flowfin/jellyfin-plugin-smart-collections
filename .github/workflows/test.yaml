@@ -1,4 +1,4 @@
-name: '🧪 Test Plugin'
+name: "🧪 Test Plugin"
 
 on:
   push:
@@ -9,6 +9,19 @@ on:
       - master
   workflow_dispatch:
 
+# Deny-all at the workflow level; the job below grants only what the shared
+# workflow reads.
+permissions: {}
+
 jobs:
   call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/test.yaml@master
+    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/test.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master
+    permissions:
+      contents: read # check out the tree the suite runs against
+    with:
+      # The project multi-targets net9.0 for the Jellyfin 10.11 line and net10.0 for the
+      # 12.0 line. A restore covers every target framework, so an SDK for only one of them
+      # cannot restore this tree at all, whichever framework the job goes on to build.
+      dotnet-version: |
+        9.0.x
+        10.0.x

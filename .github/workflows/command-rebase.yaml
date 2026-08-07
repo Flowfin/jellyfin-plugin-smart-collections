@@ -1,13 +1,21 @@
-name: '🔀 PR Rebase Command'
+name: "🔀 PR Rebase Command"
 
 on:
   repository_dispatch:
     types:
       - rebase-command
 
+# Deny-all at the workflow level; the job below grants only what the shared
+# workflow reads.
+permissions: {}
+
 jobs:
   call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/command-rebase.yaml@master
+    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/command-rebase.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master
+    permissions:
+      contents: write # push the rebased branch
+      pull-requests: read # read the pull request being rebased
+      issues: write # the outcome is reported as a reaction on the triggering comment
     with:
       rebase-head: ${{ github.event.client_payload.pull_request.head.label }}
       repository-full-name: ${{ github.event.client_payload.github.payload.repository.full_name }}

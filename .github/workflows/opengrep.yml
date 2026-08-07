@@ -1,0 +1,75 @@
+# Refuses this plugin's greppable invariants (#16).
+#
+# The invariants and the failure each one prevents are in tools/opengrep/rules.yml.
+# This file is only how they get run.
+#
+# The fixture proof runs before the tree scan on purpose. A rule that no longer
+# matches anything passes a tree scan exactly like a rule that is holding, so a
+# green tree means nothing until the rules have been shown to bite. Reversing
+# the two steps would report the tree as clean on a run whose rules were dead.
+#
+# Opengrep publishes no action and no container image, so the release binary is
+# pinned by version and by SHA-256 and the download is checked against it. Bump
+# the two together: a version moved without its digest fails the check rather
+# than fetching whatever the tag points at now.
+name: Invariant Lint
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: ["**"]
+
+# Nothing here writes. The job below grants the one read it needs.
+permissions: {}
+
+# A superseded run on the same ref tells nobody anything, and it queues ahead of
+# the run that replaced it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  invariants:
+    name: Invariant lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      # Pinned opengrep release. The digest is the one the release API reports
+      # for this exact asset at this exact tag:
+      #
+      #   gh api repos/opengrep/opengrep/releases/tags/v1.26.0 \
+      #     --jq '.assets[] | select(.name=="opengrep_manylinux_x86") | .digest'
+      OPENGREP_VERSION: v1.26.0
+      OPENGREP_SHA256: 40c21299eeddabf743b856daa843d24f9d4a027130671cd45b3b21776fd9ab26
+    steps:
+      - name: Check out the tree
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step here pushes, so the token has no reason to survive in
+          # .git/config where every later step could read it.
+          persist-credentials: false
+
+      - name: Install the pinned lint binary
+        run: |
+          set -euo pipefail
+          url="https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/opengrep_manylinux_x86"
+          # --proto '=https' refuses a plaintext transport even on a redirect,
+          # so the download cannot be downgraded on the way.
+          curl -fSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 -o opengrep "$url"
+          echo "${OPENGREP_SHA256}  opengrep" | sha256sum -c -
+          chmod +x opengrep
+          echo "OPENGREP=$GITHUB_WORKSPACE/opengrep" >> "$GITHUB_ENV"
+
+      - name: Prove every rule bites
+        run: node tools/opengrep/check-fixtures.js
+
+      - name: Refuse the invariants in the tree
+        # --error turns a finding into a failing job, which is the gate. The
+        # fixtures hold the shapes the rules refuse, so the scan of the tree
+        # does not read them; the run above is what reads them.
+        run: |
+          "$OPENGREP" scan --config tools/opengrep/rules.yml --error \
+            --exclude tools/opengrep/fixtures .

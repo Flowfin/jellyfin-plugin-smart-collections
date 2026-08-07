@@ -1,13 +1,19 @@
 # Allows for the definition of PR and Issue /commands
-name: '📟 Slash Command Dispatcher'
+name: "📟 Slash Command Dispatcher"
 
 on:
   issue_comment:
     types:
       - created
 
+# Deny-all at the workflow level, and the job below grants nothing. The shared
+# workflow reaches GitHub only through the token passed in as a secret, so the
+# job token needs no scope at all.
+permissions: {}
+
 jobs:
   call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/command-dispatch.yaml@master
+    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/command-dispatch.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master
+    permissions: {}
     secrets:
       token: .

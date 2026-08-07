@@ -1,6 +1,7 @@
 # Static analysis of the GitHub Actions workflows themselves (zizmor). The
-# workflow YAML is release-critical attack surface - publish-beta.yml runs on
-# every push to main with contents:write - so it is audited like any other code.
+# workflow YAML is release-critical attack surface - publish.yaml runs on a
+# published release, reaches a deploy host over ssh and attaches the package to
+# the release - so it is audited like any other code.
 #
 # The gate runs zizmor's regular persona at --min-severity=low: it fails the
 # build on any actionable (low/medium/high/critical) security finding -
@@ -11,20 +12,27 @@
 # low-severity hygiene findings (undocumented permissions, missing concurrency,
 # pin-comment mismatches, unnamed jobs) that are stylistic, not security-blocking,
 # and some are context-blind (it would demand run-cancelling concurrency on the
-# release workflows, which must never be cancelled mid-publish). That backlog is
-# tracked as a code-quality task (#263), not gated here.
+# release workflows, which must never be cancelled mid-publish). Nothing is
+# suppressed in a workflow file: no per-finding ignore comment and no zizmor
+# configuration file exists in this tree, and what the run reports as suppressed
+# is zizmor's own persona filtering rather than a decision taken here. The
+# pattern below is zizmor's own suppression syntax, bracket included, so this
+# paragraph is not itself a match:
+#
+#   grep -rn 'zizmor: ignore\[' .github/ ; echo "exit=$?"
+#   exit=1
 #
 # Rule for future workflow changes: every new or edited workflow must pass this
-# gate before merge. Keep actions SHA-pinned, keep checkout on
-# persist-credentials:false, grant write permissions per job (never
-# workflow-level), and never restore a cache in a job that publishes a release.
+# gate before merge. Keep actions and reusable workflows pinned to a commit,
+# keep checkout on persist-credentials:false, grant permissions per job, and
+# never restore a cache in a job that publishes a release.
 name: Workflow Security Analysis
 
 on:
   push:
-    branches: [ main ]
+    branches: [master]
   pull_request:
-    branches: [ "**" ]
+    branches: ["**"]
 
 # Explicit deny-all at workflow level; the job below grants only what it needs.
 permissions: {}
@@ -65,13 +73,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF
-        # Only upload where the GITHUB_TOKEN can write security events: pushes to main
-        # and same-repo human PRs. Fork and Dependabot pull requests run with a
-        # read-only token, so the upload is skipped there - the gate step below still
-        # runs and blocks on findings. continue-on-error keeps the security gate
+        # Only upload where the GITHUB_TOKEN can write security events: pushes to the
+        # default branch and same-repo human PRs. Fork and Dependabot pull requests run
+        # with a read-only token, so the upload is skipped there - the gate step below
+        # still runs and blocks on findings. continue-on-error keeps the security gate
         # independent of the upload: a transient code-scanning upload failure must not
-        # skip the "Fail on actionable findings" step below.
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')
+        # skip the "Fail on actionable findings" step below. The branch is named once,
+        # here and in the push trigger above; naming a branch this repository does not
+        # have leaves the audit with no baseline run on the default branch.
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
         with:

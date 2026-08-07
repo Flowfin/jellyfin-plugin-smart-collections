@@ -1,0 +1,21 @@
+---
+# The Jellyfin 12.0 line's manifest. Everything outside targetAbi and framework is word for word
+# what build.yaml says, and a test refuses a divergence: the two packages are one plugin, so a
+# server that upgrades across the line boundary has to see an update rather than a second entry.
+name: "Template"
+guid: "70dd8311-1053-4eb7-8406-8df766b2d040"
+version: "1.0.0.0"
+# Jellyfin 12.0 moves the server to .NET 10, so a package carrying the 10.11 ABI does not load
+# there. This is the 12.0 line's floor.
+targetAbi: "12.0.0.0"
+framework: "net10.0"
+overview: "Short description about your plugin"
+description: >
+  This is a longer description that can span more than one
+  line and include details about your plugin.
+category: "General"
+owner: "jellyfin"
+artifacts:
+  - "Jellyfin.Plugin.SmartCollections.dll"
+changelog: >
+  changelog
