@@ -11,11 +11,11 @@
             "branchNote": "Every branch point left in this assembly is in RuleDocumentStore, at branch-rate 0.875. Plugin.cs reports branch-rate 1 over the branches it declares. The report puts what is unexecuted on one line, RuleDocumentStore.cs:128 at condition-coverage 83.33% (10/12), which is the six-clause name check that refuses a name composing into a path outside the store's directory. It short-circuits on the first clause that matches, so a name refused by an early clause never reaches the later ones and no set of inputs lights every slot."
         },
         "Jellyfin.Plugin.SmartCollections.Engine": {
-            "line": 98.61,
-            "branch": 95.45,
-            "measured": "line-rate 0.9861 and branch-rate 0.9545 on the <package> tag of coverage.cobertura.xml, from the command above, run on Windows against net10.0.",
-            "lineNote": "RuleDocument, RuleDocumentValidation and RuleValidationError are at line-rate 1. RuleDocumentValidator is at 0.983, and the one line at hits=0 is RuleDocumentValidator.cs:139, which is the arm the branch note describes.",
-            "branchNote": "The unexecuted arm is the discard in the value-kind description in RuleDocumentValidator, reported as RuleDocumentValidator.cs:131 at condition-coverage 87.5% (7/8). The compiler requires it for exhaustiveness and no input reaches it, because a member that is absent is refused before anything describes its kind. That sentence was recorded against the combined assembly before the split and it is the same arm, now measured where the code is."
+            "line": 99.01,
+            "branch": 96.87,
+            "measured": "line-rate 0.9901 and branch-rate 0.9687 on the <package> tag of coverage.cobertura.xml, from the command above, run on Windows against net10.0.",
+            "lineNote": "Both figures moved UP when #32 added MembershipDiff, which is at line-rate 1 and branch-rate 1, and the floor is raised in the same change that raised the coverage rather than left where it was. RuleDocument, RuleDocumentValidation and RuleValidationError are also at line-rate 1. RuleDocumentValidator is at 0.983, and the one line at hits=0 is RuleDocumentValidator.cs:139, which is the arm the branch note describes.",
+            "branchNote": "The only partially covered branch point in the assembly is the discard in the value-kind description in RuleDocumentValidator, reported as RuleDocumentValidator.cs:131 at condition-coverage 87.5% (7/8). The compiler requires it for exhaustiveness and no input reaches it, because a member that is absent is refused before anything describes its kind. That sentence was recorded against the combined assembly before the split and it is the same arm, now measured where the code is. Every branch point MembershipDiff declares is executed by both directions, which is why the assembly figure rose while that arm stayed where it was."
         }
     }
 }
