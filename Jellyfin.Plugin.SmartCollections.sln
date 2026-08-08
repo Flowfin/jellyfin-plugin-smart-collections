@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.SmartCollec
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.SmartCollections.Tests", "Jellyfin.Plugin.SmartCollections.Tests\Jellyfin.Plugin.SmartCollections.Tests.csproj", "{9A8FA239-6F15-421F-BAAA-105FEEB3658B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.SmartCollections.Engine", "Jellyfin.Plugin.SmartCollections.Engine\Jellyfin.Plugin.SmartCollections.Engine.csproj", "{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,6 +40,18 @@ Global
 		{9A8FA239-6F15-421F-BAAA-105FEEB3658B}.Release|x64.Build.0 = Release|Any CPU
 		{9A8FA239-6F15-421F-BAAA-105FEEB3658B}.Release|x86.ActiveCfg = Release|Any CPU
 		{9A8FA239-6F15-421F-BAAA-105FEEB3658B}.Release|x86.Build.0 = Release|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Debug|x64.Build.0 = Debug|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Debug|x86.Build.0 = Debug|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Release|x64.ActiveCfg = Release|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Release|x64.Build.0 = Release|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Release|x86.ActiveCfg = Release|Any CPU
+		{4CBC259F-0C06-4833-85BC-B3441A8BFC4D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
