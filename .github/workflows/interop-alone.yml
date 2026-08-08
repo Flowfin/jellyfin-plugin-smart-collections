@@ -31,9 +31,11 @@
 #
 #   The harness is pointed at the same image with NO PLUGIN INSTALLED, and must
 #   refuse IT FOR BEING UNLISTED rather than merely exit non-zero. That proves
-#   the assertion that the plugin is loaded and active, and it proves neither of
-#   the other two: the script's own header says which arm is watched passing and
-#   has never been watched failing.
+#   the assertion that the plugin is loaded and active, and it proves the
+#   administrator arm of the third one as a side effect, because this plugin's
+#   configuration route answers 404 there and 200 on the run with the package.
+#   The anonymous arm is watched passing and has never been watched failing, and
+#   the script's header is where that is said rather than softened.
 #
 # The two lines are separate jobs rather than one, for the reason the ABI floor
 # workflow gives: one line failing says nothing about the other, and a reader

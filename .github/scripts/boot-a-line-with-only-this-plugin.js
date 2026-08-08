@@ -76,11 +76,22 @@
 // on both lines, non-zero, having asserted nothing at all, and a probe reading
 // only the exit status would have recorded that as a proof.
 //
-// WHAT IS NOT PROVED TO BITE IS ASSERTION 3. Making a server answer an
-// anonymous caller on an administrator endpoint would mean misconfiguring the
-// server, and a harness that arranges the failure it then detects proves the
-// arrangement. That arm is watched passing and has not been watched failing,
-// and this sentence is the whole of what is claimed about it.
+// WHAT IS NOT PROVED TO BITE IS THE ANONYMOUS ARM OF ASSERTION 3. Making a
+// server answer an anonymous caller on an administrator endpoint would mean
+// misconfiguring the server, and a harness that arranges the failure it then
+// detects proves the arrangement. That arm is watched passing and has not been
+// watched failing, and this sentence is the whole of what is claimed about it.
+//
+// The administrator arm of assertion 3 is proved, and by the near miss rather
+// than by anything written for it. `/Plugins/{id}/Configuration` answers 404 to
+// an administrator on a server where this plugin is not installed, and 200
+// where it is, on both lines:
+//
+//   3. /Plugins/70dd8311-1053-4eb7-8406-8df766b2d040/Configuration: administrator 404, anonymous 401   # no plugin
+//   3. /Plugins/70dd8311-1053-4eb7-8406-8df766b2d040/Configuration: administrator 200, anonymous 401   # installed
+//
+// so that route tracks this plugin's presence rather than answering the same
+// thing either way, which is what a route asserted against has to do.
 
 "use strict";
 
