@@ -1,26 +1,18 @@
 # What the front-end lint does not read (#14).
 #
-# Everything tracked in this repository that Prettier understands is checked.
-# Nothing here excludes a tracked file. A tracked file that cannot be formatted
-# belongs in this list with the reason on the line above it, and there is no
-# such file today.
+# Everything tracked in this repository that Prettier understands is checked,
+# except one directory of tracked files that exist to be malformed. A tracked
+# path that cannot be formatted belongs in this list with the reason on the line
+# above it.
 #
-# The entries below are build and measurement output, which git does not track
+# THIS FILE ONCE SAID IT EXCLUDED NO TRACKED FILE AND CHANGED NO VERDICT. Both
+# sentences stopped being true when the fuzzing seed corpus landed (#18), and
+# they are replaced rather than softened: the corpus entry below is a tracked
+# path, and removing this file now reds the check.
+#
+# The other entries are build and measurement output, which git does not track
 # either. They are named so that a generated file cannot start deciding this
 # check's verdict after somebody builds or runs the suite in their clone.
-#
-# THEY CHANGE NO VERDICT TODAY, and that is measured rather than assumed. In a
-# tree carrying obj/ and TestResults/, the check reports the same thing with
-# this file and without it:
-#
-#   npx prettier --check .            # exit 0
-#   mv .prettierignore /tmp/          # then the same command
-#   npx prettier --check .            # exit 0, and no [warn] line
-#
-# So this file is a statement of intent that the check does not currently need.
-# It is kept because the alternative is discovering the need as a red check on
-# somebody else's change, and because the issue asks for the rule set to be
-# readable rather than implicit.
 
 bin/
 obj/
@@ -29,3 +21,12 @@ artifacts/
 # Where `dotnet test --results-directory` puts the coverage report the floor
 # check reads.
 TestResults/
+
+# The fuzzing seed corpus (#18). These are inputs rather than documents: the
+# whole point of several of them is to be a shape the parser has to refuse, and
+# one of them is not valid JSON at all. Formatting them would repair the very
+# thing they are there to carry, and the formatter cannot parse the invalid one
+# in the first place. A test in the suite reads every file in this directory and
+# asserts the parser answers rather than throws, which is the check these files
+# owe and it is not a formatting one.
+tools/fuzz/corpus/

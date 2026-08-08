@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The fuzz target for the rule document parser (#18).
+
+       DELIBERATELY OUTSIDE Jellyfin.Plugin.SmartCollections.sln. Every other job in this
+       repository restores and builds the solution, and a project inside it would put the
+       fuzzing package on the critical path of the build check, the test check, the coverage
+       run and both ABI floor builds, for a job none of them runs. Out of the solution, this
+       project is built by the fuzz workflow and by nothing else, and `dotnet restore` at the
+       repository root still resolves the solution because that is the only one there.
+
+       One target framework rather than the pair the plugin ships. The fuzzer runs on Linux on
+       one runtime, and what is being fuzzed is the parser rather than the packaging, so a
+       second target would double the run for no second answer. The engine it references
+       multi-targets, and a net9.0 consumer resolves the net9.0 asset. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>RuleDocumentFuzz</AssemblyName>
+    <RootNamespace>Jellyfin.Plugin.SmartCollections.Fuzz</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpFuzz" Version="2.3.0" />
+  </ItemGroup>
+
+  <!-- The engine, which is where the parser lives. The host is not referenced: nothing in the
+       rule document parser reaches it, and a reference here would drag the server SDK into a
+       process that has no server. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Jellyfin.Plugin.SmartCollections.Engine\Jellyfin.Plugin.SmartCollections.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

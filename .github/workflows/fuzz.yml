@@ -1,0 +1,172 @@
+# Fuzz the rule document parser (#18).
+#
+# The rule document is this plugin's only untrusted input surface. An operator
+# writes it, the plugin parses it, validates it and will compile it, and every
+# byte of it comes from outside the code. Until this job existed nothing fed the
+# parser anything its own tests had not written.
+#
+# The property asserted is not that every input is accepted. It is that no input
+# makes the parser throw, no input makes it hang, and every rejection carries a
+# message naming what was wrong. The first of those is what a fuzzer measures,
+# and the harness catches nothing so that an exception is a finding rather than
+# an expected outcome. tools/fuzz/Program.cs is where that is written down.
+#
+# NOT ON A PULL REQUEST, BY CONSTRUCTION. A fuzzing run that finds nothing is
+# minutes of compute that says the same thing as the run before it, so this job
+# runs on a schedule and on manual dispatch and never on a merge path. The
+# corpus it builds is uploaded so the next run and a reader both have it.
+#
+# A crasher reds this job and is then triaged as its own finding with its own
+# fix. It is never patched inside the harness: a harness that catches the
+# exception reports a clean run over a parser that throws, which is worse than
+# not running at all.
+#
+# The means is AFL++ driven through SharpFuzz, which is the coverage-guided
+# fuzzer that works on Linux with .NET. It instruments the engine assembly this
+# repository already builds, so there is no second implementation of the parser
+# to keep in step, and it runs from a project outside the solution so the
+# fuzzing package is not on the critical path of any other check. The seeds are
+# checked-in files rather than literals inside the harness, and the ordinary
+# suite reads the same directory and asserts the parser answers rather than
+# throws for each one, so a seed that would make a run report the harness's own
+# fault reds a pull request first.
+name: Fuzz
+
+on:
+  schedule:
+    # Weekly. A parser that changed since the last run is the only thing that
+    # makes a new run say something different, and this repository does not
+    # change the parser daily.
+    - cron: "41 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: "How long to fuzz, in seconds"
+        required: false
+        default: "300"
+        type: string
+
+# Deny-all at the workflow level; the job below grants only what it reads.
+permissions: {}
+
+# A superseded run on the same ref tells nobody anything.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: Fuzz the rule document parser
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # check out the tree the target is built from
+    env:
+      # Written once here rather than at each step. The dispatch input decides
+      # the length; the scheduled run has no input and takes the default.
+      FUZZ_SECONDS: ${{ inputs.seconds || '300' }}
+    steps:
+      - name: Check out the tree
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step here pushes, so the token has no reason to survive in
+          # .git/config where every later step could read it.
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          # The target builds for net9.0 and the engine it references
+          # multi-targets, and a restore resolves every target framework
+          # whatever the build asks for, so both SDKs have to be here.
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Install the fuzzer
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y afl++
+          afl-fuzz -h 2>&1 | head -n 2
+
+      - name: Build the target
+        run: |
+          set -euo pipefail
+          dotnet publish tools/fuzz/RuleDocumentFuzz.csproj \
+            --configuration Release \
+            --framework net9.0 \
+            --output fuzz-target
+
+      - name: Instrument the engine assembly
+        # SharpFuzz rewrites the assembly under test so the fuzzer can see which
+        # branches an input reached. It instruments the engine rather than the
+        # harness, because the parser is what is being explored.
+        run: |
+          set -euo pipefail
+          dotnet tool install --global SharpFuzz.CommandLine --version 2.3.0
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          sharpfuzz fuzz-target/Jellyfin.Plugin.SmartCollections.Engine.dll
+
+      - name: Run the target once outside the fuzzer
+        # Cheapest possible proof that the target builds and runs before minutes
+        # are spent on it. Without a fuzzer attached the harness reads standard
+        # input once and returns, so a target that cannot start fails here in a
+        # second rather than as an unexplained empty run later.
+        run: |
+          set -euo pipefail
+          dotnet fuzz-target/RuleDocumentFuzz.dll < tools/fuzz/corpus/minimal.json
+          echo "The target ran one input and returned."
+
+      - name: Fuzz
+        env:
+          # The runner's crash handler is not AFL's, and AFL refuses to start
+          # rather than mistake a handler's output for a clean run. Both of
+          # these are the documented ways past it on a machine that is not a
+          # dedicated fuzzing host, and neither weakens what is measured.
+          AFL_SKIP_CPUFREQ: "1"
+          AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: "1"
+          # The target is `dotnet`, a managed host rather than an
+          # AFL-instrumented native binary, so the binary check does not apply.
+          AFL_SKIP_BIN_CHECK: "1"
+          AFL_NO_AFFINITY: "1"
+        run: |
+          set -euo pipefail
+          mkdir -p findings
+          # -V ends the run after that many seconds, which is what makes this a
+          # job rather than something somebody has to stop. -m none because the
+          # runtime maps more address space than AFL's default allows, and a
+          # memory limit that the runtime trips on every input measures the
+          # limit rather than the parser.
+          afl-fuzz -i tools/fuzz/corpus -o findings -m none -t 10000 \
+            -V "$FUZZ_SECONDS" -- dotnet fuzz-target/RuleDocumentFuzz.dll
+
+      - name: Archive the corpus and anything it found
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-findings
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            findings/**/queue/**
+            findings/**/crashes/**
+            findings/**/hangs/**
+            findings/**/fuzzer_stats
+
+      - name: Report what the run found
+        # After the upload, so the inputs that made it fail are downloadable
+        # from the run that went red.
+        run: |
+          set -euo pipefail
+          crashes=$(find findings -path '*/crashes/*' -type f ! -name 'README.txt' | wc -l)
+          hangs=$(find findings -path '*/hangs/*' -type f ! -name 'README.txt' | wc -l)
+          queue=$(find findings -path '*/queue/*' -type f | wc -l)
+          echo "Inputs kept:  $queue"
+          echo "Crashes:      $crashes"
+          echo "Hangs:        $hangs"
+          if [ "$crashes" -ne 0 ] || [ "$hangs" -ne 0 ]; then
+            echo "::error::The parser threw or hung on an input. The inputs are in the fuzz-findings artefact. Open a finding with its own fix; do not catch it in the harness."
+            exit 1
+          fi
+          echo "No input made the parser throw or hang in this run."
