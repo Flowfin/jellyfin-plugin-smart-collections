@@ -18,5 +18,6 @@ owner: "Flowfin"
 artifacts:
   - "Jellyfin.Plugin.SmartCollections.Engine.dll"
   - "Jellyfin.Plugin.SmartCollections.dll"
+  - "Jellyfin.Plugin.SmartCollections.Reporting.dll"
 changelog: >
   changelog
