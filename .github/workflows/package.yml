@@ -1,0 +1,217 @@
+# Produce the artefact this repository will ship, per server line, and describe
+# what travels inside it (#12).
+#
+# The gate did not build what it publishes. `call / build` runs the shared
+# Jellyfin build workflow, which packages the plugin with JPRM and uploads the
+# zip, and nothing in the tree then asserts anything about what came out. It
+# also runs once, for one target framework, while this plugin ships two
+# packages, so the 12.0 line's package was never built by a pull request at all.
+# And there was no bill of materials for either, so a reader asking which
+# dependencies travel inside the zip had to unpack it.
+#
+# Two jobs, both per line:
+#
+#   Package (<line>) builds the package from that line's manifest and then
+#   refuses one that does not carry an assembly the manifest names. The suite's
+#   ManifestArtifactTests asserts the manifest against the PROJECT FILES; this
+#   asserts it against the ZIP, which is a different claim and catches a build
+#   that succeeded and packed the wrong output.
+#
+#   SBOM (<line>) generates a CycloneDX bill of materials for that line's target
+#   framework and refuses one that does not describe every assembly the package
+#   ships.
+#
+# The two lines are separate jobs rather than one, for the reason the ABI floor
+# workflow gives: one line failing says nothing about the other, and a reader
+# wants both verdicts rather than the first one.
+#
+# THE MANIFEST IS COPIED OVER build.yaml BEFORE THE PACKAGER RUNS. JPRM reads
+# `build.yaml` in the directory it is pointed at and takes no argument naming a
+# different file:
+#
+#   gh api repos/oddstr13/jellyfin-plugin-repository-manager/contents/action.yaml \
+#     --jq .content | base64 -d | grep -n 'inputs:' -A 30
+#
+# so the 12.0 line's manifest reaches the packager by being put where it reads.
+# The copy happens in the runner's checkout and is never committed.
+#
+# The means for the bill of materials is the CycloneDX .NET global tool, pinned
+# by version because that is how a NuGet package is pinned. It reads the restore
+# graph this tree already produces, adds no language and no service, and its
+# output is JSON that a first-party script in this repository compares against
+# the manifest, for the reason the coverage floor and the hygiene check are
+# first-party: the gate should be readable here and should not depend on a third
+# party holding write access.
+#
+# Whether these job names are in the branch ruleset's required set is a fact of
+# the ruleset rather than of this file (#20). Print it:
+#
+#   gh api repos/Flowfin/jellyfin-plugin-smart-collections/rulesets/20465770 \
+#     --jq '[.rules[] | select(.type=="required_status_checks")
+#           | .parameters.required_status_checks[].context]'
+name: Package
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# Deny-all at the workflow level; the jobs below grant only what they read.
+permissions: {}
+
+# A superseded run on the same ref tells nobody anything, and it queues ahead of
+# the run that replaced it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    # The check run takes this name, and that is the string #20 puts in the
+    # required list. Renaming it renames the required context.
+    name: Package (${{ matrix.line }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # check out the tree the package is built from
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - line: "10.11"
+            framework: net9.0
+            manifest: build.yaml
+          - line: "12.0"
+            framework: net10.0
+            manifest: build-jf12.yaml
+    steps:
+      - name: Check out the tree
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step here pushes, so the token has no reason to survive in
+          # .git/config where every later step could read it.
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          # Both, whichever framework this job packs. A restore is a
+          # cross-targeting operation and resolves every target framework the
+          # projects declare, so an SDK for only one of them cannot restore this
+          # tree at all.
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Put this line's manifest where the packager reads it
+        env:
+          MANIFEST: ${{ matrix.manifest }}
+        run: |
+          set -euo pipefail
+          if [ "$MANIFEST" != "build.yaml" ]; then
+            cp "$MANIFEST" build.yaml
+          fi
+          grep -n 'targetAbi\|framework' build.yaml
+
+      - name: Build the package
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        id: jprm
+        with:
+          dotnet-target: ${{ matrix.framework }}
+
+      - name: Refuse a package missing an assembly its manifest names
+        env:
+          MANIFEST: ${{ matrix.manifest }}
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          unzip -Z1 "$ARTIFACT" \
+            | node .github/scripts/package-holds-what-the-manifest-names.js "$MANIFEST"
+
+      - name: Upload the package
+        # Uploaded whatever the step above decided, because the package a
+        # reviewer wants to open is the one that went red.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-${{ matrix.line }}
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ steps.jprm.outputs.artifact }}
+
+  sbom:
+    name: SBOM (${{ matrix.line }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # check out the tree the bill of materials describes
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - line: "10.11"
+            framework: net9.0
+            manifest: build.yaml
+          - line: "12.0"
+            framework: net10.0
+            manifest: build-jf12.yaml
+    steps:
+      - name: Check out the tree
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Restore the graph the bill of materials describes
+        run: dotnet restore
+
+      - name: Generate the bill of materials
+        env:
+          FRAMEWORK: ${{ matrix.framework }}
+        run: |
+          set -euo pipefail
+          mkdir -p sbom
+          # Pinned by version, which is how a NuGet package is pinned.
+          dotnet tool install --global CycloneDX --version 6.2.0
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          # --include-project-references is what puts the engine assembly in the
+          # document at all; without it the SBOM describes the NuGet closure and
+          # says nothing about the second assembly the package carries.
+          # --disable-package-restore makes it read the graph the step above
+          # restored rather than resolving a second one of its own.
+          dotnet-CycloneDX Jellyfin.Plugin.SmartCollections/Jellyfin.Plugin.SmartCollections.csproj \
+            --framework "$FRAMEWORK" \
+            --output sbom \
+            --filename sbom.cyclonedx.json \
+            --output-format Json \
+            --include-project-references \
+            --exclude-test-projects \
+            --set-nuget-purl \
+            --disable-package-restore
+
+      - name: Refuse a bill of materials missing an assembly the package ships
+        env:
+          MANIFEST: ${{ matrix.manifest }}
+        run: |
+          set -euo pipefail
+          node .github/scripts/sbom-holds-what-the-manifest-names.js \
+            "$MANIFEST" sbom/sbom.cyclonedx.json
+
+      - name: Upload the bill of materials
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-${{ matrix.line }}
+          retention-days: 30
+          if-no-files-found: error
+          path: sbom/sbom.cyclonedx.json
