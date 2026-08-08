@@ -279,10 +279,31 @@ async function waitFor(base, route, container, seconds) {
  * Completes first-time setup, so that an anonymous caller is refused for the
  * reason this harness asserts rather than admitted by the setup policy.
  *
+ * THE GET ON /Startup/User IS NOT A READ. It is what creates the first user,
+ * and posting without it answers 404 on both supported lines, which is what
+ * this harness watched happen. The server's own source is the authority:
+ *
+ *   curl -s "https://api.github.com/repos/jellyfin/jellyfin/contents/Jellyfin.Api/Controllers/StartupController.cs?ref=v10.11.11" \
+ *     -H "Accept: application/vnd.github.raw" | sed -n '107,140p'
+ *
+ * `GetFirstUser` calls `InitializeAsync` and carries a comment asking for the
+ * method to be removed when the wizard no longer needs an existing user, and
+ * `UpdateStartupUser` returns `NotFound()` where there is none. So the order is
+ * a property of the server rather than a preference here, and the same two
+ * methods sit in the same order on `v12.0-rc4`.
+ *
  * @param {string} base The server's base address.
  * @returns {Promise<string>} An administrator access token.
  */
 async function completeFirstTimeSetup(base) {
+    const created = await call(base, "/Startup/User");
+
+    console.log(`  GET /Startup/User -> ${created.status} ${created.text.trim().slice(0, 120)}`);
+
+    if (created.status !== 200) {
+        throw new Error(`The server did not create a first user: /Startup/User answered ${created.status}. Every step below would fail on a server with no user, and the assertion that an anonymous caller is refused would pass for want of anyone to authenticate.`);
+    }
+
     const steps = [
         ["/Startup/Configuration", { UICulture: "en-US", MetadataCountryCode: "US", PreferredMetadataLanguage: "en" }],
         ["/Startup/User", { Name: ADMIN, Password: SECRET }],
