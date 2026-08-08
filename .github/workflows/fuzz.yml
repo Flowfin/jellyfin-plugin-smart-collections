@@ -148,27 +148,51 @@ jobs:
           afl-fuzz -i tools/fuzz/corpus -o findings -m none -t 10000 \
             -V "$FUZZ_SECONDS" -- dotnet fuzz-target/RuleDocumentFuzz.dll
 
-      - name: Archive the corpus and anything it found
+      - name: Pack the corpus and anything it found
+        id: pack
+        # AFL names every input it keeps after the operation that produced it,
+        # `id:000000,time:0,execs:0,orig:minimal.json`. The upload refuses a
+        # colon in a path, because a download onto NTFS could not write one, so
+        # handing it those files failed the job after the fuzzing had already
+        # been paid for and before anything read the result. A tar carries the
+        # names inside itself, where no file system reads them, so the archive
+        # is the directory AFL wrote rather than a renamed copy of it, and it
+        # carries the whole directory rather than four globs of it: AFL's own
+        # state is what lets a later run resume from this corpus.
+        #
         # Only where the fuzzer actually ran. A job that failed before it, on
-        # the install or the build, has its verdict already and an upload
-        # refusing an empty directory would add a second failure naming the
-        # wrong thing. Where the fuzzer did run, an empty findings directory is
-        # a real fault and the refusal below is deliberate.
+        # the install or the build, has its verdict already and a second
+        # failure here would name the wrong thing. Where the fuzzer did run, an
+        # empty queue is a real fault and the refusal below is deliberate: it
+        # means the harness never kept an input, which is a broken run
+        # reporting as a clean one.
         if: always() && steps.fuzz.outcome != 'skipped'
+        run: |
+          set -euo pipefail
+          kept=$(find findings -path '*/queue/*' -type f | wc -l)
+          if [ "$kept" -eq 0 ]; then
+            echo "::error::The fuzzer kept no input at all, so there is no corpus to archive. Read the fuzz step's output: this is the harness failing to start rather than the parser surviving."
+            exit 1
+          fi
+          tar -czf fuzz-findings.tar.gz findings
+
+      - name: Archive the corpus and anything it found
+        if: always() && steps.pack.outcome == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fuzz-findings
           retention-days: 30
           if-no-files-found: error
-          path: |
-            findings/**/queue/**
-            findings/**/crashes/**
-            findings/**/hangs/**
-            findings/**/fuzzer_stats
+          path: fuzz-findings.tar.gz
 
       - name: Report what the run found
         # After the upload, so the inputs that made it fail are downloadable
-        # from the run that went red.
+        # from the run that went red, and not conditional on it: what the
+        # parser did is this job's verdict, and an upload that fails for its
+        # own reasons must not be what stands in place of it. That is what
+        # happened while the upload refused AFL's file names - the run was red
+        # for the artefact and said nothing at all about the parser.
+        if: always() && steps.fuzz.outcome == 'success'
         run: |
           set -euo pipefail
           crashes=$(find findings -path '*/crashes/*' -type f ! -name 'README.txt' | wc -l)
