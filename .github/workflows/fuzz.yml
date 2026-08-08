@@ -88,7 +88,13 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y afl++
-          afl-fuzz -h 2>&1 | head -n 2
+          # `command -v` is what decides whether the install worked, because it
+          # is the one of these two that fails when the binary is absent.
+          # afl-fuzz's own help exits non-zero by design, so a pipeline built on
+          # it reds a correct install; that is what this step did on its first
+          # run and it is why the banner is read for information only.
+          command -v afl-fuzz
+          afl-fuzz -h 2>&1 | head -n 2 || true
 
       - name: Build the target
         run: |
@@ -119,6 +125,7 @@ jobs:
           echo "The target ran one input and returned."
 
       - name: Fuzz
+        id: fuzz
         env:
           # The runner's crash handler is not AFL's, and AFL refuses to start
           # rather than mistake a handler's output for a clean run. Both of
@@ -142,7 +149,12 @@ jobs:
             -V "$FUZZ_SECONDS" -- dotnet fuzz-target/RuleDocumentFuzz.dll
 
       - name: Archive the corpus and anything it found
-        if: always()
+        # Only where the fuzzer actually ran. A job that failed before it, on
+        # the install or the build, has its verdict already and an upload
+        # refusing an empty directory would add a second failure naming the
+        # wrong thing. Where the fuzzer did run, an empty findings directory is
+        # a real fault and the refusal below is deliberate.
+        if: always() && steps.fuzz.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fuzz-findings
