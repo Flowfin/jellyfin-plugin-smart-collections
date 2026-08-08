@@ -72,6 +72,35 @@ interoperability matrix, which boots containers on an ordinary runner, needs no
 display and no elevated rights, and proves a property no fake could. That is
 #59.
 
+## The one place a server is booted
+
+The alone case of that matrix is in the tree. It boots a server per supported
+line with the packaged zip installed and nothing else, and asserts three things:
+the startup log holds no error from this plugin, the plugin is listed as loaded
+and active, and this plugin's surface answers an administrator and refuses an
+anonymous caller.
+
+It is one command, and the same command is what the runner invokes:
+
+```
+node .github/scripts/boot-a-line-with-only-this-plugin.js \
+  --image jellyfin/jellyfin:10.11.11 --package <package.zip>
+```
+
+The package is the one the shipping check builds rather than the build output,
+because a harness that loads `bin/` proves the code works and not that the thing
+users install works.
+
+It stays inside the rule at the top of this file. The server answers plain HTTP
+on a loopback port, so nothing trusts a certificate, and nothing is installed
+onto the machine. What it does need is a container runtime, and it starts none:
+where no daemon answers, it says so and stops rather than reaching for one.
+
+What that harness does not reach is written in its own header, and the shortest
+version is that this plugin declares no endpoint of its own yet, so the third
+assertion runs against the server's plugin surface keyed on this plugin's
+identifier. An endpoint this plugin ships is #47.
+
 ## What holds the rule
 
 `SuitePortabilityTests.NoTestInTheSuiteReferencesAnAbsoluteSystemPath` reads
