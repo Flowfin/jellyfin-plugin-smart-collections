@@ -30,9 +30,10 @@
 #   must refuse, and one naming something else, which it must pass. No container.
 #
 #   The harness is pointed at the same image with NO PLUGIN INSTALLED, and must
-#   refuse. That proves the assertion that the plugin is loaded and active, and
-#   it proves neither of the other two: the script's own header says which arm
-#   is watched passing and has never been watched failing.
+#   refuse IT FOR BEING UNLISTED rather than merely exit non-zero. That proves
+#   the assertion that the plugin is loaded and active, and it proves neither of
+#   the other two: the script's own header says which arm is watched passing and
+#   has never been watched failing.
 #
 # The two lines are separate jobs rather than one, for the reason the ABI floor
 # workflow gives: one line failing says nothing about the other, and a reader
@@ -159,16 +160,18 @@ jobs:
         run: node .github/scripts/boot-a-line-with-only-this-plugin.js --prove-the-log-scan-bites
 
       - name: Prove the harness refuses a server with no plugin installed
+        # This step passes when the harness REFUSED, and the inversion lives
+        # inside the script rather than here on purpose. A step written as "run
+        # it and expect a non-zero exit" accepts a harness that died before it
+        # asserted anything, which is what the first run of this workflow did on
+        # both lines. The script knows which failure it raised; a shell here
+        # knows only the exit status.
         env:
           IMAGE: ${{ matrix.image }}
         run: |
           set -euo pipefail
-          if node .github/scripts/boot-a-line-with-only-this-plugin.js \
-            --image "$IMAGE" --port 18097 --without-the-plugin; then
-            echo "::error::The harness passed a server with no plugin installed, so the run below proves nothing about whether the package loaded."
-            exit 1
-          fi
-          echo "The harness refuses a server with no plugin installed."
+          node .github/scripts/boot-a-line-with-only-this-plugin.js \
+            --image "$IMAGE" --port 18097 --without-the-plugin
 
       - name: Boot the line with only this plugin
         env:

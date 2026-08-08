@@ -62,11 +62,19 @@
 // already use:
 //
 //   --without-the-plugin       boot the same image with an empty plugin
-//                              directory. Assertion 2 must refuse.
+//                              directory. Exits zero only where the harness
+//                              refused it for being UNLISTED, and non-zero for
+//                              any other outcome including a harness that died
+//                              before it asserted anything.
 //   --prove-the-log-scan-bites run the log scan over a fabricated error line
 //                              naming this plugin, which it must refuse, and
 //                              over one naming something else, which it must
 //                              pass. Runs no container.
+//
+// THE NEAR MISS READS THE SHAPE OF THE FAILURE RATHER THAN THE EXIT STATUS, and
+// that is not a refinement. The first run of this file died at first-time setup
+// on both lines, non-zero, having asserted nothing at all, and a probe reading
+// only the exit status would have recorded that as a proof.
 //
 // WHAT IS NOT PROVED TO BITE IS ASSERTION 3. Making a server answer an
 // anonymous caller on an administrator endpoint would mean misconfiguring the
@@ -90,6 +98,15 @@ const CLIENT = 'MediaBrowser Client="alone-harness", Device="ci", DeviceId="alon
 
 const ADMIN = "harness-administrator";
 const SECRET = "9f2c41b7-alone-harness";
+
+// The near miss checks for THIS failure rather than for a non-zero exit.
+//
+// A step that only asks whether the harness exited non-zero accepts a harness
+// that died before it asserted anything, which is not a hypothetical: the first
+// run of this file failed at first-time setup on both lines, and a probe reading
+// only the exit status would have called that a proof that the plugin-is-loaded
+// assertion bites.
+const NOT_LISTED = "[not-listed]";
 
 function usage() {
     console.error("Usage: node .github/scripts/boot-a-line-with-only-this-plugin.js --image <image> --package <package.zip> [--port <port>] [--without-the-plugin]");
@@ -208,23 +225,38 @@ async function call(base, route, options = {}) {
 }
 
 /**
- * Waits for the server to answer its public information route.
+ * Waits for a route to answer with the status that means the server is ready
+ * for the step after it.
+ *
+ * TWO ROUTES ARE WAITED ON RATHER THAN ONE, and the reason is measured rather
+ * than supposed. `/System/Info/Public` answers 200 while the rest of the server
+ * is still starting, and a first-time setup step posted at that moment is
+ * refused with 503 by the middleware that holds requests until startup
+ * finishes. Both supported lines were watched doing it:
+ *
+ *   The server answers: {"version":"10.11.11", ..., "startupWizardCompleted":false}
+ *     POST /Startup/Configuration -> 503
+ *
+ * So the public route says the server is listening and the wizard route says it
+ * is ready, and the difference between those two is a harness that fails on
+ * every run for a reason that has nothing to do with the plugin.
  *
  * @param {string} base The server's base address.
+ * @param {string} route The route to poll.
  * @param {string} container The container name, for the log on failure.
  * @param {number} seconds How long to wait.
- * @returns {Promise<void>} Resolves once the server answers.
+ * @returns {Promise<void>} Resolves once the route answers 200.
  */
-async function waitForTheServer(base, container, seconds) {
+async function waitFor(base, route, container, seconds) {
     const deadline = Date.now() + seconds * 1000;
     let last = "no attempt completed";
 
     while (Date.now() < deadline) {
         try {
-            const answer = await call(base, "/System/Info/Public");
+            const answer = await call(base, route);
 
             if (answer.status === 200) {
-                console.log(`The server answers: ${answer.text.trim()}`);
+                console.log(`${route} answers: ${answer.text.trim().slice(0, 240)}`);
                 return;
             }
 
@@ -236,11 +268,11 @@ async function waitForTheServer(base, container, seconds) {
         await pause(2000);
     }
 
-    console.error(`The server did not answer ${base}/System/Info/Public within ${seconds}s. Last attempt: ${last}`);
+    console.error(`The server did not answer ${base}${route} with 200 within ${seconds}s. Last attempt: ${last}`);
     console.error("Container output follows.");
     console.error(attempt("docker", ["logs", container]).stdout);
     console.error(attempt("docker", ["logs", container]).stderr);
-    throw new Error("The server never answered.");
+    throw new Error(`The server never answered ${route}.`);
 }
 
 /**
@@ -331,7 +363,7 @@ async function assertTheThreeThings(base, token, container, identity) {
         console.log(`   The server lists ${plugins.length} plugin(s): ${plugins.map((plugin) => `${plugin.Name} ${plugin.Version} ${plugin.Status}`).join("; ") || "none"}`);
 
         if (!mine) {
-            failures.push(`No plugin with identifier ${identity.guid} is listed, so the packaged zip did not load.`);
+            failures.push(`${NOT_LISTED} No plugin with identifier ${identity.guid} is listed, so the packaged zip did not load.`);
         } else if (mine.Status !== "Active") {
             failures.push(`The plugin is listed with status ${mine.Status} rather than Active.`);
         }
@@ -441,7 +473,8 @@ async function main() {
 
         const base = `http://127.0.0.1:${port}`;
 
-        await waitForTheServer(base, container, 240);
+        await waitFor(base, "/System/Info/Public", container, 240);
+        await waitFor(base, "/Startup/Configuration", container, 240);
 
         console.log("Completing first-time setup, so that an anonymous caller is refused by authorisation rather than admitted by the setup policy.");
 
@@ -450,7 +483,38 @@ async function main() {
         failures = await assertTheThreeThings(base, token, container, identity);
     } finally {
         attempt("docker", ["rm", "--force", container]);
-        fs.rmSync(root, { recursive: true, force: true });
+
+        // The server writes into the mounted directories as the user inside the
+        // container, which is not the user running this, so removing them can
+        // fail with a permission error. That is tidying rather than a verdict:
+        // it is reported and it does not decide the exit status, because a
+        // harness that reported a plugin broken over a leftover temporary file
+        // would be turned off within a week.
+        try {
+            fs.rmSync(root, { recursive: true, force: true });
+        } catch (error) {
+            console.log(`Left behind ${root}: ${error.message}`);
+        }
+    }
+
+    if (withoutThePlugin) {
+        // The near miss asserts the SHAPE of the failure rather than that there
+        // was one, for the reason the constant above gives.
+        const refused = failures.filter((failure) => failure.startsWith(NOT_LISTED));
+
+        for (const failure of failures) {
+            console.log(`  ${failure}`);
+        }
+
+        if (refused.length !== 1) {
+            console.error("");
+            console.error("The harness was pointed at a server with no plugin installed and did not refuse it for being unlisted. Whatever it reported, the assertion that the plugin is loaded and active has not been shown to bite, so the run that matters would prove nothing.");
+            process.exit(1);
+        }
+
+        console.log("");
+        console.log(`The harness refuses ${image} with no plugin installed, for being unlisted.`);
+        return;
     }
 
     if (failures.length > 0) {
