@@ -86,10 +86,8 @@ public class PluginConfigurationTests
         var page = RepositoryFiles.ReadFromRoot(
             "Jellyfin.Plugin.SmartCollections/Configuration/configPage.html");
 
-        foreach (Match control in FormControl.Matches(page))
+        foreach (var id in FormControl.Matches(page).Select(control => control.Groups["id"].Value))
         {
-            var id = control.Groups["id"].Value;
-
             Assert.True(
                 DocumentedDefaults.ContainsKey(id),
                 "The settings page carries a control with id " + id + ", and no setting is named that.");

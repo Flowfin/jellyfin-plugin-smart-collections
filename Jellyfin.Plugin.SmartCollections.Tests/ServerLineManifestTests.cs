@@ -125,9 +125,12 @@ public class ServerLineManifestTests
         var value = new StringBuilder();
         string? key = null;
 
-        foreach (var raw in RepositoryFiles.ReadFromRoot(manifest).Split('\n'))
+        var lines = RepositoryFiles.ReadFromRoot(manifest)
+            .Split('\n')
+            .Select(raw => raw.TrimEnd('\r'));
+
+        foreach (var line in lines)
         {
-            var line = raw.TrimEnd('\r');
             var trimmed = line.Trim();
 
             if (trimmed.StartsWith('#') || trimmed == "---")

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Jellyfin.Plugin.SmartCollections.Membership;
 
@@ -92,14 +93,7 @@ public sealed class MembershipDiff
         var held = new HashSet<Guid>(current);
         var wanted = new HashSet<Guid>(target);
 
-        var added = new List<Guid>();
-        foreach (var id in wanted)
-        {
-            if (!held.Contains(id))
-            {
-                added.Add(id);
-            }
-        }
+        var added = wanted.Where(id => !held.Contains(id)).ToList();
 
         var removed = new List<Guid>();
         var unchanged = new List<Guid>();

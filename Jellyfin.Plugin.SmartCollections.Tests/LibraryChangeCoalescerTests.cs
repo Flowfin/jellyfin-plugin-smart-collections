@@ -309,7 +309,7 @@ public class LibraryChangeCoalescerTests
     {
         var clock = new ManualTimeProvider(Start);
         var sink = new RecordingSink();
-        var coalescer = new LibraryChangeCoalescer([sink], clock, Quiet, Maximum);
+        using var coalescer = new LibraryChangeCoalescer([sink], clock, Quiet, Maximum);
 
         coalescer.ItemChanged(ItemId(0), LibraryChangeKind.Added);
         coalescer.Dispose();
