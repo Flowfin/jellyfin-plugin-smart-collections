@@ -38,6 +38,12 @@ internal sealed class FakeLibraryChangeSource : ILibraryChangeSource
 
     public void RaiseWithNoItem() => ItemAdded?.Invoke(this, new ItemChangeEventArgs());
 
+    // Neither of these two shapes is one the server produces. They are the two ways a handler on
+    // an EventHandler<T> can be called with nothing to read, and a handler that reads through
+    // either one throws inside a raise the server catches and logs, which loses the event and
+    // tells nothing above it.
+    public void RaiseWithNoArguments() => ItemAdded?.Invoke(this, null!);
+
     // A BaseItem with an identifier and nothing else. Its constructor initialises collections this
     // suite has no use for and its properties reach static server state, so the object is created
     // without running either and only the one member a handler reads is set.

@@ -129,7 +129,7 @@ public class LibraryChangeSubscriptionTests
     /// <summary>
     /// The server names an item on every raise of these three events. A raise that does not is
     /// nothing to report, and reading through it would be a null reference inside a handler whose
-    /// exceptions the server swallows.
+    /// exceptions the server swallows, so the event would be lost and nothing above would learn.
     /// </summary>
     [Fact]
     public async Task AnEventCarryingNoItemReachesNoObserver()
@@ -141,6 +141,7 @@ public class LibraryChangeSubscriptionTests
         await subscription.StartAsync(CancellationToken.None);
 
         library.RaiseWithNoItem();
+        library.RaiseWithNoArguments();
 
         Assert.Empty(observer.Seen);
     }
