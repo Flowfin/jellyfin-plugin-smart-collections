@@ -9,7 +9,7 @@
 //
 //   node .github/scripts/scan-a-server-for-collisions.js \
 //     --image jellyfin/jellyfin:10.11.11 --package <package.zip>
-//   node .github/scripts/scan-a-server-for-collisions.js --base http://127.0.0.1:8096
+//   node .github/scripts/scan-a-server-for-collisions.js --base http://127.0.0.1:8096 --token <token>
 //   node .github/scripts/scan-a-server-for-collisions.js --prove-the-scan-bites
 //
 // WHAT IT REPORTS IS A LIST AND NEVER THE FIRST ENTRY. An operator clearing
@@ -84,15 +84,22 @@
 // server answers plain HTTP on a port bound to the loopback address, so nothing
 // here trusts a certificate.
 //
-// THE ADMINISTRATOR ROUTES ARE READ BEFORE FIRST-TIME SETUP, DELIBERATELY. A
-// server with no user admits an unauthenticated caller to them, because the
-// policy behind them admits the setup wizard, and everything this scan reads is
-// something the server reports about itself rather than about anybody's
-// library. Completing the wizard first would add four calls that can fail for
-// reasons a collision scan is not about. Where a server refuses the read
-// instead, this exits non-zero naming the route and the status rather than
-// reporting a server with no collisions, because an unread server and a clean
-// one must not look the same.
+// THE PLUGIN LIST NEEDS A TOKEN, AND THIS FILE ONCE SAID IT DID NOT. It claimed
+// a server with no user admits an unauthenticated caller to the administrator
+// routes, so first-time setup could be skipped. The run that tested the claim
+// refused it: on a freshly booted 10.11 server `/Plugins` answered 401 for four
+// minutes while the log printed
+//
+//   Jellyfin.Api.Auth.CustomAuthenticationHandler: AuthenticationScheme: CustomAuthentication was challenged.
+//
+// once per attempt. The setup policy admits the wizard's own routes rather than
+// every administrator route. So where this boots a server it completes setup and
+// creates an administrator of its own, and where it is pointed at a server that
+// is already running it takes a token on the command line.
+//
+// A route that answers anything but 200 is reported with its status rather than
+// treated as an empty list, because an unread server and a clean one must not
+// look the same.
 //
 // A probe mode proves each kind bites before the run that matters, which is the
 // ordering the alone harness, the package check and the invariant lint already
@@ -124,14 +131,18 @@ const MANIFEST = "build.yaml";
 //   39:                    c.RouteTemplate = "{documentName}/openapi.json";
 const OPENAPI_ROUTES = ["/api-docs/openapi.json", "/openapi.json"];
 
-// Who the server is told is calling. It carries no token, because everything
-// read here is something the server reports about itself and a server with no
-// user admits that read.
+// Who the server is told is calling. A token is added to this where the route
+// needs one, which the plugin list and the scheduled task list both do.
 const CLIENT = 'MediaBrowser Client="collision-scan", Device="ci", DeviceId="collision-scan", Version="1.0.0.0"';
+
+// The administrator this scan creates on a server it booted itself, so that the
+// plugin list answers it. Nothing outside that container ever sees either.
+const ADMINISTRATOR = "collision-scan-administrator";
+const SECRET = "4b7e10c2-collision-scan";
 
 function usage() {
     console.error("Usage: node .github/scripts/scan-a-server-for-collisions.js --image <image> [--package <package.zip>] [--port <port>]");
-    console.error("       node .github/scripts/scan-a-server-for-collisions.js --base <url>");
+    console.error("       node .github/scripts/scan-a-server-for-collisions.js --base <url> [--token <token>]");
     console.error("       node .github/scripts/scan-a-server-for-collisions.js --prove-the-scan-bites");
     process.exit(2);
 }
@@ -370,11 +381,12 @@ function collisionsIn(report, identity) {
  *
  * @param {string} base The server's base address.
  * @param {string} route The route, beginning with a slash.
+ * @param {string} [token] An administrator access token, where the route needs one.
  * @returns {Promise<object>} The parsed body.
  */
-async function read(base, route) {
+async function read(base, route, token) {
     const response = await fetch(`${base}${route}`, {
-        headers: { Authorization: CLIENT },
+        headers: { Authorization: token ? `${CLIENT}, Token="${token}"` : CLIENT },
     });
 
     if (response.status !== 200) {
@@ -385,21 +397,85 @@ async function read(base, route) {
 }
 
 /**
+ * Completes first-time setup and returns an administrator token.
+ *
+ * THIS IS NOT OPTIONAL, AND THE FIRST VERSION OF THIS FILE SAID IT WAS. It
+ * claimed a server with no user admits an unauthenticated caller to the plugin
+ * list, and the run that tested the claim refused it: `/Plugins` answered 401
+ * for four minutes on a freshly booted 10.11 server while the log printed
+ *
+ *   Jellyfin.Api.Auth.CustomAuthenticationHandler: AuthenticationScheme: CustomAuthentication was challenged.
+ *
+ * once per attempt. The setup policy admits the wizard's own routes, not every
+ * administrator route, so a token is what a scan of the plugin list needs.
+ *
+ * THE GET ON /Startup/User IS NOT A READ. It is what creates the first user,
+ * and posting without it answers 404 on both supported lines. The server's own
+ * source is the authority:
+ *
+ *   gh api "repos/jellyfin/jellyfin/contents/Jellyfin.Api/Controllers/StartupController.cs?ref=v10.11.11" \
+ *     --jq .content | base64 -d | grep -n 'GetFirstUser\|UpdateStartupUser\|NotFound'
+ *
+ * @param {string} base The server's base address.
+ * @returns {Promise<string>} An administrator access token.
+ */
+async function completeFirstTimeSetup(base) {
+    const post = async (route, body) => {
+        const response = await fetch(`${base}${route}`, {
+            method: "POST",
+            headers: { Authorization: CLIENT, "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+
+        console.log(`  POST ${route} -> ${response.status}`);
+
+        if (response.status >= 400) {
+            throw new Error(`First-time setup failed at ${route} with status ${response.status}: ${(await response.text()).slice(0, 400)}`);
+        }
+
+        return response;
+    };
+
+    const created = await fetch(`${base}/Startup/User`, { headers: { Authorization: CLIENT } });
+
+    console.log(`  GET /Startup/User -> ${created.status}`);
+
+    if (created.status !== 200) {
+        throw new Error(`The server did not create a first user: /Startup/User answered ${created.status}. Every read below would then be refused, and this scan would report a server it never read.`);
+    }
+
+    await post("/Startup/Configuration", { UICulture: "en-US", MetadataCountryCode: "US", PreferredMetadataLanguage: "en" });
+    await post("/Startup/User", { Name: ADMINISTRATOR, Password: SECRET });
+    await post("/Startup/RemoteAccess", { EnableRemoteAccess: true, EnableAutomaticPortMapping: false });
+    await post("/Startup/Complete", {});
+
+    const authenticated = await post("/Users/AuthenticateByName", { Username: ADMINISTRATOR, Pw: SECRET });
+    const token = JSON.parse(await authenticated.text()).AccessToken;
+
+    if (!token) {
+        throw new Error("The authentication response carried no access token, so every read below would run unauthenticated and this scan would refuse a server it could have read.");
+    }
+
+    return token;
+}
+
+/**
  * Collects what the server reports about its plugins, its tasks and its routes.
  *
  * @param {string} base The server's base address.
+ * @param {string} [token] An administrator access token.
  * @returns {Promise<{plugins: object[], tasks: object[], paths: string[]}>} The report.
  */
-async function reportFrom(base) {
-    const plugins = await read(base, "/Plugins");
-    const tasks = await read(base, "/ScheduledTasks");
+async function reportFrom(base, token) {
+    const plugins = await read(base, "/Plugins", token);
+    const tasks = await read(base, "/ScheduledTasks", token);
 
     let document;
     let answered;
 
     for (const route of OPENAPI_ROUTES) {
         try {
-            document = await read(base, route);
+            document = await read(base, route, token);
             answered = route;
             break;
         } catch {
@@ -650,7 +726,7 @@ async function main() {
 
     if (already) {
         console.log(`Server:  ${already}, already running`);
-        report = await reportFrom(already);
+        report = await reportFrom(already, valueOf("--token"));
     } else {
         const runtime = attempt("docker", ["version", "--format", "{{.Server.Version}}"]);
 
@@ -693,12 +769,14 @@ async function main() {
 
             const base = `http://127.0.0.1:${port}`;
 
-            // Listening first, then readable. The header on waitFor says why
-            // these are two waits rather than one.
+            // Listening first, then ready. The header on waitFor says why these
+            // are two waits rather than one.
             await waitFor(base, "/System/Info/Public", container, 240);
-            await waitFor(base, "/Plugins", container, 240);
+            await waitFor(base, "/Startup/Configuration", container, 240);
 
-            report = await reportFrom(base);
+            console.log("Creating an administrator, because the plugin list refuses an unauthenticated caller even before first-time setup.");
+
+            report = await reportFrom(base, await completeFirstTimeSetup(base));
         } finally {
             attempt("docker", ["rm", "--force", container]);
 
