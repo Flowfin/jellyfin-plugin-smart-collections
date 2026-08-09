@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using System.Text;
 using Jellyfin.Plugin.SmartCollections.Rules;
 using Xunit;
 
@@ -186,6 +188,129 @@ public class RuleDocumentValidatorTests
 
         Assert.True(result.IsValid, Because(result));
         Assert.Empty(result.Errors);
+    }
+
+    /// <summary>
+    /// The mark an editor writes at the start of a UTF-8 file is an encoding detail of the file
+    /// and never a character of the document. Left in, it reaches the parser as U+FEFF and the
+    /// operator is told their document is not JSON because of something their editor wrote.
+    /// </summary>
+    [Fact]
+    public void AByteOrderMarkIsConsumedRatherThanReadAsPartOfTheDocument()
+    {
+        byte[] withMark = [0xEF, 0xBB, 0xBF, .. Encoding.UTF8.GetBytes(Minimal)];
+
+        var result = RuleDocumentValidator.Read(withMark);
+
+        Assert.True(result.IsValid, Because(result));
+        Assert.Equal(Minimal, result.Document!.Text, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// The other half of the same rule. Skipping three bytes whether or not a mark is there would
+    /// eat the first three characters of every document written without one, which is most of
+    /// them.
+    /// </summary>
+    [Fact]
+    public void ADocumentWithoutAMarkKeepsItsFirstThreeBytes()
+    {
+        var result = RuleDocumentValidator.Read(Encoding.UTF8.GetBytes(Minimal));
+
+        Assert.True(result.IsValid, Because(result));
+        Assert.Equal(Minimal, result.Document!.Text, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// A file that is only a mark carries no document. It is refused for being empty rather than
+    /// for its encoding, which is the message that tells the operator what to do about it.
+    /// </summary>
+    [Fact]
+    public void AFileHoldingNothingButTheMarkIsRefused()
+    {
+        var result = RuleDocumentValidator.Read([0xEF, 0xBB, 0xBF]);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("not JSON", Assert.Single(result.Errors).Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A surrogate encoded as though it were a character. UTF-8 has no encoding for one, and a
+    /// decoder that replaced it would hand the parser a document holding U+FFFD where the
+    /// operator wrote something else.
+    /// </summary>
+    [Fact]
+    public void ALoneSurrogateIsRefusedAndTheRefusalNamesWhereItStarts()
+    {
+        // {"a":" ED A0 80 "}
+        byte[] content = [0x7B, 0x22, 0x61, 0x22, 0x3A, 0x22, 0xED, 0xA0, 0x80, 0x22, 0x7D];
+
+        AssertRefusedAsNotUtf8(content, offset: 6, first: "0xED");
+    }
+
+    /// <summary>
+    /// A byte that begins no sequence at all, which is what a file in another encoding looks like
+    /// from here.
+    /// </summary>
+    [Fact]
+    public void AByteThatBeginsNoSequenceIsRefusedAndTheRefusalNamesWhereItIs()
+    {
+        byte[] content = [0x7B, 0xFF, 0x7D];
+
+        AssertRefusedAsNotUtf8(content, offset: 1, first: "0xFF");
+    }
+
+    /// <summary>
+    /// The shape a write cut short leaves behind: a multi-byte sequence whose remaining bytes
+    /// never arrived. It is the reason the decode is refused rather than salvaged, because the
+    /// bytes that would say what the document meant are gone.
+    /// </summary>
+    [Fact]
+    public void ASequenceCutShortIsRefusedAndTheRefusalNamesWhereItStarts()
+    {
+        // {"a":" and the first two bytes of a three byte character.
+        byte[] content = [0x7B, 0x22, 0x61, 0x22, 0x3A, 0x22, 0xE2, 0x82];
+
+        AssertRefusedAsNotUtf8(content, offset: 6, first: "0xE2");
+    }
+
+    /// <summary>
+    /// The offset is into the file, not into what was left after the mark was taken off. An
+    /// operator opening the file in an editor counts from the first byte, and a refusal counting
+    /// from somewhere else sends them to the wrong place.
+    /// </summary>
+    [Fact]
+    public void TheOffsetIsCountedFromTheStartOfTheFileEvenWithAMark()
+    {
+        byte[] content = [0xEF, 0xBB, 0xBF, 0x7B, 0xFF, 0x7D];
+
+        AssertRefusedAsNotUtf8(content, offset: 4, first: "0xFF");
+    }
+
+    /// <summary>
+    /// A caller that lost the bytes it meant to read should learn about it here rather than have
+    /// an absent file read as a document that refused itself.
+    /// </summary>
+    [Fact]
+    public void ReadingBytesThatAreNotThereIsRefusedRatherThanTreatedAsEmpty()
+    {
+        Assert.Throws<ArgumentNullException>(() => RuleDocumentValidator.Read((byte[])null!));
+    }
+
+    private static void AssertRefusedAsNotUtf8(byte[] content, int offset, string first)
+    {
+        var result = RuleDocumentValidator.Read(content);
+
+        Assert.False(result.IsValid);
+
+        var error = Assert.Single(result.Errors);
+
+        Assert.Equal(RuleValidationError.WholeDocument, error.Pointer, StringComparer.Ordinal);
+        Assert.Contains("not UTF-8", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "offset " + offset.ToString(CultureInfo.InvariantCulture),
+            error.Message,
+            StringComparison.Ordinal);
+        Assert.Contains(first, error.Message, StringComparison.Ordinal);
     }
 
     // xunit prints the assertion, not the reason, so the reason is put where it will be read.

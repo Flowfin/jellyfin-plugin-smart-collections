@@ -57,11 +57,11 @@ public sealed class RuleDocumentStoreTests : IDisposable
         Assert.Equal(written, read);
 
         // And what came back is still a document this plugin accepts, so the round trip is not
-        // byte-exact by having produced something unreadable.
-        // Decoded with a UTF-8 encoding that consumes the byte order mark, rather than by
-        // trimming a character out of the text: the mark is an encoding detail of the file and
-        // never a character of the document.
-        var result = RuleDocumentValidator.Read(new UTF8Encoding(false).GetString(read, 3, read.Length - 3));
+        // byte-exact by having produced something unreadable. Handed over as bytes, because that
+        // is what the store returns and the decode is the validator's to do: this line once
+        // decoded by hand with an encoding whose constructor argument decides what it EMITS, and
+        // took the mark off with a literal 3 while a comment said the encoding was doing it.
+        var result = RuleDocumentValidator.Read(read);
         Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
     }
 
