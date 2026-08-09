@@ -124,6 +124,11 @@ const MANIFEST = "build.yaml";
 //   39:                    c.RouteTemplate = "{documentName}/openapi.json";
 const OPENAPI_ROUTES = ["/api-docs/openapi.json", "/openapi.json"];
 
+// Who the server is told is calling. It carries no token, because everything
+// read here is something the server reports about itself and a server with no
+// user admits that read.
+const CLIENT = 'MediaBrowser Client="collision-scan", Device="ci", DeviceId="collision-scan", Version="1.0.0.0"';
+
 function usage() {
     console.error("Usage: node .github/scripts/scan-a-server-for-collisions.js --image <image> [--package <package.zip>] [--port <port>]");
     console.error("       node .github/scripts/scan-a-server-for-collisions.js --base <url>");
@@ -369,7 +374,7 @@ function collisionsIn(report, identity) {
  */
 async function read(base, route) {
     const response = await fetch(`${base}${route}`, {
-        headers: { Authorization: 'MediaBrowser Client="collision-scan", Device="ci", DeviceId="collision-scan", Version="1.0.0.0"' },
+        headers: { Authorization: CLIENT },
     });
 
     if (response.status !== 200) {
@@ -416,23 +421,40 @@ async function reportFrom(base) {
 }
 
 /**
- * Waits for the server to answer.
+ * Waits for a route to answer 200.
+ *
+ * THE ROUTE WAITED ON IS ONE THE SCAN READS, AND THAT IS NOT A REFINEMENT.
+ * `/System/Info/Public` answers 200 while the rest of the server is still
+ * starting, and a read posted at that moment is held by the middleware that
+ * queues requests until startup finishes. Measured on the 10.11 line:
+ *
+ *   /System/Info/Public answers: {"version":"10.11.11", ..., "startupWizardCompleted":false}
+ *   Error: /Plugins answered 503.
+ *
+ * So the public route says the server is listening and `/Plugins` says it is
+ * ready to be read, and the difference between the two is a scan that fails on
+ * every run for a reason that has nothing to do with a collision.
+ *
+ * A route that never reaches 200 is reported with its last status rather than
+ * treated as an empty list, which is the same refusal `read` makes and for the
+ * same reason.
  *
  * @param {string} base The server's base address.
+ * @param {string} route The route to poll.
  * @param {string} container The container name, for the log on failure.
  * @param {number} seconds How long to wait.
- * @returns {Promise<void>} Resolves once the server answers.
+ * @returns {Promise<void>} Resolves once the route answers 200.
  */
-async function waitFor(base, container, seconds) {
+async function waitFor(base, route, container, seconds) {
     const deadline = Date.now() + seconds * 1000;
     let last = "no attempt completed";
 
     while (Date.now() < deadline) {
         try {
-            const response = await fetch(`${base}/System/Info/Public`);
+            const response = await fetch(`${base}${route}`, { headers: { Authorization: CLIENT } });
 
             if (response.status === 200) {
-                console.log(`/System/Info/Public answers: ${(await response.text()).trim().slice(0, 240)}`);
+                console.log(`${route} answers: ${(await response.text()).trim().slice(0, 200)}`);
                 return;
             }
 
@@ -444,10 +466,10 @@ async function waitFor(base, container, seconds) {
         await pause(2000);
     }
 
-    console.error(`The server did not answer ${base}/System/Info/Public within ${seconds}s. Last attempt: ${last}`);
+    console.error(`The server did not answer ${base}${route} with 200 within ${seconds}s. Last attempt: ${last}`);
     console.error(attempt("docker", ["logs", container]).stdout);
     console.error(attempt("docker", ["logs", container]).stderr);
-    throw new Error("The server never answered.");
+    throw new Error(`The server never answered ${route}.`);
 }
 
 /**
@@ -671,7 +693,10 @@ async function main() {
 
             const base = `http://127.0.0.1:${port}`;
 
-            await waitFor(base, container, 240);
+            // Listening first, then readable. The header on waitFor says why
+            // these are two waits rather than one.
+            await waitFor(base, "/System/Info/Public", container, 240);
+            await waitFor(base, "/Plugins", container, 240);
 
             report = await reportFrom(base);
         } finally {
