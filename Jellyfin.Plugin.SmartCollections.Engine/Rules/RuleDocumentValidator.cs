@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 
 namespace Jellyfin.Plugin.SmartCollections.Rules;
@@ -42,6 +44,71 @@ public static class RuleDocumentValidator
     public const string SchemaVersionMember = "schemaVersion";
 
     private const string SchemaVersionPointer = "/" + SchemaVersionMember;
+
+    /// <summary>
+    /// The three bytes an editor writes at the start of a file to say it is UTF-8.
+    /// </summary>
+    private static readonly byte[] ByteOrderMark = [0xEF, 0xBB, 0xBF];
+
+    /// <summary>
+    /// The decoder a file goes through, which refuses what it cannot read rather than replacing it.
+    /// </summary>
+    /// <remarks>
+    /// The default decoder substitutes U+FFFD for a byte sequence that is not UTF-8, which turns a
+    /// truncated or corrupt file into a document that parses and means something the operator did
+    /// not write. Refusing is the only answer that leaves the operator able to act.
+    ///
+    /// The constructor argument decides whether this encoding EMITS a mark and nothing else. It
+    /// does not consume one while decoding, so a file written with a mark decodes to a string
+    /// beginning U+FEFF and the parser refuses it as not JSON, reporting the operator's document
+    /// for something their editor wrote. The mark is removed below rather than here, and this
+    /// paragraph exists because the argument reads as though it were the removal.
+    /// </remarks>
+    private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+    /// <summary>
+    /// Reads a rule document from the bytes a file holds.
+    /// </summary>
+    /// <remarks>
+    /// This is the entry point for anything that reads a file, because the bytes are where the
+    /// interesting refusals live: a byte order mark, a lone surrogate, an unexpected byte and a
+    /// multi-byte sequence cut short by a truncated write. A caller that decoded first and handed
+    /// the text to the overload below would have answered all four of those questions on its own,
+    /// each caller differently.
+    /// </remarks>
+    /// <param name="content">The file's bytes, exactly as they were read.</param>
+    /// <returns>The document, or every reason it was refused.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="content"/> is <see langword="null"/>.</exception>
+    public static RuleDocumentValidation Read(byte[] content)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+
+        // Consumed rather than trimmed out of the decoded text: the mark says which encoding the
+        // file is in and is never a character of the document, so removing it here is what lets
+        // everything downstream read a document that cannot begin with one. Asked for rather than
+        // assumed, because skipping three bytes unconditionally eats the first three bytes of
+        // every document written without a mark.
+        var start = content.AsSpan().StartsWith(ByteOrderMark) ? ByteOrderMark.Length : 0;
+
+        string text;
+
+        try
+        {
+            text = Utf8.GetString(content, start, content.Length - start);
+        }
+        catch (DecoderFallbackException exception)
+        {
+            var offset = start + exception.Index;
+
+            return Refuse(
+                RuleValidationError.WholeDocument,
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"The file is not UTF-8 text. The byte at offset {offset}, 0x{content[offset]:X2}, begins a sequence that does not decode."));
+        }
+
+        return Read(text);
+    }
 
     /// <summary>
     /// Reads a rule document.
