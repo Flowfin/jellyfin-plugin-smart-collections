@@ -42,6 +42,7 @@ public class MembershipApplierTests
         var outcomes = await MembershipApplier.ApplyAsync(
             [new CollectionRefresh(Collection, diff)],
             writer,
+            new CollectionRefreshGate(),
             CancellationToken.None);
 
         Assert.Equal(held.OrderBy(id => id), writer.Held(Collection));
@@ -69,6 +70,7 @@ public class MembershipApplierTests
         await MembershipApplier.ApplyAsync(
             [new CollectionRefresh(Collection, diff)],
             writer,
+            new CollectionRefreshGate(),
             CancellationToken.None);
 
         Assert.DoesNotContain(writer.Calls, call => call.StartsWith("remove", StringComparison.Ordinal));
@@ -88,6 +90,7 @@ public class MembershipApplierTests
         await MembershipApplier.ApplyAsync(
             [new CollectionRefresh(Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1), Identifier(3)]))],
             writer,
+            new CollectionRefreshGate(),
             CancellationToken.None);
 
         Assert.Equal(
@@ -121,6 +124,7 @@ public class MembershipApplierTests
                 new CollectionRefresh(third, diff)
             ],
             writer,
+            new CollectionRefreshGate(),
             CancellationToken.None);
 
         Assert.Contains(arriving, writer.Held(first));
@@ -152,6 +156,7 @@ public class MembershipApplierTests
         var outcomes = await MembershipApplier.ApplyAsync(
             [new CollectionRefresh(good, diff), new CollectionRefresh(bad, diff)],
             writer,
+            new CollectionRefreshGate(),
             CancellationToken.None);
 
         var failed = Assert.Single(outcomes, outcome => !outcome.Succeeded);
@@ -180,6 +185,7 @@ public class MembershipApplierTests
         var outcomes = await MembershipApplier.ApplyAsync(
             [new CollectionRefresh(Collection, MembershipDiff.Between([], [stays, vanished]))],
             writer,
+            new CollectionRefreshGate(),
             CancellationToken.None);
 
         Assert.True(outcomes[0].Succeeded);
@@ -203,6 +209,7 @@ public class MembershipApplierTests
         var outcomes = await MembershipApplier.ApplyAsync(
             [new CollectionRefresh(Collection, MembershipDiff.Between([], [vanished]))],
             writer,
+            new CollectionRefreshGate(),
             CancellationToken.None);
 
         Assert.Equal(["resolve"], writer.Calls.Select(call => call.Split(' ')[0]));
@@ -226,6 +233,7 @@ public class MembershipApplierTests
         var outcomes = await MembershipApplier.ApplyAsync(
             [new CollectionRefresh(Collection, MembershipDiff.Between([vanished], []))],
             writer,
+            new CollectionRefreshGate(),
             CancellationToken.None);
 
         Assert.Empty(writer.Held(Collection));
@@ -248,6 +256,7 @@ public class MembershipApplierTests
         var outcomes = await MembershipApplier.ApplyAsync(
             [new CollectionRefresh(Collection, MembershipDiff.Between([Identifier(1)], [Identifier(1)]))],
             writer,
+            new CollectionRefreshGate(),
             CancellationToken.None);
 
         Assert.Empty(writer.Calls);
@@ -270,6 +279,7 @@ public class MembershipApplierTests
         var outcomes = await MembershipApplier.ApplyAsync(
             [new CollectionRefresh(Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1)]))],
             writer,
+            new CollectionRefreshGate(),
             CancellationToken.None);
 
         Assert.Equal(["remove"], writer.Calls.Select(call => call.Split(' ')[0]));
@@ -293,6 +303,7 @@ public class MembershipApplierTests
         var outcomes = await MembershipApplier.ApplyAsync(
             [new CollectionRefresh(Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1), arriving]))],
             writer,
+            new CollectionRefreshGate(),
             CancellationToken.None);
 
         Assert.False(outcomes[0].Succeeded);
@@ -319,9 +330,45 @@ public class MembershipApplierTests
             () => MembershipApplier.ApplyAsync(
                 [new CollectionRefresh(Collection, MembershipDiff.Between([], [Identifier(3)]))],
                 writer,
+                new CollectionRefreshGate(),
                 cancelled.Token));
 
         Assert.Empty(writer.Held(Collection));
+    }
+
+    /// <summary>
+    /// The same rule one step later, and the two are not the same test. The run above is refused
+    /// before it starts, at the gate, so nothing in the applier ever sees the token. This one is
+    /// cancelled while it is already writing, which is the shape a server shutting down has, and
+    /// it is the one that reaches the applier's own decision to stop rather than to record a fault
+    /// against the collection and carry on to the next.
+    /// </summary>
+    [Fact]
+    public async Task ARunCancelledWhileItIsWritingStopsRatherThanRecordingAFault()
+    {
+        var first = Identifier(20);
+        var second = Identifier(21);
+        var arriving = Identifier(3);
+
+        var writer = new FakeCollectionWriter();
+        writer.PutInLibrary([arriving]);
+        writer.Seed(first, []);
+        writer.Seed(second, []);
+
+        using var shutdown = new CancellationTokenSource();
+        writer.CancelWhenTheAddStarts(shutdown);
+
+        var diff = MembershipDiff.Between([], [arriving]);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => MembershipApplier.ApplyAsync(
+                [new CollectionRefresh(first, diff), new CollectionRefresh(second, diff)],
+                writer,
+                new CollectionRefreshGate(),
+                shutdown.Token));
+
+        Assert.Empty(writer.Held(first));
+        Assert.Empty(writer.Held(second));
+        Assert.DoesNotContain(writer.Calls, call => call.StartsWith("remove", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -335,9 +382,11 @@ public class MembershipApplierTests
         var writer = new FakeCollectionWriter();
 
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => MembershipApplier.ApplyAsync(null!, writer, CancellationToken.None));
+            () => MembershipApplier.ApplyAsync(null!, writer, new CollectionRefreshGate(), CancellationToken.None));
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => MembershipApplier.ApplyAsync([], null!, CancellationToken.None));
+            () => MembershipApplier.ApplyAsync([], null!, new CollectionRefreshGate(), CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => MembershipApplier.ApplyAsync([], writer, null!, CancellationToken.None));
         Assert.Throws<ArgumentNullException>(() => new CollectionRefresh(Collection, null!));
     }
 
@@ -364,6 +413,7 @@ public class MembershipApplierTests
         private readonly List<string> _calls = [];
         private readonly Dictionary<Guid, int> _addThrows = [];
         private readonly HashSet<Guid> _removeThrows = [];
+        private CancellationTokenSource? _cancelOnAdd;
 
         public IReadOnlyList<string> Calls => _calls;
 
@@ -377,6 +427,12 @@ public class MembershipApplierTests
 
         public void ThrowOnTheRemoveOf(Guid collectionId) => _removeThrows.Add(collectionId);
 
+        /// <summary>
+        /// Cancels the run at the moment the add begins, which is the shape a server shutting down
+        /// has: the token is live when the refresh starts and is cancelled while it writes.
+        /// </summary>
+        public void CancelWhenTheAddStarts(CancellationTokenSource cancelling) => _cancelOnAdd = cancelling;
+
         public IReadOnlyList<Guid> Held(Guid collectionId)
             => [.. _collections[collectionId].Order()];
 
@@ -389,6 +445,7 @@ public class MembershipApplierTests
         public Task AddToCollectionAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken)
         {
             _calls.Add("add " + Join(itemIds));
+            _cancelOnAdd?.Cancel();
             cancellationToken.ThrowIfCancellationRequested();
 
             // The server resolves every identifier in the batch before it assigns anything, so a
