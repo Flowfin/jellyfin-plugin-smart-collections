@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -33,6 +34,10 @@ public class ServerLineManifestTests
     private static readonly Regex Scalar = new(
         "^(?<key>[A-Za-z][A-Za-z0-9_]*):[ \t]*\"?(?<value>[^\"\r\n]*?)\"?[ \t]*\r?$",
         RegexOptions.Multiline | RegexOptions.CultureInvariant);
+
+    private static readonly Regex TopLevelKey = new(
+        "^(?<key>[A-Za-z][A-Za-z0-9_]*):(?<rest>.*)$",
+        RegexOptions.CultureInvariant);
 
     private static readonly Regex ProjectTargetFrameworks = new(
         "<TargetFrameworks>(?<frameworks>[^<]+)</TargetFrameworks>",
@@ -93,6 +98,73 @@ public class ServerLineManifestTests
             declared);
     }
 
+    /// <summary>
+    /// Reads every top-level entry of a manifest as its key and everything written under it, with
+    /// comments and the document marker removed.
+    /// </summary>
+    /// <remarks>
+    /// The scalar reader above skips a block value and a list on purpose, and that is the right
+    /// answer for the two questions it is asked. It is the wrong answer for asking whether two
+    /// manifests agree: the catalogue text an operator reads is <c>description</c>, which is a
+    /// block, and what a package actually ships is <c>artifacts</c>, which is a list. Both were
+    /// outside the comparison, so a manifest could name one assembly while its neighbour named
+    /// two and every test here stayed green.
+    ///
+    /// Still no YAML dependency. Nothing here interprets a block or a list; a continuation line is
+    /// carried through as written, which compares two manifests more strictly than parsing them
+    /// would, since a difference in indentation is a difference in the text as well.
+    ///
+    /// A comment is dropped rather than compared, because the two manifests explain their own
+    /// per-line fields in their own words and are meant to.
+    /// </remarks>
+    /// <param name="manifest">The manifest file name at the repository root.</param>
+    /// <returns>The top-level keys and the text under each.</returns>
+    private static Dictionary<string, string> Entries(string manifest)
+    {
+        var entries = new Dictionary<string, string>(StringComparer.Ordinal);
+        var value = new StringBuilder();
+        string? key = null;
+
+        foreach (var raw in RepositoryFiles.ReadFromRoot(manifest).Split('\n'))
+        {
+            var line = raw.TrimEnd('\r');
+            var trimmed = line.Trim();
+
+            if (trimmed.StartsWith('#') || trimmed == "---")
+            {
+                continue;
+            }
+
+            var match = TopLevelKey.Match(line);
+
+            if (!match.Success)
+            {
+                Assert.True(
+                    key is not null,
+                    manifest + " opens with a line that is neither a comment nor a top-level key: " + line);
+
+                value.Append(line).Append('\n');
+                continue;
+            }
+
+            if (key is not null)
+            {
+                entries[key] = value.ToString().Trim();
+            }
+
+            key = match.Groups["key"].Value;
+            value.Clear();
+            value.Append(match.Groups["rest"].Value.Trim()).Append('\n');
+        }
+
+        if (key is not null)
+        {
+            entries[key] = value.ToString().Trim();
+        }
+
+        return entries;
+    }
+
     [Fact]
     public void TheManifestsDifferOnlyWhereTheServerLineDiffers()
     {
@@ -100,11 +172,11 @@ public class ServerLineManifestTests
 
         Assert.True(manifests.Length > 1, "There is only one manifest, so there is nothing to compare.");
 
-        var first = Scalars(manifests[0]);
+        var first = Entries(manifests[0]);
 
         foreach (var manifest in manifests.Skip(1))
         {
-            var other = Scalars(manifest);
+            var other = Entries(manifest);
 
             Assert.Equal(first.Keys.OrderBy(key => key, StringComparer.Ordinal), other.Keys.OrderBy(key => key, StringComparer.Ordinal));
 
