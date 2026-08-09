@@ -76,6 +76,20 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
 
         serviceCollection.AddSingleton<ILibraryChangeSource, LibraryManagerChangeSource>();
 
+        // One coalescer for the plugin, and the only observer of the subscription. A second
+        // instance would accumulate a second copy of every change and close its own batches, so
+        // the burst the subscription reports once would be evaluated twice. The intervals are the
+        // recorded defaults; the clock is the framework's real one here and is injected so the
+        // suite can drive the two intervals without waiting them out.
+        serviceCollection.AddSingleton(
+            provider => new LibraryChangeCoalescer(
+                provider.GetServices<ILibraryChangeBatchSink>(),
+                TimeProvider.System,
+                LibraryChangeCoalescer.DefaultQuietPeriod,
+                LibraryChangeCoalescer.DefaultMaximumWait));
+        serviceCollection.AddSingleton<ILibraryChangeObserver>(
+            provider => provider.GetRequiredService<LibraryChangeCoalescer>());
+
         // Registered as itself and handed to the host through that registration rather than
         // constructed twice. AddHostedService<T>() would build a second instance, so the object
         // holding the subscription would not be the object anything else resolves, and a later
