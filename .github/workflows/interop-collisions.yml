@@ -1,0 +1,161 @@
+# Scan a booted server for the ways two plugins collide (#60).
+#
+# The first half of the interoperability rule is that this plugin works alone,
+# and a job already boots each line and asserts that. This is the second half
+# asked in the small: two plugins collide in a handful of concrete ways, and
+# every one of them is enumerable from a running server rather than argued
+# about. What the scan reads is a route list, a scheduled task list and a plugin
+# list, so it says the same thing about any set of plugins and gains value as
+# the set grows.
+#
+# WHAT A GREEN RUN HERE MEANS TODAY IS NARROW, and saying so is the point of
+# this paragraph. One plugin is installed, so a green run means the server holds
+# no collision with this plugin on it and does not mean two plugins have been
+# watched not colliding. The set this scan runs over is what the sibling matrix
+# widens (#61), and the scan does not change when it does.
+#
+# The server this job boots is THE PACKAGED ZIP unpacked the way a server
+# unpacks it, built here from the same action and the same pin the shipping
+# package check uses, for the reason the alone job gives: build output in a
+# container proves the code works and not that the thing users download works.
+#
+# A probe runs ahead of the run that matters, which is the ordering the alone
+# harness, the package check and the invariant lint already use. Each of the
+# scan's kinds is run over a report built to collide, which it must refuse, and
+# over a one-change neighbour of that report, which it must pass. A scan that
+# reported nothing would pass a real server exactly like one that is holding.
+#
+#   node .github/scripts/scan-a-server-for-collisions.js --prove-the-scan-bites
+#
+# The two lines are separate jobs rather than one, for the reason the ABI floor
+# and the alone job give: one line failing says nothing about the other, and a
+# reader wants both verdicts rather than the first one.
+#
+# It needs no display, no elevated rights and no machine trust store. The server
+# answers plain HTTP on a loopback port inside the runner, so nothing here
+# trusts a certificate.
+#
+# WHAT THIS COSTS is a container boot per line on every pull request, on top of
+# the two the alone job already pays for. That is the number to weigh, and it is
+# here rather than in a ledger entry that describes it.
+#
+# Whether these job names are in the branch ruleset's required set is a fact of
+# the ruleset rather than of this file (#20). Print it:
+#
+#   gh api repos/Flowfin/jellyfin-plugin-smart-collections/rulesets/20465770 \
+#     --jq '[.rules[] | select(.type=="required_status_checks")
+#           | .parameters.required_status_checks[].context]'
+
+name: Collisions
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# Deny-all at the workflow level; the job below grants only what it reads.
+permissions: {}
+
+# A superseded run on the same ref tells nobody anything, and this one holds a
+# container runtime for the length of two server boots.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  collisions:
+    # The check run takes this name, and that is the string #20 would put in the
+    # required list. Renaming it renames the required context.
+    name: Collisions (${{ matrix.line }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read # check out the tree the package is built from
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # build.yaml declares targetAbi 10.11.0.0 and 10.11.11 is the newest
+          # image published on that line.
+          - line: "10.11"
+            framework: net9.0
+            manifest: build.yaml
+            image: "jellyfin/jellyfin:10.11.11"
+            is-released: "yes"
+          # build-jf12.yaml declares targetAbi 12.0.0.0 and no released 12.0
+          # image exists, so this job boots the newest candidate on that line and
+          # says so on every run rather than reporting a line it did not test.
+          - line: "12.0"
+            framework: net10.0
+            manifest: build-jf12.yaml
+            image: "jellyfin/jellyfin:12.0-rc4"
+            is-released: "no"
+    steps:
+      - name: Check out the tree
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step here pushes, so the token has no reason to survive in
+          # .git/config where every later step could read it.
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          # Both, whichever framework this job packs. A restore is a
+          # cross-targeting operation and resolves every target framework the
+          # projects declare, so an SDK for only one of them cannot restore this
+          # tree at all.
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Say what this job is booting
+        env:
+          LINE: ${{ matrix.line }}
+          MANIFEST: ${{ matrix.manifest }}
+          IMAGE: ${{ matrix.image }}
+          IS_RELEASED: ${{ matrix.is-released }}
+        run: |
+          set -euo pipefail
+          echo "Server line: $LINE"
+          echo "Manifest:    $MANIFEST"
+          grep -n 'targetAbi' "$MANIFEST"
+          echo "Image:       $IMAGE"
+          if [ "$IS_RELEASED" != "yes" ]; then
+            echo "::warning::This line has no released image at the floor its manifest declares, so this job boots a release candidate and what it reports is a verdict about that candidate rather than about a released server."
+          fi
+
+      - name: Put this line's manifest where the packager reads it
+        env:
+          MANIFEST: ${{ matrix.manifest }}
+        run: |
+          set -euo pipefail
+          if [ "$MANIFEST" != "build.yaml" ]; then
+            cp "$MANIFEST" build.yaml
+          fi
+          grep -n 'targetAbi\|framework' build.yaml
+
+      - name: Prove every kind the scan reports bites
+        # This runs no container. It runs the scan over a fabricated report per
+        # kind and over a one-change neighbour of each, and it refuses a kind
+        # that fires on the neighbour as well as one that does not fire at all.
+        run: node .github/scripts/scan-a-server-for-collisions.js --prove-the-scan-bites
+
+      - name: Build the package this job installs
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        id: jprm
+        with:
+          dotnet-target: ${{ matrix.framework }}
+
+      - name: Scan the line with this plugin installed
+        env:
+          IMAGE: ${{ matrix.image }}
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          node .github/scripts/scan-a-server-for-collisions.js \
+            --image "$IMAGE" --package "$ARTIFACT"
