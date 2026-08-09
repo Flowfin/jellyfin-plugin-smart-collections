@@ -26,6 +26,14 @@ namespace Jellyfin.Plugin.SmartCollections.Membership;
 /// The other half is isolation. A refresh covers several collections and one of them throwing
 /// says nothing about the rest, so each is applied inside its own attempt and the fault is
 /// recorded against that collection rather than ending the run.
+///
+/// Both of those hold within one run and neither of them says anything about a second run
+/// arriving at the same collection. Two runs whose writes interleave both finish and both report
+/// success, and the membership they leave behind is neither of the two their rules describe, so
+/// the ordering above buys nothing unless one refresh at a time reaches a collection. A
+/// <see cref="CollectionRefreshGate"/> is therefore an argument here rather than something a
+/// caller may remember to wrap around this, because a run that skipped it would apply exactly
+/// like one that did not.
 /// </remarks>
 public static class MembershipApplier
 {
@@ -34,12 +42,17 @@ public static class MembershipApplier
     /// </summary>
     /// <param name="refreshes">The collections to change and what to change about them.</param>
     /// <param name="writer">The port the writes go through.</param>
+    /// <param name="gate">
+    /// What keeps another refresh of the same collection out while this one writes. Two runs
+    /// sharing a gate exclude each other; two runs holding a gate each exclude nothing, which is
+    /// why the instance is decided where the plugin's services are registered rather than here.
+    /// </param>
     /// <param name="cancellationToken">Cancels the run.</param>
     /// <returns>
     /// One outcome per element of <paramref name="refreshes"/>, in the same order, whether it
     /// succeeded or not.
     /// </returns>
-    /// <exception cref="ArgumentNullException">Either argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">Any argument is <see langword="null"/>.</exception>
     /// <exception cref="OperationCanceledException">
     /// The run was cancelled. This is not recorded against a collection, because continuing to the
     /// next one is the opposite of what a cancelled run was asked to do.
@@ -47,15 +60,23 @@ public static class MembershipApplier
     public static async Task<IReadOnlyList<CollectionRefreshOutcome>> ApplyAsync(
         IReadOnlyList<CollectionRefresh> refreshes,
         ICollectionMembershipWriter writer,
+        CollectionRefreshGate gate,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(refreshes);
         ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(gate);
 
         var outcomes = new List<CollectionRefreshOutcome>(refreshes.Count);
         foreach (var refresh in refreshes)
         {
-            outcomes.Add(await ApplyOneAsync(refresh, writer, cancellationToken).ConfigureAwait(false));
+            // Entered per collection rather than once around the loop. A run holding one gate over
+            // every collection it touches would make two runs that share a single collection
+            // serialise on all of the others as well, which is the cost this design refuses.
+            outcomes.Add(await gate.ApplyExclusivelyAsync(
+                refresh.CollectionId,
+                token => ApplyOneAsync(refresh, writer, token),
+                cancellationToken).ConfigureAwait(false));
         }
 
         return outcomes;
