@@ -118,6 +118,15 @@ Run it with the rest of the suite:
 dotnet test -c Release --filter FullyQualifiedName~SuitePortabilityTests
 ```
 
+## What the suite would catch if it broke
+
+Nothing above measures that. Whether a change to the engine would be noticed by
+a test is measured separately, by a mutation run that seeds one fault at a time
+and reports which ones nothing failed on. The score, the threshold that holds it
+and the command that produced both are in [mutation-score.md](mutation-score.md).
+It runs on a schedule rather than on a pull request, and that document says what
+that costs.
+
 ## What this does not cover
 
 The scan reads the test project only. The plugin project takes its directories

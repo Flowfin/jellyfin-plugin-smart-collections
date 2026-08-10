@@ -1,0 +1,115 @@
+# Measure what the suite would catch if determinism broke, and hold it at the
+# score the suite actually reaches (#46).
+#
+# Line coverage does not measure this. A test that executes a line without
+# asserting anything about it covers the line and catches nothing, so the
+# coverage floor this repository already runs answers "was this code executed"
+# and never "would a change to it be noticed". Mutation testing answers the
+# second question directly: the tool changes one operator, boundary or return
+# value at a time and reports which changes the suite failed to notice. A
+# surviving mutant is a statement about the suite rather than about the code,
+# and each one is either a missing test or a piece of code nobody needed.
+#
+# SCOPED TO THE ENGINE ASSEMBLY, which is where the determinism claim lives. The
+# configuration page and the plugin host are covered by their own tests and are
+# not where a determinism failure would hide. `stryker-config.json` names the
+# project rather than a glob, so a file added to the engine is mutated without
+# anybody remembering to widen a list.
+#
+# NOT ON A PULL REQUEST, BY CONSTRUCTION. A full run is minutes of compute that
+# says the same thing as the run before it unless the engine or the suite moved,
+# and the pull request gate already has enough legs. This job runs on a schedule
+# and on manual dispatch and never on a merge path, which is also why its name
+# cannot become a required status check by accident.
+#
+# THE THRESHOLD IS THE MEASURED SCORE RATHER THAN A ROUND NUMBER. A round number
+# above the score reds every run from the first one; a round number below it
+# lets the suite weaken by however much the gap was, quietly. `thresholds.break`
+# in `stryker-config.json` carries the number and the pull request that set it
+# carries the run that produced it. Losing one killed mutant out of the 75 that
+# are scored drops the score by 1.33 points, which is below the break, so a
+# deleted assertion reds this job rather than lowering the bar.
+#
+# A RUN THAT PRODUCED NO REPORT FAILS HERE. `if-no-files-found: error` on the
+# upload is what stops a tool or infrastructure failure ending green with
+# nothing measured, which reads exactly like a run that measured everything and
+# found nothing wrong.
+#
+# The tool is pinned in the committed manifest and restored rather than
+# installed by name, so the version that produced the recorded score is the
+# version a later run uses:
+#
+#   cat .config/dotnet-tools.json
+name: Mutation
+
+on:
+  schedule:
+    # Weekly, on the same day as the other scheduled work and at a minute of its
+    # own so two scheduled runs do not contend for a runner:
+    #
+    #   grep -rn 'cron:' .github/workflows/
+    - cron: "13 5 * * 1"
+  workflow_dispatch:
+
+# Deny-all at the workflow level; the job below grants only what it reads.
+permissions: {}
+
+# A superseded run on the same ref tells nobody anything.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation:
+    name: Mutation score
+    runs-on: ubuntu-latest
+    # The engine is small and the suite is seconds, so a run is minutes rather
+    # than hours. The limit is sized well above the measured wall clock so a
+    # genuinely hung run is cut off and an ordinary one never is.
+    timeout-minutes: 30
+    permissions:
+      contents: read # check out the tree that is mutated and tested
+    steps:
+      - name: Check out the tree
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step here pushes, so the token has no reason to survive in
+          # .git/config where every later step could read it.
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          # The run mutates the net10.0 build, and a restore resolves every
+          # target framework whatever the build asks for, so both SDKs have to
+          # be here.
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Restore the projects
+        run: dotnet restore
+
+      - name: Restore the pinned tool
+        # By manifest rather than by name, so this is the version the recorded
+        # score was measured with and not whatever is newest on the day.
+        run: dotnet tool restore
+
+      - name: Measure the mutation score
+        # The break threshold in stryker-config.json is what makes this step red
+        # on a weakened suite. Nothing here passes a threshold on the command
+        # line: a number in a workflow file and a number in the configuration
+        # would drift, and the configuration is the one a contributor can run.
+        run: dotnet stryker
+
+      - name: Upload the mutation report
+        # Uploaded whatever the step above decided, because the run somebody
+        # wants to read is the red one: the report names each surviving mutant,
+        # its file and its line, which is the list of tests worth writing.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-report
+          path: StrykerOutput/**/reports/**
+          retention-days: 14
+          if-no-files-found: error

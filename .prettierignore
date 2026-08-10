@@ -22,6 +22,12 @@ artifacts/
 # check reads.
 TestResults/
 
+# Where `dotnet stryker` writes its reports and the mutated copies of the tree
+# it builds. Generated, untracked, and full of JSON and HTML this check would
+# otherwise start deciding a verdict on after somebody runs a mutation pass in
+# their clone.
+StrykerOutput/
+
 # The fuzzing seed corpus (#18). These are inputs rather than documents: the
 # whole point of several of them is to be a shape the parser has to refuse, and
 # one of them is not valid JSON at all. Formatting them would repair the very
