@@ -1,0 +1,15 @@
+{
+    "stryker-config": {
+        "solution": "Jellyfin.Plugin.SmartCollections.sln",
+        "project": "Jellyfin.Plugin.SmartCollections.Engine.csproj",
+        "test-projects": ["Jellyfin.Plugin.SmartCollections.Tests/Jellyfin.Plugin.SmartCollections.Tests.csproj"],
+        "target-framework": "net10.0",
+        "additional-timeout": 30000,
+        "reporters": ["progress", "html", "json"],
+        "thresholds": {
+            "high": 100,
+            "low": 82,
+            "break": 82
+        }
+    }
+}

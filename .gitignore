@@ -7,3 +7,9 @@ artifacts
 # Where `dotnet test --results-directory` puts the coverage report the floor
 # check reads. The report is a measurement of one run, not a fact of the tree.
 TestResults/
+
+# Where `dotnet stryker` puts its reports and the copies of the tree it mutates.
+# Same reason as above, and a second one: the copies hold the engine's sources
+# with a fault seeded into each, so a tracked one would be code that is wrong on
+# purpose sitting where somebody can read it as the plugin's own.
+StrykerOutput/
