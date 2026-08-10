@@ -309,7 +309,11 @@ public class LibraryChangeCoalescerTests
     {
         var clock = new ManualTimeProvider(Start);
         var sink = new RecordingSink();
-        var coalescer = new LibraryChangeCoalescer([sink], clock, Quiet, Maximum);
+
+        // The two Dispose calls below are what this test is about, and the declaration is still
+        // a using: an assertion failing between them would otherwise leave the timer and the
+        // cancellation source alive for the rest of the process.
+        using var coalescer = new LibraryChangeCoalescer([sink], clock, Quiet, Maximum);
 
         coalescer.ItemChanged(ItemId(0), LibraryChangeKind.Added);
         coalescer.Dispose();

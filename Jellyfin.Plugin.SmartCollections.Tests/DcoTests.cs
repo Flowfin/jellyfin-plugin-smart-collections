@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -61,9 +62,8 @@ public class DcoTests
 
         Assert.True(match.Success, "The sign-off error message names no documents to read.");
 
-        foreach (var name in new[] { "first", "second" })
+        foreach (var named in new[] { "first", "second" }.Select(group => match.Groups[group].Value))
         {
-            var named = match.Groups[name].Value;
             var resolved = Path.Combine(RepositoryFiles.Root(), named.TrimStart('.', '/'));
 
             Assert.True(
