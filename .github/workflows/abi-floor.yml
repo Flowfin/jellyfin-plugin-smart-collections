@@ -69,10 +69,10 @@ jobs:
             manifest: build.yaml
             is-floor: "yes"
           # build-jf12.yaml declares targetAbi 12.0.0.0 and NO PACKAGE AT OR
-          # ABOVE 12.0.0 IS PUBLISHED. The nearest is the release candidate the
-          # shipping build already pins, so this job builds against the same
-          # version the shipping build does and PROVES NOTHING THE SHIPPING
-          # BUILD DOES NOT until 12.0.0 is published and this line moves:
+          # ABOVE 12.0.0 IS PUBLISHED, so there is no floor for this entry to
+          # build against and it names the version the shipping build pins
+          # instead. While the two name the same string, which they do today,
+          # this job PROVES NOTHING THE SHIPPING BUILD DOES NOT:
           #
           #   curl -s https://api.nuget.org/v3-flatcontainer/jellyfin.controller/index.json \
           #     | tr ',' '\n' | grep -o '"12\.[^"]*"' | tr -d '"'
@@ -80,7 +80,34 @@ jobs:
           #   12.0.0-rc2
           #   12.0.0-rc3
           #   12.0.0-rc4
+          #   12.0.0-rc5
           #   12.0.0-rcrc3
+          #
+          # THAT STRING IS NO LONGER THE NEWEST ON THE LINE, and this comment
+          # said it was. rc5 is published and the shipping pin is rc4, and the
+          # two are not the same surface:
+          #
+          #   props() {
+          #     gh api "repos/jellyfin/jellyfin/contents/MediaBrowser.Controller/Entities/InternalItemsQuery.cs?ref=$1" \
+          #       --jq .content | base64 -d | grep -oE '^\s+public [^=;{]+ \{ get' \
+          #       | sed -E 's/.*public //; s/ \{ get//' | sort
+          #   }
+          #   props v12.0-rc4 > q4; props v12.0-rc5 > q5
+          #   comm -13 q4 q5
+          #   bool UserHasContentRestrictions
+          #   comm -23 q4 q5 | wc -l
+          #   0
+          #
+          # So this entry has two ways to stop adding nothing, not one. It bites
+          # when 12.0.0 publishes and the version below moves to it, and it also
+          # bites the day the shipping pin in the csproj moves ahead of the
+          # version below, because a member added between the two is then
+          # available to the shipping build and refused here. #11 carries the
+          # build that was watched doing it, on the property named above.
+          #
+          # Two comparisons are therefore made by eye when anything moves: this
+          # version against the targetAbi in the manifest, and this version
+          # against the shipping pin in the csproj.
           #
           # It is here rather than absent so the day 12.0.0 publishes is a
           # one-line change instead of a job somebody has to remember to add.
