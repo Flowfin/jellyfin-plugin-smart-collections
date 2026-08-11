@@ -301,7 +301,8 @@ async function waitFor(base, route, container, seconds) {
  * method to be removed when the wizard no longer needs an existing user, and
  * `UpdateStartupUser` returns `NotFound()` where there is none. So the order is
  * a property of the server rather than a preference here, and the same two
- * methods sit in the same order on `v12.0-rc4`.
+ * methods sit in the same order on `v12.0-rc5`, which is the tag the 12.0 job
+ * boots. Re-run the command above with that ref to see it.
  *
  * @param {string} base The server's base address.
  * @returns {Promise<string>} An administrator access token.

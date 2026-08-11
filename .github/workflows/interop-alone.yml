@@ -93,19 +93,26 @@ jobs:
             image: "jellyfin/jellyfin:10.11.11"
             is-released: "yes"
           # build-jf12.yaml declares targetAbi 12.0.0.0 and NO RELEASED 12.0
-          # IMAGE EXISTS. The newest tag on that line is a release candidate:
+          # IMAGE EXISTS. Every tag on that line is a release candidate:
           #
           #   curl -s "https://hub.docker.com/v2/repositories/jellyfin/jellyfin/tags?page_size=100&ordering=last_updated" \
           #     | tr ',' '\n' | grep -o '"name":"12[^"]*"'
           #
-          # so this job boots the candidate and says so on every run rather than
+          # so this job boots a candidate and says so on every run rather than
           # reporting a line it did not test. It is here rather than absent for
           # the reason the ABI floor's 12.0 job is: the day 12.0.0 publishes is
           # then a one-line change instead of a job somebody has to remember.
+          #
+          # WHICH candidate is the tag below and not whatever that command prints
+          # first, because a pin does not follow the line. The two come apart
+          # every time the line publishes: this entry named the candidate before
+          # the current one while its sentence read as though it tracked the
+          # newest. The tag is where the version is read from, and moving it is
+          # what puts this job back on the newest candidate.
           - line: "12.0"
             framework: net10.0
             manifest: build-jf12.yaml
-            image: "jellyfin/jellyfin:12.0-rc4"
+            image: "jellyfin/jellyfin:12.0-rc5"
             is-released: "no"
     steps:
       - name: Check out the tree
