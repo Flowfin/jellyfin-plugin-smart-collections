@@ -55,6 +55,57 @@ Nothing here writes a plugin catalog. A GitHub release is the whole output. If t
 repository previously published through the Jellyfin meta plugins workflow, that path
 is gone and no catalog is fed until a manifest generator is added.
 
+## After the run: install what was published
+
+A run that finished is not a release that works. A publish can report success and
+attach an archive no server will load, and the only thing that reads an archive the
+way a server does is a server. So the last step of a release is taken by hand, on a
+clean server of each supported line:
+
+1. Download the archive the release attached and check it against its provenance
+   statement, with the command above.
+2. Install it on a clean server of the 10.11 line, restart the server, and confirm
+   the plugin is listed and its status is active.
+3. Do the same on a clean server of the 12.0 line.
+4. Write both results into the release notes. A line that was not installed is
+   written down as not installed rather than left out.
+
+Nothing refuses a release where this was skipped, and nothing here can. The step
+happens after the run, on a machine this repository never reaches, so it is held by
+whoever cuts the release and by the note they leave behind.
+
+The nearest thing that does run on its own is the interoperability harness, which
+boots a server of each line with the packaged archive installed and nothing else and
+asserts the plugin is listed and active:
+
+```
+grep -nE '^    name: Alone' .github/workflows/interop-alone.yml
+78:    name: Alone (${{ matrix.line }})
+```
+
+That runs on every pull request, so the shape of steps 2 and 3 is exercised
+continuously. What it installs is the archive a pull request built, not the archive
+a release published. Those are different bytes from different runs, and the manual
+step is what covers the difference.
+
+### Step 3 has nothing to install yet
+
+The publish route produces one package, for the one line `build.yaml` names:
+
+```
+grep -nE 'EXPECTED_FRAMEWORK:|dotnet-target:' .github/workflows/publish.yaml
+95:          EXPECTED_FRAMEWORK: "net9.0"
+250:          EXPECTED_FRAMEWORK: "net9.0"
+300:          EXPECTED_FRAMEWORK: "net9.0"
+335:          dotnet-target: "net9.0"
+grep -c 'build-jf12' .github/workflows/publish.yaml
+0
+```
+
+`build-jf12.yaml` is named nowhere in that workflow, so a tag attaches a 10.11
+archive and no 12.0 one. Until a second publish route exists, step 3 is recorded as
+not performed, with this paragraph as the reason rather than an oversight.
+
 ## What fails the run
 
 - The tag does not end in `-stable`, or the workflow was started from something
