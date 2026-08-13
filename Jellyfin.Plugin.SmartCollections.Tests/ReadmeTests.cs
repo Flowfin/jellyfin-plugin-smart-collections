@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Xunit;
@@ -64,5 +65,24 @@ public class ReadmeTests
         {
             Assert.True(root.TryGetProperty(required, out _), "The example declares no " + required + ".");
         }
+    }
+
+    /// <summary>
+    /// What happens to the generated collections when the plugin is removed is a promise about
+    /// visible library content, and the moment it matters is before an install. A document
+    /// nothing points at is a document read after the fact, so the link is part of the promise
+    /// rather than a courtesy, and a link to a file that is not there is worse than neither.
+    /// </summary>
+    [Fact]
+    public void ReadmeLinksTheUninstallDocument()
+    {
+        Assert.Contains(
+            "(docs/uninstall.md)",
+            RepositoryFiles.ReadFromRoot("README.md"),
+            StringComparison.Ordinal);
+
+        Assert.True(
+            File.Exists(Path.Combine(RepositoryFiles.Root(), "docs", "uninstall.md")),
+            "README.md links docs/uninstall.md and no such file is in the tree.");
     }
 }
