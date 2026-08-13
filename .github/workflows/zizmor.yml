@@ -26,6 +26,18 @@
 # gate before merge. Keep actions and reusable workflows pinned to a commit,
 # keep checkout on persist-credentials:false, grant permissions per job, and
 # never restore a cache in a job that publishes a release.
+#
+# Whether this job's name is in the branch ruleset's required set is a fact of
+# the ruleset rather than of this file (#13, #20). Print it:
+#
+#   gh api repos/Flowfin/jellyfin-plugin-smart-collections/rulesets/20465770 \
+#     --jq '[.rules[] | select(.type=="required_status_checks")
+#           | .parameters.required_status_checks[].context]'
+#
+# Two check runs on a head carry a zizmor name and they come from two different
+# apps. The job below is the verdict, from `github-actions`. The lower-case
+# `zizmor` is the code-scanning result posted from the SARIF upload, and a
+# ruleset naming that one would require the upload rather than the verdict.
 name: Workflow Security Analysis
 
 on:
@@ -46,6 +58,9 @@ concurrency:
 
 jobs:
   zizmor:
+    # This name is the check context. Changing it removes a context rather
+    # than renaming one, so it is changed only together with whatever
+    # requires it.
     name: Audit workflows (zizmor)
     runs-on: ubuntu-latest
     timeout-minutes: 10

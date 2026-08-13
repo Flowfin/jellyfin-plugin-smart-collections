@@ -20,6 +20,14 @@ concurrency:
 
 jobs:
   bidi:
+    # This name is the check context. Changing it removes a context rather
+    # than renaming one, so it is changed only together with whatever
+    # requires it. Which contexts the branch ruleset requires is a fact of the
+    # ruleset rather than of this file (#13, #20). Print it:
+    #
+    #   gh api repos/Flowfin/jellyfin-plugin-smart-collections/rulesets/20465770 \
+    #     --jq '[.rules[] | select(.type=="required_status_checks")
+    #           | .parameters.required_status_checks[].context]'
     name: Reject Trojan Source Unicode
     runs-on: ubuntu-latest
     timeout-minutes: 5
