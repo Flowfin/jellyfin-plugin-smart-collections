@@ -76,6 +76,17 @@ installed, and the server's own documentation is the authority for it.
 Once a catalogue entry exists, this section will name the repository URL to add
 and this paragraph will go away.
 
+## Uninstalling
+
+Removing the plugin leaves every collection it generated in the library, exactly
+as the last refresh left it. Nothing is deleted, renamed or emptied, and
+reinstalling adopts those collections again instead of building a second set
+beside them.
+
+[What uninstalling does to the collections](docs/uninstall.md) carries the
+behaviour, the reason for it, the two bounds on the promise, and what does and
+does not hold it today.
+
 ## What a rule looks like
 
 A rule is one JSON document per collection, held in the plugin's data
