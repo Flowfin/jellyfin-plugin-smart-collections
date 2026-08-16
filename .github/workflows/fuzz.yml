@@ -1,35 +1,25 @@
 # Fuzz the rule document parser (#18).
 #
-# The rule document is this plugin's only untrusted input surface. An operator
-# writes it, the plugin parses it, validates it and will compile it, and every
-# byte of it comes from outside the code. Until this job existed nothing fed the
-# parser anything its own tests had not written.
+# The rule document is this plugin's only untrusted input surface: an operator
+# writes it and the plugin parses it, so every byte of it comes from outside the
+# code.
 #
-# The property asserted is not that every input is accepted. It is that no input
-# makes the parser throw, no input makes it hang, and every rejection carries a
-# message naming what was wrong. The first of those is what a fuzzer measures,
-# and the harness catches nothing so that an exception is a finding rather than
-# an expected outcome. tools/fuzz/Program.cs is where that is written down.
-#
-# NOT ON A PULL REQUEST, BY CONSTRUCTION. A fuzzing run that finds nothing is
-# minutes of compute that says the same thing as the run before it, so this job
-# runs on a schedule and on manual dispatch and never on a merge path. The
-# corpus it builds is uploaded so the next run and a reader both have it.
+# The property is stated in tools/fuzz/Program.cs: no input makes the parser
+# throw, no input makes it hang, and every rejection carries a message naming
+# what was wrong. A fuzzer measures the first of the three. The harness catches
+# nothing, so an exception is a finding.
 #
 # A crasher reds this job and is then triaged as its own finding with its own
-# fix. It is never patched inside the harness: a harness that catches the
-# exception reports a clean run over a parser that throws, which is worse than
-# not running at all.
+# fix. Patching it inside the harness would leave a clean run reported over a
+# parser that still throws.
 #
-# The means is AFL++ driven through SharpFuzz, which is the coverage-guided
-# fuzzer that works on Linux with .NET. It instruments the engine assembly this
-# repository already builds, so there is no second implementation of the parser
-# to keep in step, and it runs from a project outside the solution so the
-# fuzzing package is not on the critical path of any other check. The seeds are
-# checked-in files rather than literals inside the harness, and the ordinary
-# suite reads the same directory and asserts the parser answers rather than
-# throws for each one, so a seed that would make a run report the harness's own
-# fault reds a pull request first.
+# The means is AFL++ driven through SharpFuzz, the coverage-guided fuzzer that
+# works on Linux with .NET. It instruments the engine assembly this repository
+# already builds, so there is no second implementation of the parser to keep in
+# step, and it runs from a project outside the solution, which keeps the fuzzing
+# package off the critical path of every other check. The seeds are checked-in
+# files, and the ordinary suite reads the same directory and asserts that the
+# parser answers for each one, so a bad seed reds a pull request first.
 name: Fuzz
 
 on:

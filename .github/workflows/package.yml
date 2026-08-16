@@ -13,7 +13,7 @@
 #
 #   Package (<line>) builds the package from that line's manifest and then
 #   refuses one that does not carry an assembly the manifest names. The suite's
-#   ManifestArtifactTests asserts the manifest against the PROJECT FILES; this
+#   ManifestArtifactTests asserts the manifest against the project files; this
 #   asserts it against the ZIP, which is a different claim and catches a build
 #   that succeeded and packed the wrong output.
 #
@@ -21,8 +21,8 @@
 #   framework and refuses one that does not describe every assembly the package
 #   ships.
 #
-# WHAT THE PACKAGE COMPARISON ADDS OVER THE PACKAGER IS SMALLER THAN IT LOOKS,
-# and this is measured rather than supposed. JPRM copies each name the manifest
+# What the package comparison adds over the packager is smaller than it looks,
+# and that is measured rather than supposed. JPRM copies each name the manifest
 # lists out of the build output, so a name with no file behind it raises
 # FileNotFoundError inside the packager and the job is red before the comparison
 # runs at all:
@@ -45,7 +45,7 @@
 # workflow gives: one line failing says nothing about the other, and a reader
 # wants both verdicts rather than the first one.
 #
-# THE MANIFEST IS COPIED OVER build.yaml BEFORE THE PACKAGER RUNS. JPRM reads
+# The manifest is copied over build.yaml before the packager runs. JPRM reads
 # `build.yaml` in the directory it is pointed at and takes no argument naming a
 # different file:
 #

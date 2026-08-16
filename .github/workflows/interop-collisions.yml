@@ -8,13 +8,13 @@
 # list, so it says the same thing about any set of plugins and gains value as
 # the set grows.
 #
-# WHAT A GREEN RUN HERE MEANS TODAY IS NARROW, and saying so is the point of
-# this paragraph. One plugin is installed, so a green run means the server holds
+# What a green run here means today is narrow, and this paragraph says how
+# narrow. One plugin is installed, so a green run means the server holds
 # no collision with this plugin on it and does not mean two plugins have been
 # watched not colliding. The set this scan runs over is what the sibling matrix
 # widens (#61), and the scan does not change when it does.
 #
-# The server this job boots is THE PACKAGED ZIP unpacked the way a server
+# The server this job boots is the packaged zip unpacked the way a server
 # unpacks it, built here from the same action and the same pin the shipping
 # package check uses, for the reason the alone job gives: build output in a
 # container proves the code works and not that the thing users download works.
@@ -35,7 +35,7 @@
 # answers plain HTTP on a loopback port inside the runner, so nothing here
 # trusts a certificate.
 #
-# WHAT THIS COSTS is a container boot per line on every pull request, on top of
+# What this costs is a container boot per line on every pull request, on top of
 # the two the alone job already pays for. That is the number to weigh, and it is
 # here rather than in a ledger entry that describes it.
 #
