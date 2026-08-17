@@ -116,12 +116,25 @@ does not exist yet, so today the tidy-up is a manual one.
 
 ## What holds this, and what does not
 
-Nothing in the suite refuses a change that would delete a collection on
-uninstall. The guard this document is owed is a test asserting that the hook
-deletes no collection and removes no stamp, and a second asserting that a
-reinstall adopts the stamped collections rather than creating duplicates.
-Neither can be written yet, because a rule has no identity to stamp with and
-nothing in either shipped assembly writes a collection into the server:
+The suite refuses an uninstall hook. `UninstallHookTests` reads every type in
+both shipped assemblies and fails if any of them declares `OnUninstalling`, and
+it fails a second way if the method `Plugin` presents to the server was declared
+anywhere other than the server's own `BasePlugin`:
+
+```
+git grep -n 'HookName\|DeclaringType' -- Jellyfin.Plugin.SmartCollections.Tests/UninstallHookTests.cs
+```
+
+So the first paragraph of this page holds by there being no code of this
+plugin's to run in that moment, and an override added later is a red check
+rather than a silent contradiction of the page. The one-line override that
+proves it, and the two runs either side of it, are in the pull request that
+added the tests.
+
+WHAT THAT DOES NOT COVER IS LARGER THAN WHAT IT DOES. The tests say nothing
+about what happens to a collection by any other route, and they cannot: nothing
+in either shipped assembly writes or deletes a collection at all yet, and a rule
+has no identity for a stamp to carry.
 
 ```
 node -e "const s=require('./Jellyfin.Plugin.SmartCollections.Engine/Rules/rule-document.schema.json');console.log(Object.keys(s.properties).join(', '))"
@@ -130,6 +143,7 @@ git grep -n 'CreateCollection' -- '*.cs' ; echo "exit=$?"
 exit=1
 ```
 
-The identity is #29 and the two tests are the open half of #56. Until they land,
-what stands behind the first paragraph of this page is the absence measured
-above and a reader who checks it, not a check that runs.
+The identity is #29. The second guard #56 asks for, that a reinstall adopts the
+stamped collections rather than creating duplicates, is still unwritten and
+still the open half of that issue. Until it lands, what stands behind the
+adoption sentence in this page is a reader who checks it, not a check that runs.
