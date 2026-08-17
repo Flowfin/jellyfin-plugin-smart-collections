@@ -15,6 +15,34 @@ permissions: {}
 
 jobs:
   call:
+    # This job id is half of a check context. A called workflow prefixes the
+    # runs it produces with the id of the job that calls it, so the run from
+    # here is named `call / <the job in the called workflow>`, and the branch
+    # ruleset requires `call / build`. Changing this id removes that context
+    # rather than renaming one, so it is changed only together with whatever
+    # requires it.
+    #
+    # The other half of the string is decided in another repository. The called
+    # workflow declares its job as `build` and gives it no `name:`, so the run
+    # falls back to that id:
+    #
+    #   gh api "repos/jellyfin/jellyfin-meta-plugins/contents/.github/workflows/build.yaml?ref=eb99033a7ff644881b014bc0b4169916c854a68b" \
+    #     --jq .content | base64 -d | sed -n '15,17p'
+    #   jobs:
+    #     build:
+    #       runs-on: ubuntu-latest
+    #
+    # So a bump of the pin below can carry away a required context, and no
+    # reading of this file would show it. The comment under it says what the
+    # pin is for and not that.
+    #
+    # Which contexts the ruleset requires is a fact of the ruleset rather than
+    # of this file (#13, #20). Print it:
+    #
+    #   gh api repos/Flowfin/jellyfin-plugin-smart-collections/rulesets/20465770 \
+    #     --jq '[.rules[] | select(.type=="required_status_checks")
+    #           | .parameters.required_status_checks[].context]'
+    #
     # Pinned to a commit rather than to a branch, so the workflow this
     # repository runs cannot change between two pushes without a change here
     # saying so. The trailing comment records the ref the pin was taken from and
