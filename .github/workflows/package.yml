@@ -216,7 +216,7 @@ jobs:
             10.0.x
 
       - name: Restore the graph the bill of materials describes
-        run: dotnet restore
+        run: dotnet restore --locked-mode
 
       - name: Generate the bill of materials
         env:

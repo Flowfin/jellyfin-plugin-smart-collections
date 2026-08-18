@@ -93,7 +93,7 @@ jobs:
         # did compile.
         run: |
           set -euo pipefail
-          dotnet restore Jellyfin.Plugin.SmartCollections.sln
+          dotnet restore Jellyfin.Plugin.SmartCollections.sln --locked-mode
           dotnet build Jellyfin.Plugin.SmartCollections.sln --configuration Release --no-restore
 
       - name: Perform CodeQL Analysis

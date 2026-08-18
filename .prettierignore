@@ -36,3 +36,8 @@ StrykerOutput/
 # asserts the parser answers rather than throws, which is the check these files
 # owe and it is not a formatting one.
 tools/fuzz/corpus/
+
+# The NuGet lockfile is the tool's to write. `dotnet restore` rewrites it in its own
+# style on the next force-evaluate, so a prettier pass would be undone and would show
+# up as the diff of whoever next adds a package.
+**/packages.lock.json
