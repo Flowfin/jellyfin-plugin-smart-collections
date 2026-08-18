@@ -88,7 +88,7 @@ jobs:
             10.0.x
 
       - name: Restore the projects
-        run: dotnet restore
+        run: dotnet restore --locked-mode
 
       - name: Restore the pinned tool
         # By manifest rather than by name, so this is the version the recorded

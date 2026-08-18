@@ -78,7 +78,7 @@ jobs:
           dotnet-version: "9.0.x"
 
       - name: Install dependencies
-        run: dotnet restore
+        run: dotnet restore --locked-mode
 
       - name: Test with coverage
         # The collector rides the command the suite already runs; it adds a
