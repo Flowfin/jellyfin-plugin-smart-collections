@@ -7,7 +7,7 @@
 # load time, and that failure arrives in front of a user with nothing in the
 # gate having said a word.
 #
-# What this job installs is the ZIP THE PACKAGER PRODUCES, built here from the
+# What this job installs is the zip the packager produces, built here from the
 # same action and the same pin the shipping package check uses. Copying build
 # output into the container would prove the code works and not that the thing
 # users download works, and the issue this job comes from names that difference
@@ -29,8 +29,8 @@
 #   The log scan is fed a fabricated error line naming this plugin, which it
 #   must refuse, and one naming something else, which it must pass. No container.
 #
-#   The harness is pointed at the same image with NO PLUGIN INSTALLED, and must
-#   refuse IT FOR BEING UNLISTED rather than merely exit non-zero. That proves
+#   The harness is pointed at the same image with no plugin installed, and must
+#   refuse it for being unlisted rather than merely exit non-zero. That proves
 #   the assertion that the plugin is loaded and active, and it proves the
 #   administrator arm of the third one as a side effect, because this plugin's
 #   configuration route answers 404 there and 200 on the run with the package.

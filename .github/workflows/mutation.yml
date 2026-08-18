@@ -10,19 +10,19 @@
 # surviving mutant is a statement about the suite rather than about the code,
 # and each one is either a missing test or a piece of code nobody needed.
 #
-# SCOPED TO THE ENGINE ASSEMBLY, which is where the determinism claim lives. The
-# configuration page and the plugin host are covered by their own tests and are
-# not where a determinism failure would hide. `stryker-config.json` names the
-# project rather than a glob, so a file added to the engine is mutated without
-# anybody remembering to widen a list.
+# The run is scoped to the engine assembly, where the determinism claim lives.
+# The configuration page and the plugin host are covered by their own tests and
+# are not where a determinism failure would hide. `stryker-config.json` names
+# the project rather than a glob, so a file added to the engine is mutated
+# without anybody remembering to widen a list.
 #
-# NOT ON A PULL REQUEST, BY CONSTRUCTION. A full run is minutes of compute that
-# says the same thing as the run before it unless the engine or the suite moved,
-# and the pull request gate already has enough legs. This job runs on a schedule
-# and on manual dispatch and never on a merge path, which is also why its name
-# cannot become a required status check by accident.
+# By construction this job runs on no pull request. A full run is minutes of
+# compute that says the same thing as the run before it unless the engine or the
+# suite moved, and the pull request gate already has enough legs. It runs on a
+# schedule and on manual dispatch and never on a merge path, which is also why
+# its name cannot become a required status check by accident.
 #
-# THE THRESHOLD IS THE MEASURED SCORE RATHER THAN A ROUND NUMBER. A round number
+# The threshold is the measured score and not a round number. A round number
 # above the score reds every run from the first one; a round number below it
 # lets the suite weaken by however much the gap was, quietly. `thresholds.break`
 # in `stryker-config.json` carries the number and the pull request that set it
@@ -30,7 +30,7 @@
 # are scored drops the score by 1.33 points, which is below the break, so a
 # deleted assertion reds this job rather than lowering the bar.
 #
-# A RUN THAT PRODUCED NO REPORT FAILS HERE. `if-no-files-found: error` on the
+# A run that produced no report fails here. `if-no-files-found: error` on the
 # upload is what stops a tool or infrastructure failure ending green with
 # nothing measured, which reads exactly like a run that measured everything and
 # found nothing wrong.

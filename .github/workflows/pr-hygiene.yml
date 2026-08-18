@@ -1,9 +1,9 @@
 # Deterministic pull-request hygiene checks (#15). Every other check in this
-# repository reasons about the CODE: the build compiles it, the test suite
+# repository reasons about the code: the build compiles it, the test suite
 # asserts on it, CodeQL scans it, the unicode guard reads its bytes. Whether the
 # change is linked to an issue, whether a version bump brought its changelog
 # entry, whether it is large enough to need a closer look, and whether engine
-# code moved without its tests are properties of the PULL REQUEST rather than of
+# code moved without its tests are properties of the pull request rather than of
 # the code, and nothing here covered that class.
 #
 # The means is a workflow plus one first-party script step, not a hosted review
