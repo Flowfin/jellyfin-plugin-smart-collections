@@ -12,7 +12,15 @@ Each refusal below carries a marker line of the form `Refusal: <name>`. A test
 holds this file to that list, so a refusal cannot leave the document by
 accident.
 
+Three of the refusals below are a working assumption rather than a position
+somebody took, because the question behind each of them is open on #67. Each
+of those three carries a line saying so and naming its question, and a test
+holds that set in both directions, so a refusal cannot lose its line quietly
+and a refusal that rests on nothing outstanding cannot gain one.
+
 ## Refusal: regular expressions
+
+This refusal is the working assumption on question 6 of #67, which has no answer recorded.
 
 A rule document is untrusted text evaluated on a server task thread, and a
 pattern with catastrophic backtracking there stops the server doing anything
@@ -85,6 +93,8 @@ be produced again from the record.
 
 ## Refusal: fields describing one person's viewing
 
+This refusal is the working assumption on question 1 of #67, which has no answer recorded.
+
 A Jellyfin collection is server-wide, and every account sees the same one. A
 rule about what one person has watched, favourited or rated would build a list
 everyone sees out of one person's state, which is a surprise for every account
@@ -96,6 +106,8 @@ front of every user of the server, and because a later version with a real
 per-user story can still add it.
 
 ## Refusal: pinning an item into a collection
+
+This refusal is the working assumption on question 2 of #67, which has no answer recorded.
 
 Membership comes from the rule, so an item added to a generated collection by
 hand is removed on the next refresh.
