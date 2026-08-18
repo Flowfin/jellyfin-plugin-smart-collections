@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
@@ -31,6 +33,27 @@ public class RuleLanguageRefusalTests
 
     private static readonly Regex MarkerLine = new(
         @"^## Refusal: (?<name>.+?)\s*\r?$",
+        RegexOptions.Multiline | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// The refusals whose question is still open on the tracker, each with the question it belongs
+    /// to. A refusal in this set is a working assumption rather than a position somebody took, so
+    /// the reference has to say so and name the question. This list is the authority for the set,
+    /// and the document is held to it in both directions below.
+    /// </summary>
+    private static readonly (string Refusal, int Question)[] RestOnAnOpenQuestion =
+    [
+        ("regular expressions", 6),
+        ("fields describing one person's viewing", 1),
+        ("pinning an item into a collection", 2),
+    ];
+
+    private static readonly Regex OpenQuestionLine = new(
+        @"^This refusal is the working assumption on question (?<number>\d+) of #67, which has no answer recorded\.[ \t]*\r?$",
+        RegexOptions.Multiline | RegexOptions.CultureInvariant);
+
+    private static readonly Regex AnyHeading = new(
+        @"^## ",
         RegexOptions.Multiline | RegexOptions.CultureInvariant);
 
     [Fact]
@@ -83,5 +106,72 @@ public class RuleLanguageRefusalTests
         Assert.Contains("Refusal: regular expressions", document, StringComparison.Ordinal);
         Assert.Contains("one person's viewing", document, StringComparison.Ordinal);
         Assert.Contains("Refusal: pinning an item into a collection", document, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A refusal resting on a question nobody has answered is not the same thing as one argued from
+    /// a reason and nothing else, and a reader cannot tell the two apart unless the file says which
+    /// is which.
+    /// </summary>
+    [Fact]
+    public void EveryRefusalRestingOnAnOpenQuestionSaysSoAndNamesTheQuestion()
+    {
+        var document = RepositoryFiles.ReadFromRoot(Reference);
+
+        foreach (var (refusal, question) in RestOnAnOpenQuestion)
+        {
+            var line = OpenQuestionLine.Match(SectionUnder(document, refusal));
+
+            Assert.True(
+                line.Success,
+                "The refusal '" + refusal + "' does not say that the question behind it is open.");
+
+            Assert.Equal(
+                question.ToString(CultureInfo.InvariantCulture),
+                line.Groups["number"].Value);
+        }
+    }
+
+    /// <summary>
+    /// The other direction. A refusal that rests on nothing outstanding may not claim that it does,
+    /// or the line stops separating anything and the file reads as if every refusal were
+    /// provisional.
+    /// </summary>
+    [Fact]
+    public void NoOtherRefusalSaysTheQuestionBehindItIsOpen()
+    {
+        var document = RepositoryFiles.ReadFromRoot(Reference);
+        var recorded = RestOnAnOpenQuestion.Select(entry => entry.Refusal).ToList();
+
+        foreach (var refusal in Refusals.Where(name => !recorded.Contains(name, StringComparer.Ordinal)))
+        {
+            Assert.False(
+                OpenQuestionLine.IsMatch(SectionUnder(document, refusal)),
+                "The refusal '" + refusal + "' says the question behind it is open, and it is not one of the recorded set.");
+        }
+    }
+
+    /// <summary>
+    /// The text of one refusal's section, from its marker line to the next heading of any kind. The
+    /// bound is the next heading rather than the next marker, so a line in the closing section of
+    /// the file is not read as part of the last refusal.
+    /// </summary>
+    private static string SectionUnder(string document, string refusal)
+    {
+        foreach (Match marker in MarkerLine.Matches(document))
+        {
+            if (!string.Equals(marker.Groups["name"].Value, refusal, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var start = marker.Index + marker.Length;
+            var next = AnyHeading.Match(document, start);
+
+            return next.Success ? document[start..next.Index] : document[start..];
+        }
+
+        throw new InvalidOperationException(
+            "The refusal '" + refusal + "' is not in " + Reference + ".");
     }
 }
