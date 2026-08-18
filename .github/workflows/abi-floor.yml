@@ -105,9 +105,14 @@ jobs:
           # available to the shipping build and refused here. #11 carries the
           # build that was watched doing it, on the property named above.
           #
-          # Two comparisons are therefore made by eye when anything moves: this
-          # version against the targetAbi in the manifest, and this version
-          # against the shipping pin in the csproj.
+          # Of the two comparisons that matter when anything moves, one is made by
+          # a run and one is made by eye. This version against the shipping pin
+          # in the csproj is read on every run by the step below, which prints
+          # both and annotates only while they name one string (#152). This
+          # version against the targetAbi in the manifest is the one left to a
+          # reader, because a targetAbi is a four-part server version and a
+          # package version is not the same string, which is the reason the
+          # versions here are written rather than read out of the manifest.
           #
           # It is here rather than absent so the day 12.0.0 publishes is a
           # one-line change instead of a job somebody has to remember to add.
@@ -132,10 +137,17 @@ jobs:
           # jobs, and the newer SDK builds the older target.
           dotnet-version: "10.0.x"
 
+      # The shipping pin is read out of the project rather than copied here, so a
+      # log says what the tree holds and not what somebody typed beside it. The
+      # annotation below is the claim that this job adds nothing to the shipping
+      # build, and that claim is exactly the two versions naming one string, so
+      # it is derived from them rather than attached to the matrix entry (#152).
       - name: Say what this job is building against
         env:
           LINE: ${{ matrix.line }}
           MANIFEST: ${{ matrix.manifest }}
+          FRAMEWORK: ${{ matrix.framework }}
+          PROPERTY: ${{ matrix.property }}
           VERSION: ${{ matrix.version }}
           IS_FLOOR: ${{ matrix.is-floor }}
         run: |
@@ -144,8 +156,20 @@ jobs:
           echo "Manifest:         $MANIFEST"
           grep -n 'targetAbi' "$MANIFEST"
           echo "Building against: $VERSION"
+
+          # -getProperty evaluates the project and prints one property. It is the
+          # project's own answer rather than a pattern over the file, so a pin
+          # that moves into a condition or an imported file is still read.
+          project=Jellyfin.Plugin.SmartCollections/Jellyfin.Plugin.SmartCollections.csproj
+          pinned=$(dotnet msbuild "$project" -getProperty:"$PROPERTY" -p:TargetFramework="$FRAMEWORK" | tr -d '[:space:]')
+          echo "Shipping build pins: $pinned"
+
           if [ "$IS_FLOOR" != "yes" ]; then
-            echo "::warning::This line has no published package at the floor its manifest declares, so this job builds against the version the shipping build already uses and adds nothing to it."
+            if [ "$pinned" = "$VERSION" ]; then
+              echo "::warning::This line has no published package at the floor its manifest declares, so this job names $VERSION, which is the version the shipping build pins. While those are one string this job proves nothing the shipping build does not."
+            else
+              echo "This line has no published package at the floor its manifest declares, so this job names $VERSION rather than a floor. The shipping build pins $pinned, so the two are not one string and this build is over a different surface from the shipping one."
+            fi
           fi
 
       - name: Build against that version
