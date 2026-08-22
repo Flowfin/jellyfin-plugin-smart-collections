@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
@@ -106,6 +107,26 @@ public class RuleLanguageRefusalTests
         Assert.Contains("Refusal: regular expressions", document, StringComparison.Ordinal);
         Assert.Contains("one person's viewing", document, StringComparison.Ordinal);
         Assert.Contains("Refusal: pinning an item into a collection", document, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The front page states three of the refusals flatly and sends the reader somewhere else for
+    /// the reason behind each. Where that somewhere else is has to be the reference, because the
+    /// reference is what the tests above hold: a pointer at anything else leaves the reader
+    /// reading an argument nothing is checking. A link to a file that is not in the tree is worse
+    /// than no link, so both halves are asserted.
+    /// </summary>
+    [Fact]
+    public void TheFrontPageSendsTheReaderToTheReference()
+    {
+        Assert.Contains(
+            "(" + Reference + ")",
+            RepositoryFiles.ReadFromRoot("README.md"),
+            StringComparison.Ordinal);
+
+        Assert.True(
+            File.Exists(Path.Combine(RepositoryFiles.Root(), Reference.Replace('/', Path.DirectorySeparatorChar))),
+            "README.md links " + Reference + " and no such file is in the tree.");
     }
 
     /// <summary>

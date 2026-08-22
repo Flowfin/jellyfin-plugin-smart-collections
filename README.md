@@ -157,8 +157,10 @@ favourited would build a list everyone sees out of one person's viewing.
 Items are not pinned. Membership comes from the rule, so an item added to a
 generated collection by hand is removed the next time the rule runs.
 
-Each of these is recorded with its reasoning on the tracker rather than settled
-in this file, and any of them can be revisited there.
+Each of these is recorded with its reasoning, along with the refusals this page
+does not name, in [what a rule cannot say](docs/rule-language.md). None of them
+is permanent, and the way to lift one is to argue with the reason written there
+rather than with this page.
 
 ## Reporting something
 
