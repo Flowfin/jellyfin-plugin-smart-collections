@@ -117,10 +117,59 @@ jobs:
             // A bare `#12`, a keyword form such as `Closes #12`, and a full
             // issue URL all satisfy it. Lenient on purpose: a pull request that
             // is genuinely linked should never be flagged over phrasing.
+            //
+            // Code is removed before the test, because a quotation is not a
+            // link. The refusal below names two example issue numbers, so a
+            // body that records the refusal by pasting it carries them, and a
+            // test reading the body whole cannot tell that paste from a
+            // reference. One body in this repository passed on exactly that,
+            // and it was the pull request opened to prove this check refuses a
+            // body with no reference.
+            //
+            // Fenced blocks and inline spans only. An indented block is left
+            // alone because ordinary wrapped prose is indented here too, and
+            // removing it would take a genuine reference out of the text.
+            const withoutCode = (text) =>
+              text
+                .replace(/```[\s\S]*?```/g, " ")
+                .replace(/~~~[\s\S]*?~~~/g, " ")
+                .replace(/`[^`\n]*`/g, " ");
+            const namesAnIssue = (text) =>
+              /(^|[^\w])#\d+\b/.test(text) ||
+              /github\.com\/[^\/\s]+\/[^\/\s]+\/issues\/\d+/i.test(text);
+
+            // The fixtures this test is held to, checked before the pull
+            // request is judged, in the shape the invariant lint already uses:
+            // every rule fires on its own fixture and passes its near miss, or
+            // nothing is scanned at all. They matter more here than there,
+            // because the tier this test lives in is skipped for an author the
+            // payload reads as outside this repository, so a run where it is
+            // skipped exercises the test nowhere else. Removing the three
+            // replacements above reds three of the seven.
+            const FIXTURES = [
+              ["Closes #12", true],
+              ["See https://github.com/o/r/issues/12 for the report.", true],
+              ["A number in prose, #12, and a fence after it\n\n```\nnothing here\n```", true],
+              ["```\nThe body carries no issue reference. Name the issue this change addresses, for example `Closes #12` or `Refs #12`.\n```", false],
+              ["Refused with `Closes #12` in a code span and named nowhere else.", false],
+              ["```\nhttps://github.com/o/r/issues/12\n```", false],
+              ["No number here at all.", false],
+            ];
+            const disagreeing = FIXTURES.filter(
+              ([text, wanted]) => namesAnIssue(withoutCode(text)) !== wanted,
+            );
+            if (disagreeing.length) {
+              core.setFailed(
+                `The issue-reference test disagrees with ${disagreeing.length} ` +
+                  `of its ${FIXTURES.length} fixtures, so it is not judging ` +
+                  "this pull request. Repair the test rather than the fixtures.",
+              );
+              return;
+            }
+
             const body = pr.body || "";
-            const hasIssueRef =
-              /(^|[^\w])#\d+\b/.test(body) ||
-              /github\.com\/[^\/\s]+\/[^\/\s]+\/issues\/\d+/i.test(body);
+            const hasIssueRef = namesAnIssue(withoutCode(body));
+
             if (failTierApplies && !hasIssueRef) {
               failures.push(
                 "The body carries no issue reference. Name the issue this " +
