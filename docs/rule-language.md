@@ -27,17 +27,31 @@ pattern with catastrophic backtracking there stops the server doing anything
 else until it finishes, which may be never.
 
 This is not a theoretical property of the class. The longest-lived plugin in
-this space accepts operator-supplied patterns and constructs them with no match
-timeout and no non-backtracking option:
+this space accepts operator-supplied patterns and compiles them, and it bounds a
+single match at one second with no non-backtracking engine. Read at a commit
+rather than at a branch, so the paste below goes on reproducing:
 
 ```
-gh api "repos/jyourstone/jellyfin-smartlists-plugin/contents/Jellyfin.Plugin.SmartLists/Core/QueryEngine/Engine.cs?ref=main" \
-  --jq .content | base64 -d | grep -n 'new Regex'
-62:                    return new Regex(key, RegexOptions.Compiled | RegexOptions.None);
-gh api "repos/jyourstone/jellyfin-smartlists-plugin/contents/Jellyfin.Plugin.SmartLists/Core/QueryEngine/Engine.cs?ref=main" \
-  --jq .content | base64 -d | grep -c 'MatchTimeout\|NonBacktracking'
-0
+ref=282d5701c88bfcdcc170e3ce7bef0357bc72add1
+gh api "repos/jyourstone/jellyfin-smartlists-plugin/contents/Jellyfin.Plugin.SmartLists/Core/QueryEngine/Engine.cs?ref=$ref" \
+  --jq .content | base64 -d | grep -nE 'RegexMatchTimeout = |new Regex|NonBacktracking'
+51:        internal static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromMilliseconds(1000);
+108:                    return new Regex(key, RegexOptions.Compiled | RegexOptions.None, RegexMatchTimeout);
 ```
+
+What that bound covers is one match and not one refresh, and the plugin says so
+in its own remark beside the handler: item processing is serialised there, so a
+pattern that times out once would cost the timeout again on every item, and the
+refresh is failed rather than continued. So the hazard is taken seriously enough
+to be bounded by the plugin that accepts patterns, and the bound stops one match
+rather than the walk over a library.
+
+That paste read `?ref=main` until 2026-08-22 and quoted a construction with no
+timeout argument at line 62, and a count of zero for `MatchTimeout` and
+`NonBacktracking`. `main` moved and the reading stopped reproducing, which is
+why the reference above is a commit. Nothing in this repository re-runs either
+command, so a reader who wants the plugin as it stands today runs it against
+`main` and compares.
 
 That plugin is AGPL-3.0 and this one is GPL-3.0, so no code moves between them
 in either direction. What is being read is a behaviour and the shape of a
@@ -50,7 +64,7 @@ patterns operators actually write, without handing the server a program to run.
 If regular expressions are ever added, they arrive with three things together: a
 non-backtracking engine, a match timeout, and a test proving a known
 catastrophic pattern is refused rather than run. Two of the three is not the
-condition.
+condition, and the plugin read above has one of them.
 
 ## Refusal: arbitrary expressions
 
