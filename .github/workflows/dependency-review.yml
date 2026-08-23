@@ -13,10 +13,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # No `name:` on this job: the "Protect main" ruleset's required status check
-  # matches the literal check-run name, which defaults to the job id
-  # ("dependency-review") when no `name:` is set. Overriding it here would
-  # rename the check run and silently break the required-status-check gate.
+  # No `name:` on this job. A ruleset requires a context by the literal check-run
+  # name, which defaults to the job id ("dependency-review") when no `name:` is
+  # set, so setting one here would replace that string rather than relabel it.
+  # The `gate` ruleset does not require this context today, so nothing is broken
+  # by the string moving; #13 is where requiring it is collected, and leaving the
+  # id alone is what stops it being renamed twice. Which contexts are required is
+  # a fact of the ruleset rather than of this file. Print it:
+  #
+  #   gh api repos/Flowfin/jellyfin-plugin-smart-collections/rulesets/20465770 \
+  #     --jq '[.rules[] | select(.type=="required_status_checks")
+  #           | .parameters.required_status_checks[].context]'
   dependency-review:
     runs-on: ubuntu-latest
     timeout-minutes: 10

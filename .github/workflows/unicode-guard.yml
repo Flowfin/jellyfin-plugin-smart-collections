@@ -2,7 +2,9 @@ name: unicode-guard
 
 on:
   # Every branch and every PR: the guard is a cheap read-only scan and must cover
-  # any future release branch too, not just main (one code line since #954).
+  # any future release branch too, not just master. This repository has one code
+  # line, which is the state Flowfin/jellyfin-plugin-sso#954 put the board this
+  # file was carried over from into. That number resolves there and not here.
   push:
     branches: ["**"]
   pull_request:
