@@ -46,7 +46,10 @@ create and remove themselves. The store already works this way, taking its
 directory as a constructor argument rather than looking one up, and
 `RuleDocumentStoreTests` creates and deletes its own directory under the
 machine's temporary path. Which directory the running plugin passes is decided
-where the plugin's services are registered, which is #70.
+in one place, `PluginServiceRegistrator.RulesDirectory`, which composes it from
+the paths the server hands out and never from the working directory or an
+environment variable. That is what lets a test point the store at a directory it
+owns rather than at the one a server would use.
 
 ## A test that installs a certificate into a machine trust store
 
@@ -65,12 +68,24 @@ without the rule being edited.
 Refused. It is neither a display nor elevation, but it makes a determinism test
 depend on a database and a startup sequence.
 
-What replaces it: the library query and collection write surfaces sit behind
-narrow interfaces with fakes, which is what #30 and #33 build on and what #68
-makes expressible. The one place a running server is the right answer is the
-interoperability matrix, which boots containers on an ordinary runner, needs no
-display and no elevated rights, and proves a property no fake could. That is
-#59.
+What replaces it, for the half of it that exists. The surfaces a refresh touches
+sit behind interfaces narrower than the server's own, and one of the two is
+built. The write surface is `ICollectionMembershipWriter`, three calls over
+identifiers rather than the server's collection manager, and the suite drives it
+through `FakeCollectionWriter` in `MembershipApplierTests`.
+
+The library query surface is not built and has no fake. Nothing in either
+assembly composes a query, and `FakeLibraryChangeSource` raises the three library
+events and holds no items, so it stands in for what starts an evaluation rather
+than for what an evaluation reads. Until that second port exists this
+replacement covers the writing half only, and running a rule against a library
+is something this suite cannot express yet rather than something it does without
+a server. #30 is where the query is compiled and the port would arrive with it.
+
+The one place a running server is the right answer is the interoperability
+matrix, which boots containers on an ordinary runner, needs no display and no
+elevated rights, and proves a property no fake could. The section below is the
+part of that matrix which is in the tree.
 
 ## The one place a server is booted
 
@@ -132,7 +147,8 @@ that costs.
 The scan reads the test project only. The plugin project takes its directories
 as arguments rather than naming them, which is the design the second refusal
 above describes, and no check in this tree refuses an absolute path appearing
-there. Where that belongs is #70.
+there. What holds it is that design and whoever reads a change, and this
+sentence is the whole of what is claimed about it.
 
 The share notation Windows uses for a network host is not among the three
 shapes. Written as a pattern it is two backslashes, which is also what an
