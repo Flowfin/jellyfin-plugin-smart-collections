@@ -53,8 +53,20 @@
     </PropertyGroup>
 
     <PropertyGroup>
-        <Version>0.0.0.0</Version>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
-        <FileVersion>0.0.0.0</FileVersion>
+        <!-- The number the shipped assemblies carry. It is the same number the manifests
+             declare, because the release route compares the two and stops when they differ:
+             the publish workflow's "Check the assembly version matches the manifest" step
+             reads AssemblyVersion out of this file and the version out of build.yaml.
+
+             0.1.0.0 rather than the 1.0.0.0 that stood in the manifests, decided on #105.
+
+             Nothing in MSBuild reads build.yaml, so the number is written in both places and
+             a test refuses the drift instead: TheShippedVersionIsOneNumber in
+             Jellyfin.Plugin.SmartCollections.Tests/ShippedVersionTests.cs reads this file and
+             every manifest at the repository root. Without it a change to one of the two is
+             found by a tag push, which is the one route where the failure costs a tag. -->
+        <Version>0.1.0.0</Version>
+        <AssemblyVersion>0.1.0.0</AssemblyVersion>
+        <FileVersion>0.1.0.0</FileVersion>
     </PropertyGroup>
 </Project>

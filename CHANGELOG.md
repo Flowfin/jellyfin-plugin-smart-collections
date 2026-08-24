@@ -27,3 +27,7 @@ still being written.
   Jellyfin plugin template ships with.
 - The CodeQL workflow scans under this repository's name rather than the
   template's.
+- The version both manifests declare is `0.1.0.0` rather than the template's
+  `1.0.0.0`, which is the number the first release carries. The assemblies are
+  stamped with the same number, so the release route no longer stops on the
+  comparison between the two after a tag has been spent.
