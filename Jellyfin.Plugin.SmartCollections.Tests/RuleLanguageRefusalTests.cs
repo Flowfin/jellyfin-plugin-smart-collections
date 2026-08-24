@@ -37,20 +37,30 @@ public class RuleLanguageRefusalTests
         RegexOptions.Multiline | RegexOptions.CultureInvariant);
 
     /// <summary>
-    /// The refusals whose question is still open on the tracker, each with the question it belongs
-    /// to. A refusal in this set is a working assumption rather than a position somebody took, so
-    /// the reference has to say so and name the question. This list is the authority for the set,
-    /// and the document is held to it in both directions below.
+    /// The refusals that were put as a question before they were written down, each with the
+    /// question it belongs to on #67. A refusal in this set says where it came from and names its
+    /// question; the other four rest on the reason under them and on nothing else. This list is the
+    /// authority for the set, and the document is held to it in both directions below.
     /// </summary>
-    private static readonly (string Refusal, int Question)[] RestOnAnOpenQuestion =
+    private static readonly (string Refusal, int Question)[] RestOnADecidedQuestion =
     [
         ("regular expressions", 6),
         ("fields describing one person's viewing", 1),
         ("pinning an item into a collection", 2),
     ];
 
-    private static readonly Regex OpenQuestionLine = new(
-        @"^This refusal is the working assumption on question (?<number>\d+) of #67, which has no answer recorded\.[ \t]*\r?$",
+    private static readonly Regex DecidedQuestionLine = new(
+        @"^This refusal is the answer recorded on question (?<number>\d+) of #67, decided \d{4}-\d{2}-\d{2}\.[ \t]*\r?$",
+        RegexOptions.Multiline | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// The wording those three lines carried until 2026-08-24, when every question on #67 was
+    /// answered. It is kept as a pattern rather than deleted, so that a refusal cannot go back to
+    /// claiming its question is open: that is a statement about the tracker which a reader of the
+    /// reference has no way to check from the reference.
+    /// </summary>
+    private static readonly Regex UnansweredQuestionLine = new(
+        @"^This refusal is the working assumption on question \d+ of #67, which has no answer recorded\.[ \t]*\r?$",
         RegexOptions.Multiline | RegexOptions.CultureInvariant);
 
     private static readonly Regex AnyHeading = new(
@@ -130,22 +140,22 @@ public class RuleLanguageRefusalTests
     }
 
     /// <summary>
-    /// A refusal resting on a question nobody has answered is not the same thing as one argued from
-    /// a reason and nothing else, and a reader cannot tell the two apart unless the file says which
-    /// is which.
+    /// A refusal that was put as a question before it was written down is not the same thing as one
+    /// argued from a reason and nothing else, and a reader cannot tell the two apart unless the file
+    /// says which is which.
     /// </summary>
     [Fact]
-    public void EveryRefusalRestingOnAnOpenQuestionSaysSoAndNamesTheQuestion()
+    public void EveryRefusalRestingOnADecidedQuestionSaysSoAndNamesTheQuestion()
     {
         var document = RepositoryFiles.ReadFromRoot(Reference);
 
-        foreach (var (refusal, question) in RestOnAnOpenQuestion)
+        foreach (var (refusal, question) in RestOnADecidedQuestion)
         {
-            var line = OpenQuestionLine.Match(SectionUnder(document, refusal));
+            var line = DecidedQuestionLine.Match(SectionUnder(document, refusal));
 
             Assert.True(
                 line.Success,
-                "The refusal '" + refusal + "' does not say that the question behind it is open.");
+                "The refusal '" + refusal + "' does not name the question it was decided on.");
 
             Assert.Equal(
                 question.ToString(CultureInfo.InvariantCulture),
@@ -154,21 +164,40 @@ public class RuleLanguageRefusalTests
     }
 
     /// <summary>
-    /// The other direction. A refusal that rests on nothing outstanding may not claim that it does,
-    /// or the line stops separating anything and the file reads as if every refusal were
-    /// provisional.
+    /// No refusal says its question is unanswered. Every question on #67 was answered on
+    /// 2026-08-24, so that line is wrong wherever it appears, and it is the line these three
+    /// sections carried before. This runs over all seven rather than over the three, because the
+    /// wording can reappear under any of them.
     /// </summary>
     [Fact]
-    public void NoOtherRefusalSaysTheQuestionBehindItIsOpen()
+    public void NoRefusalSaysItsQuestionIsUnanswered()
     {
         var document = RepositoryFiles.ReadFromRoot(Reference);
-        var recorded = RestOnAnOpenQuestion.Select(entry => entry.Refusal).ToList();
+
+        foreach (var refusal in Refusals)
+        {
+            Assert.False(
+                UnansweredQuestionLine.IsMatch(SectionUnder(document, refusal)),
+                "The refusal '" + refusal + "' says the question behind it has no answer recorded, and every question on #67 is answered.");
+        }
+    }
+
+    /// <summary>
+    /// The other direction. A refusal that was never put as a question may not claim it was, or the
+    /// line stops separating anything and the file reads as if every refusal came from somewhere
+    /// other than the reason under it.
+    /// </summary>
+    [Fact]
+    public void NoOtherRefusalNamesAQuestionBehindIt()
+    {
+        var document = RepositoryFiles.ReadFromRoot(Reference);
+        var recorded = RestOnADecidedQuestion.Select(entry => entry.Refusal).ToList();
 
         foreach (var refusal in Refusals.Where(name => !recorded.Contains(name, StringComparer.Ordinal)))
         {
             Assert.False(
-                OpenQuestionLine.IsMatch(SectionUnder(document, refusal)),
-                "The refusal '" + refusal + "' says the question behind it is open, and it is not one of the recorded set.");
+                DecidedQuestionLine.IsMatch(SectionUnder(document, refusal)),
+                "The refusal '" + refusal + "' names a question behind it, and it is not one of the recorded set.");
         }
     }
 
