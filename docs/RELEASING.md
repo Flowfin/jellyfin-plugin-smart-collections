@@ -12,7 +12,22 @@ name.
 
 ## Cutting a release
 
-1. Update `version` in `build.yaml` on the release branch and merge it.
+1. Raise the version on the release branch and merge it. It is written in three
+   places and all three have to say the same thing: `version` in `build.yaml`,
+   `version` in `build-jf12.yaml`, and `Version`, `AssemblyVersion` and
+   `FileVersion` in `Directory.Build.props`, which is what the build stamps into
+   the shipped assemblies.
+
+    Nothing derives one from another, so a partial edit is a real mistake to
+    make. The suite refuses it before a tag is pushed:
+    `ShippedVersionTests.TheShippedVersionIsOneNumber` requires one value across
+    every manifest at the repository root and those three properties, and
+    `ServerLineManifestTests.TheManifestsDifferOnlyWhereTheServerLineDiffers`
+    requires the two manifests to agree on everything that is not per-line. The
+    run also checks it, under **The version stamped into the assembly is not the
+    version in `build.yaml`** below, and that check runs after the tag has been
+    pushed.
+
 2. Check that the commit you want to release is on that branch.
 3. Push the tag for that commit:
 
@@ -143,7 +158,7 @@ version people have already installed is the failure this prevents, and it is wo
 more than the convenience of a re-run.
 
 So: if a release went out with the wrong contents, fix the problem, raise the version
-in `build.yaml`, and push a new tag.
+in all three places step 1 names, and push a new tag.
 
 If a run failed **before** the release was created, the tag is still clean. Fix the
 cause and re-run the workflow from the Actions page, or delete and re-push the tag.
