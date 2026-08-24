@@ -18,15 +18,16 @@ name.
    `FileVersion` in `Directory.Build.props`, which is what the build stamps into
    the shipped assemblies.
 
-   Nothing derives one from another, so a partial edit is a real mistake to
-   make. The suite refuses it before a tag is pushed:
-   `ShippedVersionTests.TheShippedVersionIsOneNumber` requires one value across
-   every manifest at the repository root and those three properties, and
-   `ServerLineManifestTests.TheManifestsDifferOnlyWhereTheServerLineDiffers`
-   requires the two manifests to agree on everything that is not per-line. The
-   run also checks it, under **The version stamped into the assembly is not the
-   version in `build.yaml`** below, and that check runs after the tag has been
-   pushed.
+    Nothing derives one from another, so a partial edit is a real mistake to
+    make. The suite refuses it before a tag is pushed:
+    `ShippedVersionTests.TheShippedVersionIsOneNumber` requires one value across
+    every manifest at the repository root and those three properties, and
+    `ServerLineManifestTests.TheManifestsDifferOnlyWhereTheServerLineDiffers`
+    requires the two manifests to agree on everything that is not per-line. The
+    run also checks it, under **The version stamped into the assembly is not the
+    version in `build.yaml`** below, and that check runs after the tag has been
+    pushed.
+
 2. Check that the commit you want to release is on that branch.
 3. Push the tag for that commit:
 
