@@ -27,6 +27,12 @@ still being written.
   Jellyfin plugin template ships with.
 - The CodeQL workflow scans under this repository's name rather than the
   template's.
+- The three refusals in the rule language reference that were put as a question
+  before they were written down name the question they were decided on and the
+  day, rather than saying the question has no answer recorded. Every question on
+  #67 was answered on 2026-08-24 and none of the three against the wording that
+  was standing, so what changed is what a reader is told about where the refusal
+  came from rather than the refusal.
 - The version both manifests declare is `0.1.0.0` rather than the template's
   `1.0.0.0`, which is the number the first release carries. The assemblies are
   stamped with the same number, so the release route no longer stops on the
