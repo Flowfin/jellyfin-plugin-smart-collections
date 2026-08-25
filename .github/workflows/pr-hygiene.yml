@@ -25,7 +25,7 @@
 # the ruleset, not of this file, and restating it here is how a header goes
 # stale. Print it:
 #
-#   gh api repos/iderex/jellyfin-plugin-smart-collections/rulesets/20465770 \
+#   gh api repos/Flowfin/jellyfin-plugin-smart-collections/rulesets/20465770 \
 #     --jq '[.rules[] | select(.type=="required_status_checks")
 #           | .parameters.required_status_checks[].context]'
 name: PR Hygiene

@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Anything with a security dimension does not belong here. Use the private
-        route in [SECURITY.md](https://github.com/iderex/jellyfin-plugin-smart-collections/blob/master/SECURITY.md)
+        route in [SECURITY.md](https://github.com/Flowfin/jellyfin-plugin-smart-collections/blob/master/SECURITY.md)
         instead, because a public issue is a disclosure.
 
   - type: input
