@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Report privately through GitHub, at
-[Report a vulnerability](https://github.com/iderex/jellyfin-plugin-smart-collections/security/advisories/new).
+[Report a vulnerability](https://github.com/Flowfin/jellyfin-plugin-smart-collections/security/advisories/new).
 Private reporting is enabled on this repository, so that form works for anyone
 with a GitHub account and the report is visible only to the maintainer until it
 is resolved.

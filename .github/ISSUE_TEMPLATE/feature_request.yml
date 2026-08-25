@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Some limits of the rule language are deliberate rather than missing.
-        [README.md](https://github.com/iderex/jellyfin-plugin-smart-collections/blob/master/README.md#what-a-rule-deliberately-cannot-say)
+        [README.md](https://github.com/Flowfin/jellyfin-plugin-smart-collections/blob/master/README.md#what-a-rule-deliberately-cannot-say)
         lists the ones chosen so far and why. Asking for one of those again is
         fine; say what changed your mind about the reason.
 

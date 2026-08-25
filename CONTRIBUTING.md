@@ -60,9 +60,9 @@ Of those, only some block a merge. The list of blocking checks is a repository
 setting rather than a file, so it is read from the API:
 
 ```
-gh api repos/iderex/jellyfin-plugin-smart-collections/rulesets \
+gh api repos/Flowfin/jellyfin-plugin-smart-collections/rulesets \
   --jq '.[] | select(.name == "gate") | .id'
-gh api repos/iderex/jellyfin-plugin-smart-collections/rulesets/20465770 \
+gh api repos/Flowfin/jellyfin-plugin-smart-collections/rulesets/20465770 \
   --jq '[.rules[] | select(.type == "required_status_checks")
          | .parameters.required_status_checks[].context]'
 ```
