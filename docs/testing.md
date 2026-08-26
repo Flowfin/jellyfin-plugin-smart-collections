@@ -74,13 +74,30 @@ built. The write surface is `ICollectionMembershipWriter`, three calls over
 identifiers rather than the server's collection manager, and the suite drives it
 through `FakeCollectionWriter` in `MembershipApplierTests`.
 
-The library query surface is not built and has no fake. Nothing in either
-assembly composes a query, and `FakeLibraryChangeSource` raises the three library
-events and holds no items, so it stands in for what starts an evaluation rather
-than for what an evaluation reads. Until that second port exists this
-replacement covers the writing half only, and running a rule against a library
-is something this suite cannot express yet rather than something it does without
-a server. #30 is where the query is compiled and the port would arrive with it.
+A query surface is built for one question, and it is not the one an evaluation
+asks. `CollectionStamp.LookupQuery` composes an `InternalItemsQuery` that finds
+the collection a rule owns by the mark this plugin wrote on it, the port over it
+is `ICollectionOwnership`, and the suite drives that port through
+`FakeCollectionOwnership` in `CollectionResolverTests`, which matches on a
+provider key and its value together the way the server's own query does.
+
+Neither port has a server side in this tree. `ICollectionMembershipWriter` has
+stood without one since it was declared and `ICollectionOwnership` arrives the
+same way, because each adapter is a forward onto `ILibraryManager` or
+`ICollectionManager` and no test here can execute one: an `ILibraryManager` is
+eighty-four members, and holding a real one means the running server this page
+refuses. Both therefore arrive with the first trigger that runs a refresh, which
+needs both at once. What the suite holds meanwhile is the decision in front of
+each port, `CollectionResolver` and `MembershipApplier`, neither of which names
+a server type.
+
+The surface an evaluation reads is still not built and still has no fake.
+Nothing compiles a rule into a query, and `FakeLibraryChangeSource` raises the
+three library events and holds no items, so it stands in for what starts an
+evaluation rather than for what an evaluation reads. Running a rule against a
+library is therefore something this suite cannot express yet rather than
+something it does without a server. #30 is where the query is compiled and the
+port that answers it would arrive with it.
 
 The one place a running server is the right answer is the interoperability
 matrix, which boots containers on an ordinary runner, needs no display and no

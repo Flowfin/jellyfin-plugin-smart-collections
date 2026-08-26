@@ -26,11 +26,23 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 public class TestingDocumentTests
 {
     /// <summary>
-    /// The type a library query would be composed against. The document states that neither
-    /// assembly composes one, which is what makes the missing fake a gap rather than an
-    /// oversight, so the day a query appears that sentence has to be rewritten.
+    /// The type a library query is composed against. The document names the one question this
+    /// tree composes one for, so a query appearing anywhere else is a sentence on that page that
+    /// has stopped being true.
     /// </summary>
     private const string QueryType = "Internal" + "ItemsQuery";
+
+    /// <summary>
+    /// The files the page accounts for, which are the mark's own query, the port it is passed
+    /// through and the adapter that hands it to the server. Written as file names rather than as
+    /// a directory, because what the page claims is that ONE question composes a query, and a
+    /// directory would let a second one in beside it.
+    /// </summary>
+    private static readonly string[] ComposeAQuery =
+    {
+        "CollectionStamp.cs",
+        "ICollectionOwnership.cs",
+    };
 
     private static readonly string[] ProductProjects =
     {
@@ -91,28 +103,41 @@ public class TestingDocumentTests
     }
 
     /// <summary>
-    /// The other half of that replacement is a negative statement: no query surface, so no fake
-    /// of one. It is the half a reader is most likely to take on trust, and it is the half that
-    /// stops being true without anybody editing this document.
+    /// The other half of that replacement is the half a reader is most likely to take on trust,
+    /// and the half that stops being true without anybody editing this document. The page used to
+    /// say no query was composed at all; it says now that one question composes one, so what is
+    /// held here is that no second question quietly joined it.
     /// </summary>
+    /// <remarks>
+    /// The page's claim about the surface an evaluation reads is still a negative one, and the
+    /// scan below does not prove it: a file composing an evaluation's query would have to be one
+    /// of the three named above to pass, which is a name rather than a purpose. What the scan
+    /// refuses is the cheap version of that failure, a query composed in a fourth file with the
+    /// page left where it was.
+    /// </remarks>
     [Fact]
-    public void TheQuerySurfaceThePageReportsAbsentIsAbsent()
+    public void TheOnlyQuerySurfaceIsTheOneThePageNames()
     {
+        var document = DocumentText();
+
+        Assert.Contains("`CollectionStamp.LookupQuery`", document, StringComparison.Ordinal);
+        Assert.Contains("`ICollectionOwnership`", document, StringComparison.Ordinal);
+        Assert.Contains("`FakeCollectionOwnership`", document, StringComparison.Ordinal);
         Assert.Contains(
-            "The library query surface is not built and has no fake.",
-            DocumentText(),
+            "The surface an evaluation reads is still not built and still has no fake.",
+            document,
             StringComparison.Ordinal);
 
         var composing = ProductSources()
             .Where(path => File.ReadAllText(path).Contains(QueryType, StringComparison.Ordinal))
-            .Select(path => Path.GetFileName(path))
+            .Select(path => Path.GetFileName(path)!)
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
         Assert.True(
-            composing.Length == 0,
-            "docs/testing.md states that neither assembly composes a library query, and these "
-            + "files do. Rewrite that paragraph rather than this test."
+            composing.SequenceEqual(ComposeAQuery.OrderBy(name => name, StringComparer.Ordinal)),
+            "docs/testing.md accounts for the files that compose a library query, and these are "
+            + "the files that do. Rewrite that paragraph rather than this test."
             + Environment.NewLine
             + string.Join(Environment.NewLine, composing));
     }

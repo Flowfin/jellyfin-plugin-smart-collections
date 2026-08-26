@@ -363,7 +363,7 @@ public static class RuleDocumentValidator
                         $"{NameMember} is {name.Length} characters long and the most a name may be is {MaximumNameLength}."));
             }
 
-            return RuleDocumentValidation.Accepted(new RuleDocument(version, id, text));
+            return RuleDocumentValidation.Accepted(new RuleDocument(version, id, name, text));
         }
     }
 
