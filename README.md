@@ -125,6 +125,13 @@ Reading it clause by clause:
 - `id` is the rule's identity and does not change when the name does. It is what
   the plugin stamps on the collection it owns, so renaming a collection does not
   orphan it.
+- `name` is what the collection is called in your library, and nothing more than
+  that: it is display text, so changing it renames the collection the rule
+  already owns instead of producing a second one. A document without one is
+  refused rather than named after its file, because the file name is the plugin's
+  business and you should not have to rename a file to rename a collection. Two
+  rules may deliberately carry the same name; what tells their collections apart
+  is the stamp rather than the title.
 - `collects` names the item kinds the rule gathers.
 - `match` is a tree of conditions. `all` requires every clause to hold. Which
   composition operators exist and how deeply they may nest is part of the rule
