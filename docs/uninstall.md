@@ -131,27 +131,47 @@ rather than a silent contradiction of the page. The one-line override that
 proves it, and the two runs either side of it, are in the pull request that
 added the tests.
 
-WHAT THAT DOES NOT COVER IS LARGER THAN WHAT IT DOES. The tests say nothing
-about what happens to a collection by any other route, and they cannot: nothing
-in either shipped assembly writes or deletes a collection at all yet. The format
-declares an identity for a rule and a name for the collection it owns, and the
-name is display text rather than an identity, which is the separation the front
-page states in the same words:
+THE STAMP THIS PAGE PROMISES EXISTS NOW, AND THIS SECTION SAID IT DID NOT. What
+stood here said no code wrote an identity onto a collection, so there was no
+stamp for an uninstall or a reinstall to read. A create arrived with #170, and it
+writes one:
 
 ```
 node -e "const s=require('./Jellyfin.Plugin.SmartCollections.Engine/Rules/rule-document.schema.json');console.log(Object.keys(s.properties).join(', '))"
 schemaVersion, id, name
-git grep -n 'CreateCollection' -- '*.cs' ; echo "exit=$?"
-exit=1
+git grep -n 'CreateCollectionAsync' -- 'Jellyfin.Plugin.SmartCollections/' 'Jellyfin.Plugin.SmartCollections.Engine/'
+Jellyfin.Plugin.SmartCollections.Engine/Membership/CollectionResolver.cs:68:        return await _ownership.CreateCollectionAsync(
+Jellyfin.Plugin.SmartCollections.Engine/Membership/ICollectionOwnership.cs:71:    Task<Guid> CreateCollectionAsync(
 ```
 
-WHAT THE IDENTITY BUYS THIS PAGE TODAY IS NOTHING, and that is worth stating
-where a reader meets the member. A rule declares an id and no code writes one
-onto a collection, so there is still no stamp for an uninstall or a reinstall to
-read. The half of #29 that would put one there needs a create, which is the
-second command above returning nothing.
+The mark is a provider entry whose key is this plugin and whose value is the
+rule's id, written by the create rather than onto the collection afterwards, and
+read back by the same declaration that writes it. That is what the adoption
+sentence at the top of this page rests on, and two checks hold it now rather than
+a reader.
 
-The second guard #56 asks for, that a reinstall adopts the
-stamped collections rather than creating duplicates, is still unwritten and
-still the open half of that issue. Until it lands, what stands behind the
-adoption sentence in this page is a reader who checks it, not a check that runs.
+`AReinstallAdoptsTheStampedCollectionsRatherThanCreatingDuplicates` runs a first
+install over an empty server, then a second resolver with no memory of the first
+over the state that install left, and requires the same collections back and
+nothing created.
+
+`NoPortThisPluginWritesThroughCanRemoveACollectionOrTakeAMarkOffOne` is the
+uninstall half. It compares the members of both ports this plugin writes through
+as a set, so a call that could delete a collection or take a mark off one cannot
+arrive without reddening it:
+
+```
+git grep -n 'NoPortThisPluginWritesThroughCanRemoveACollectionOrTakeAMarkOffOne'   -- Jellyfin.Plugin.SmartCollections.Tests/UninstallHookTests.cs
+```
+
+WHAT NONE OF THAT COVERS IS THE SERVER, and it is a larger gap than the one this
+section used to name. No collection has been created on a Jellyfin server by this
+plugin, because nothing calls the resolve yet: neither port has an adapter over
+the server's own managers, and no trigger runs a refresh. So the stamp is written
+and read by code the suite executes, and the sentence at the top of this page
+about what an operator finds after a reinstall is still one no run against a
+server has confirmed.
+
+The tests here also say nothing about what happens to a collection by a route
+outside this plugin. An operator, another plugin or the server itself may delete
+one, and nothing in this repository would know.

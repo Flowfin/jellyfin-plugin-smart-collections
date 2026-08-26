@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Plugin.SmartCollections.Configuration;
+using Jellyfin.Plugin.SmartCollections.Membership;
 using Jellyfin.Plugin.SmartCollections.Rules;
 using MediaBrowser.Common.Plugins;
 using Xunit;
@@ -36,11 +39,98 @@ public class UninstallHookTests
     /// Gets the two assemblies this repository ships into a server. A type overriding the hook
     /// in either of them runs on uninstall; a type in the test assembly does not.
     /// </summary>
+    private static string[] Members(Type port)
+        => port.GetMethods()
+            .Select(method => method.Name)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
     private static IEnumerable<Assembly> ShippedAssemblies =>
     [
         typeof(Plugin).Assembly,
         typeof(RuleDocumentScan).Assembly
     ];
+
+    /// <summary>
+    /// The other half of the promise. An uninstall runs no code of this plugin's, which the two
+    /// tests above hold, and the page also says the stamp stays on the collections so a reinstall
+    /// adopts them. Nothing this plugin can call takes a mark off a collection or removes one, and
+    /// that is a property of the two ports rather than of the moment: neither port has a member
+    /// that could, whoever calls it and whenever.
+    /// </summary>
+    /// <remarks>
+    /// The members are compared as a set rather than searched for by name, so a third call added
+    /// to either port reds this whether or not somebody thought of this page. That is the point at
+    /// which it is worth being red: #57 plans an explicit action that removes the generated
+    /// collections, and the port member it needs is exactly what this refuses, so that change
+    /// arrives here and rewrites the page in the same motion instead of contradicting it.
+    ///
+    /// The two membership calls take item identifiers, so what they change is what a collection
+    /// holds. Neither takes a provider entry, a name or a collection to delete.
+    /// </remarks>
+    [Fact]
+    public void NoPortThisPluginWritesThroughCanRemoveACollectionOrTakeAMarkOffOne()
+    {
+        Assert.Equal(
+            new[] { "CreateCollectionAsync", "FindCollections" },
+            Members(typeof(ICollectionOwnership)));
+
+        Assert.Equal(
+            new[] { "AddToCollectionAsync", "ItemsThatStillResolve", "RemoveFromCollectionAsync" },
+            Members(typeof(ICollectionMembershipWriter)));
+
+        Assert.Equal(
+            new[] { typeof(Guid), typeof(IReadOnlyList<Guid>), typeof(CancellationToken) },
+            typeof(ICollectionMembershipWriter)
+                .GetMethod("RemoveFromCollectionAsync")!
+                .GetParameters()
+                .Select(parameter => parameter.ParameterType));
+    }
+
+    /// <summary>
+    /// A reinstall meets the collections the last install left and adopts them, rather than
+    /// building a second set beside them.
+    /// </summary>
+    /// <remarks>
+    /// A reinstall is a fresh process over a server that already holds the collections, so what
+    /// makes this a reinstall rather than a second call is that the resolver is a new one with no
+    /// memory of the first, reading the same server state. The state is what the first pass left:
+    /// the collections it created, with the marks it wrote, and nothing else carried over.
+    ///
+    /// The duplicate this refuses is the one an operator would meet as two of every collection in
+    /// their library after reinstalling a plugin, which is also what they would meet on every
+    /// scheduled run if the mark were not read back.
+    /// </remarks>
+    [Fact]
+    public async Task AReinstallAdoptsTheStampedCollectionsRatherThanCreatingDuplicates()
+    {
+        var server = new FakeCollectionOwnership();
+        var rules = new[]
+        {
+            new RuleDocument(1, "nineties-thrillers", "Nineties Thrillers", "{}"),
+            new RuleDocument(1, "unwatched-films", "Unwatched Films", "{}")
+        };
+
+        var firstInstall = new CollectionResolver(server);
+        var before = new List<Guid>();
+        foreach (var rule in rules)
+        {
+            before.Add(await firstInstall.ResolveAsync(rule, CancellationToken.None));
+        }
+
+        Assert.Equal(2, server.Created.Count);
+
+        var reinstalled = new CollectionResolver(server);
+        var after = new List<Guid>();
+        foreach (var rule in rules)
+        {
+            after.Add(await reinstalled.ResolveAsync(rule, CancellationToken.None));
+        }
+
+        Assert.Equal(before, after);
+        Assert.Equal(2, server.Created.Count);
+        Assert.Equal(2, server.Collections.Count);
+    }
 
     /// <summary>
     /// The hook this plugin presents to the server is the server's own. If this assertion is
