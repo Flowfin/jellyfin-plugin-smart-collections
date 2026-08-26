@@ -17,7 +17,7 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// </summary>
 public sealed class RuleDocumentLoaderTests : IDisposable
 {
-    private const string Valid = "{\"schemaVersion\": 1, \"name\": \"Christmas\"}";
+    private static readonly string Valid = ValidWith("christmas");
 
     private readonly string _directory;
 
@@ -116,7 +116,7 @@ public sealed class RuleDocumentLoaderTests : IDisposable
     {
         foreach (var name in new[] { "apple", "mango", "Zebra" })
         {
-            Write(name + "-good", Encoding.UTF8.GetBytes(Valid));
+            Write(name + "-good", Encoding.UTF8.GetBytes(ValidWith(name.ToLowerInvariant())));
             Write(name + "-bad", Encoding.UTF8.GetBytes("["));
         }
 
@@ -165,6 +165,109 @@ public sealed class RuleDocumentLoaderTests : IDisposable
     }
 
     /// <summary>
+    /// Two rules claiming one id are two rules claiming one collection. The first in the scan's
+    /// order keeps it and the second is a rejection, so an operator who copied a file to start a
+    /// second rule and forgot to change its id loses the copy rather than the original.
+    /// </summary>
+    [Fact]
+    public void ASecondDocumentClaimingAnIdTheFirstHoldsIsRejected()
+    {
+        Write("christmas", Encoding.UTF8.GetBytes(ValidWith("christmas")));
+        Write("winter", Encoding.UTF8.GetBytes(ValidWith("christmas")));
+
+        var scan = new RuleDocumentLoader(new RuleDocumentStore(_directory)).Scan();
+
+        var loaded = Assert.Single(scan.Loaded);
+        Assert.Equal("christmas", loaded.Name);
+
+        var rejection = Assert.Single(scan.Rejected);
+        Assert.Equal("winter", rejection.Name);
+
+        var error = Assert.Single(rejection.Errors);
+        Assert.Equal("/id", error.Pointer);
+
+        // The file that holds the id is named, because an operator told only that an id is taken
+        // has to grep the directory to find out by what.
+        Assert.Contains("christmas.json", error.Message, StringComparison.Ordinal);
+        Assert.Contains("already held", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Which of the two survives is decided by the scan's order and never by the file system's, so
+    /// the same directory refuses the same document on every run and on either server line. The
+    /// names here are chosen so that the ordinal order and the order they are written in disagree.
+    /// </summary>
+    [Fact]
+    public void TheDocumentThatKeepsAContestedIdIsTheFirstInOrdinalOrder()
+    {
+        Write("zulu", Encoding.UTF8.GetBytes(ValidWith("christmas")));
+        Write("alpha", Encoding.UTF8.GetBytes(ValidWith("christmas")));
+
+        var scan = new RuleDocumentLoader(new RuleDocumentStore(_directory)).Scan();
+
+        Assert.Equal("alpha", Assert.Single(scan.Loaded).Name);
+        Assert.Equal("zulu", Assert.Single(scan.Rejected).Name);
+    }
+
+    /// <summary>
+    /// The near miss for the refusal above. A name may be shared deliberately, and only the id may
+    /// not, so a guard that refused on either would take a legitimate pair of rules away.
+    /// </summary>
+    [Fact]
+    public void TwoDocumentsSharingANameButNotAnIdBothLoad()
+    {
+        Write("films", Encoding.UTF8.GetBytes(ValidWith("christmas-films")));
+        Write("series", Encoding.UTF8.GetBytes(ValidWith("christmas-series")));
+
+        var scan = new RuleDocumentLoader(new RuleDocumentStore(_directory)).Scan();
+
+        Assert.Equal(["films", "series"], scan.Loaded.Select(document => document.Name));
+        Assert.Empty(scan.Rejected);
+    }
+
+    /// <summary>
+    /// A contested id costs its own document and nothing else, which is the property the whole
+    /// shape exists for read against this refusal rather than against a broken file.
+    /// </summary>
+    [Fact]
+    public void AContestedIdCostsItsOwnDocumentAndNoOther()
+    {
+        Write("christmas", Encoding.UTF8.GetBytes(ValidWith("christmas")));
+        Write("halloween", Encoding.UTF8.GetBytes(ValidWith("halloween")));
+        Write("winter", Encoding.UTF8.GetBytes(ValidWith("christmas")));
+
+        var before = Fingerprint();
+
+        var scan = new RuleDocumentLoader(new RuleDocumentStore(_directory)).Scan();
+
+        Assert.Equal(["christmas", "halloween"], scan.Loaded.Select(document => document.Name));
+        Assert.Equal("winter", Assert.Single(scan.Rejected).Name);
+
+        // Nothing is rewritten, renamed or removed to resolve the contest. The document that lost
+        // it is still on disk exactly as the operator wrote it, which is what they need in order
+        // to give it an id of its own.
+        Assert.Equal(before, Fingerprint());
+    }
+
+    /// <summary>
+    /// Ids are told apart the way the validator reads them, which is by their code units. Nothing
+    /// folds one, and today nothing can: the set an id is made of has one case. This holds the
+    /// comparison rather than the set, so a scan that started folding would be caught here even
+    /// while every id in the directory is already lowercase.
+    /// </summary>
+    [Fact]
+    public void TwoIdsThatAreNotTheSameStringAreTwoIds()
+    {
+        Write("christmas", Encoding.UTF8.GetBytes(ValidWith("christmas")));
+        Write("winter", Encoding.UTF8.GetBytes(ValidWith("christmas-2")));
+
+        var scan = new RuleDocumentLoader(new RuleDocumentStore(_directory)).Scan();
+
+        Assert.Equal(2, scan.Loaded.Count);
+        Assert.Empty(scan.Rejected);
+    }
+
+    /// <summary>
     /// The loader is handed its store rather than building one, which is what lets every test here
     /// run in a temporary directory.
     /// </summary>
@@ -173,6 +276,13 @@ public sealed class RuleDocumentLoaderTests : IDisposable
     {
         Assert.Throws<ArgumentNullException>(() => new RuleDocumentLoader(null!));
     }
+
+    // A rule document that reads, carrying the id it is given. Every valid document in one
+    // directory needs an id of its own, because the scan refuses a second document claiming an
+    // id a first one already holds, so one shared text would make most of these tests about
+    // that refusal instead of about what they are named for.
+    private static string ValidWith(string id)
+        => "{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\"}";
 
     private static string Reason(RuleDocumentScan scan, string name)
         => string.Join(
