@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// </summary>
 public class RuleDocumentValidatorTests
 {
-    private const string Minimal = "{\"schemaVersion\": 1, \"name\": \"Christmas\"}";
+    private const string Minimal = "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Christmas\"}";
 
     [Fact]
     public void AValidDocumentIsAcceptedAndKeptExactlyAsItWasRead()
@@ -22,7 +22,7 @@ public class RuleDocumentValidatorTests
         // Deliberately not the shape a serialiser would emit: extra spacing, a trailing newline
         // and a member no version declares. Keeping the text as read is what lets a member this
         // version does not understand survive a round trip instead of being dropped.
-        const string Text = "{\n    \"schemaVersion\" :  1,\n    \"name\": \"Christmas\",\n    \"somethingLaterVersionsMayAdd\": []\n}\n";
+        const string Text = "{\n    \"schemaVersion\" :  1,\n    \"id\": \"christmas\",\n    \"name\": \"Christmas\",\n    \"somethingLaterVersionsMayAdd\": []\n}\n";
 
         var result = RuleDocumentValidator.Read(Text);
 
@@ -158,8 +158,8 @@ public class RuleDocumentValidatorTests
     [InlineData("{\"schemaVersion\": 99}")]
     [InlineData("{\"schemaVersion\": 1,}")]
     [InlineData("{\"schemaVersion\": 1}")]
-    [InlineData("{\"schemaVersion\": 1, \"name\": \"\"}")]
-    [InlineData("{\"schemaVersion\": 1, \"name\": 7}")]
+    [InlineData("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"\"}")]
+    [InlineData("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": 7}")]
     public void EveryRefusalCarriesAPointerAndAMessage(string text)
     {
         var result = RuleDocumentValidator.Read(text);
@@ -179,7 +179,7 @@ public class RuleDocumentValidatorTests
     public void TheLowestVersionIsAccepted()
     {
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": " + RuleDocumentValidator.LowestSchemaVersion + ", \"name\": \"Christmas\"}");
+            "{\"schemaVersion\": " + RuleDocumentValidator.LowestSchemaVersion + ", \"id\": \"christmas\", \"name\": \"Christmas\"}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -300,6 +300,198 @@ public class RuleDocumentValidatorTests
     }
 
     /// <summary>
+    /// The member that says which rule this is. A document without one is refused rather than
+    /// given an id worked out from its name or its file, because an identity derived from either
+    /// of those changes when that one is edited, which is the one thing an identity exists not to
+    /// do.
+    /// </summary>
+    [Fact]
+    public void ADocumentWithNoIdIsRefusedAtTheMember()
+    {
+        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/id", error.Pointer);
+        Assert.Contains(RuleDocumentValidator.IdMember, error.Message, StringComparison.Ordinal);
+
+        // The distinctive half of the sentence. Without it this assertion also passes on the
+        // refusal for an id that is not a string, which an absent member reaches as
+        // JsonValueKind.Undefined, and the guard for a missing member would be provable by
+        // deleting it.
+        Assert.Contains("declares no id", error.Message, StringComparison.Ordinal);
+        Assert.Null(result.Document);
+    }
+
+    [Theory]
+    [InlineData("{\"schemaVersion\": 1, \"id\": 7}", "a number")]
+    [InlineData("{\"schemaVersion\": 1, \"id\": true}", "a true or false value")]
+    [InlineData("{\"schemaVersion\": 1, \"id\": null}", "null")]
+    [InlineData("{\"schemaVersion\": 1, \"id\": []}", "an array")]
+    [InlineData("{\"schemaVersion\": 1, \"id\": {}}", "an object")]
+    public void AnIdThatIsNotAStringIsRefusedAndTheMessageNamesWhatItIs(string text, string named)
+    {
+        var result = RuleDocumentValidator.Read(text);
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/id", error.Pointer);
+        Assert.Contains(named, error.Message, StringComparison.Ordinal);
+        Assert.Contains("has to be a string", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnEmptyIdIsRefused()
+    {
+        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"id\": \"\"}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/id", error.Pointer);
+        Assert.Contains("empty", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The set is narrow on purpose, and each case here is one of the reasons it is. An uppercase
+    /// letter would leave case folding deciding an identity, and the rule for folding one is not
+    /// the same in every language. A letter outside ASCII would leave a normalisation form
+    /// deciding it, since the two encodings of one accented letter render identically and compare
+    /// as different. A space and a combining mark are refused by the same clause rather than by
+    /// three of their own, which is why they are here and not in tests of their own.
+    /// </summary>
+    [Theory]
+    [InlineData("Christmas", 'C')]
+    [InlineData("christmas films", ' ')]
+    [InlineData("christmas_films", '_')]
+    [InlineData("christmas.films", '.')]
+    [InlineData("weihnachtsfilme-f\u00fcr-alle", '\u00fc')]
+    [InlineData("christmas\u0301", '\u0301')]
+    public void AnIdHoldingACharacterOutsideTheSetIsRefusedAndTheMessageSaysWhereItIs(string id, char offending)
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"id\": \"" + id + "\"}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/id", error.Pointer);
+        Assert.Contains(
+            "position " + id.IndexOf(offending).ToString(CultureInfo.InvariantCulture),
+            error.Message,
+            StringComparison.Ordinal);
+        Assert.Contains("lowercase letters a to z", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A character a message cannot show is named by its code point instead. Printing a tab raw
+    /// leaves a refusal with a gap where the reason should be, and the operator is told a position
+    /// and nothing else.
+    /// </summary>
+    [Fact]
+    public void AnIdHoldingATabIsNamedByItsCodePointRatherThanPrintedRaw()
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"id\": \"christ\\tmas\"}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/id", error.Pointer);
+        Assert.Contains("U+0009", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("\t", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Inside the set, including the id the front page publishes in its own example. A test that
+    /// only watched the refusals would pass with a validator that refused every id there is.
+    /// </summary>
+    [Theory]
+    [InlineData("nineties-thrillers")]
+    [InlineData("a")]
+    [InlineData("0")]
+    [InlineData("-")]
+    [InlineData("christmas-films-2026")]
+    public void AnIdInsideTheSetIsAccepted(string id)
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\"}");
+
+        Assert.True(result.IsValid, Because(result));
+        Assert.Equal(id, result.Document!.Id, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void AnIdLongerThanTheMaximumIsRefusedWithBothNumbersInTheMessage()
+    {
+        var tooLong = new string('a', RuleDocumentValidator.MaximumIdLength + 1);
+
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"id\": \"" + tooLong + "\"}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/id", error.Pointer);
+        Assert.Contains(
+            (RuleDocumentValidator.MaximumIdLength + 1).ToString(CultureInfo.InvariantCulture),
+            error.Message,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            RuleDocumentValidator.MaximumIdLength.ToString(CultureInfo.InvariantCulture),
+            error.Message,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The one-character near miss for the bound above, which is what separates a rule that
+    /// refuses too much from one that refuses what it says it does.
+    /// </summary>
+    [Fact]
+    public void AnIdOfExactlyTheMaximumIsAccepted()
+    {
+        var atTheBound = new string('a', RuleDocumentValidator.MaximumIdLength);
+
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"id\": \"" + atTheBound + "\", \"name\": \"Christmas\"}");
+
+        Assert.True(result.IsValid, Because(result));
+    }
+
+    /// <summary>
+    /// Both members are wrong and the id is what is reported. A document that cannot be identified
+    /// is one every later message can name only by the file it came from, which is the coupling
+    /// the id exists to break, so it is what the envelope asks for first after the version.
+    /// </summary>
+    [Fact]
+    public void AnIdIsJudgedBeforeAName()
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"id\": 7, \"name\": 7}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/id", error.Pointer);
+    }
+
+    /// <summary>
+    /// Judged after the version, for the reason the version is judged first: what an id may hold
+    /// is a property of a format version, so an id read before the version is known would be
+    /// judged against the wrong format.
+    /// </summary>
+    [Fact]
+    public void AVersionThisPluginCannotReadIsReportedBeforeAnIdIsJudged()
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 99, \"id\": \"NOT IN THE SET\"}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/schemaVersion", error.Pointer);
+    }
+
+    /// <summary>
+    /// The id is the one member this record carries, because it is the one thing a caller asks
+    /// about a document without reading it. Everything else stays in the text.
+    /// </summary>
+    [Fact]
+    public void AnAcceptedDocumentCarriesTheIdItDeclared()
+    {
+        var result = RuleDocumentValidator.Read(Minimal);
+
+        Assert.True(result.IsValid, Because(result));
+        Assert.Equal("christmas", result.Document!.Id, StringComparer.Ordinal);
+    }
+
+    /// <summary>
     /// The member that decides what an operator sees. A document without one is refused rather
     /// than named after the file it was read from: the file name is the store's business, and
     /// borrowing it would mean renaming a collection by renaming a file.
@@ -307,7 +499,7 @@ public class RuleDocumentValidatorTests
     [Fact]
     public void ADocumentWithNoNameIsRefusedAtTheMember()
     {
-        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1}");
+        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"id\": \"christmas\"}");
 
         var error = Assert.Single(result.Errors);
         Assert.Equal("/name", error.Pointer);
@@ -327,11 +519,11 @@ public class RuleDocumentValidatorTests
     /// sentence there and reports a name as a bad integer if it is borrowed.
     /// </summary>
     [Theory]
-    [InlineData("{\"schemaVersion\": 1, \"name\": 7}", "a number")]
-    [InlineData("{\"schemaVersion\": 1, \"name\": true}", "a true or false value")]
-    [InlineData("{\"schemaVersion\": 1, \"name\": null}", "null")]
-    [InlineData("{\"schemaVersion\": 1, \"name\": []}", "an array")]
-    [InlineData("{\"schemaVersion\": 1, \"name\": {}}", "an object")]
+    [InlineData("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": 7}", "a number")]
+    [InlineData("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": true}", "a true or false value")]
+    [InlineData("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": null}", "null")]
+    [InlineData("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": []}", "an array")]
+    [InlineData("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": {}}", "an object")]
     public void ANameThatIsNotAStringIsRefusedAndTheMessageNamesWhatItIs(string text, string named)
     {
         var result = RuleDocumentValidator.Read(text);
@@ -345,7 +537,7 @@ public class RuleDocumentValidatorTests
     [Fact]
     public void AnEmptyNameIsRefused()
     {
-        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"name\": \"\"}");
+        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"\"}");
 
         var error = Assert.Single(result.Errors);
         Assert.Equal("/name", error.Pointer);
@@ -365,7 +557,7 @@ public class RuleDocumentValidatorTests
     [InlineData(" ")]
     public void ANameWithWhitespaceAtEitherEndIsRefusedRatherThanTrimmed(string name)
     {
-        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"name\": \"" + name + "\"}");
+        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"" + name + "\"}");
 
         var error = Assert.Single(result.Errors);
         Assert.Equal("/name", error.Pointer);
@@ -381,7 +573,7 @@ public class RuleDocumentValidatorTests
     public void WhitespaceInsideANameIsWhatANameIsMadeOf()
     {
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"name\": \"Nineties Thrillers\"}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Nineties Thrillers\"}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -396,7 +588,7 @@ public class RuleDocumentValidatorTests
     public void ANameHoldingAControlCharacterIsRefusedAndTheMessageSaysWhereItIs()
     {
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"name\": \"Chri\\u0007stmas\"}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Chri\\u0007stmas\"}");
 
         var error = Assert.Single(result.Errors);
         Assert.Equal("/name", error.Pointer);
@@ -414,7 +606,7 @@ public class RuleDocumentValidatorTests
     public void ATabInTheMiddleIsRefusedAsAControlCharacter()
     {
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"name\": \"Chri\\tstmas\"}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Chri\\tstmas\"}");
 
         var error = Assert.Single(result.Errors);
         Assert.Equal("/name", error.Pointer);
@@ -427,7 +619,7 @@ public class RuleDocumentValidatorTests
         var tooLong = new string('a', RuleDocumentValidator.MaximumNameLength + 1);
 
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"name\": \"" + tooLong + "\"}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"" + tooLong + "\"}");
 
         var error = Assert.Single(result.Errors);
         Assert.Equal("/name", error.Pointer);
@@ -451,7 +643,7 @@ public class RuleDocumentValidatorTests
         var atTheBound = new string('a', RuleDocumentValidator.MaximumNameLength);
 
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"name\": \"" + atTheBound + "\"}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"" + atTheBound + "\"}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -466,10 +658,10 @@ public class RuleDocumentValidatorTests
     [Fact]
     public void TwoDocumentsMayCarryTheSameNameAndBothAreAccepted()
     {
-        const string Text = "{\"schemaVersion\": 1, \"name\": \"Christmas\"}";
-
-        var first = RuleDocumentValidator.Read(Text);
-        var second = RuleDocumentValidator.Read(Text);
+        var first = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"id\": \"christmas-films\", \"name\": \"Christmas\"}");
+        var second = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"id\": \"christmas-series\", \"name\": \"Christmas\"}");
 
         Assert.True(first.IsValid, Because(first));
         Assert.True(second.IsValid, Because(second));

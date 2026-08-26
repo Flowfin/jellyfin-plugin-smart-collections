@@ -48,12 +48,24 @@ public sealed class RuleDocumentLoader
     ///
     /// A directory that does not exist scans as empty rather than as a fault, because a server
     /// that has never had a rule written on it is an ordinary state.
+    ///
+    /// Where two documents declare one id, the first in that order keeps it and every later one is
+    /// a rejection. Which of them is first is therefore decided by the file names rather than by
+    /// the file system, so the same directory refuses the same document on every run and on either
+    /// server line. Refusing both instead would take a working collection away from an operator
+    /// who copied a file, and the pair cannot both be loaded: they claim one collection.
     /// </remarks>
     /// <returns>The documents that loaded and the files that were refused.</returns>
     public RuleDocumentScan Scan()
     {
         var loaded = new List<LoadedRuleDocument>();
         var rejected = new List<RejectedRuleDocument>();
+
+        // Ordinal, because an id is compared and never folded, and because the validator has
+        // already refused every id this dictionary could be asked to fold: the set an id is made
+        // of has one case. A comparer that folded would agree with it today and stop agreeing the
+        // day the set widens, which is the kind of drift nobody re-reads a dictionary to find.
+        var claimed = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var name in _store.ListNames())
         {
@@ -87,14 +99,29 @@ public sealed class RuleDocumentLoader
 
             var validation = RuleDocumentValidator.Read(content);
 
-            if (validation.Document is { } document)
-            {
-                loaded.Add(new LoadedRuleDocument(name, document));
-            }
-            else
+            if (validation.Document is not { } document)
             {
                 rejected.Add(new RejectedRuleDocument(name, validation.Errors));
+                continue;
             }
+
+            if (claimed.TryGetValue(document.Id, out var holder))
+            {
+                rejected.Add(new RejectedRuleDocument(
+                    name,
+                    [
+                        new RuleValidationError(
+                            "/" + RuleDocumentValidator.IdMember,
+                            string.Create(
+                                CultureInfo.InvariantCulture,
+                                $"The id {document.Id} is already held by {holder}{RuleDocumentStore.Extension}, which was read first. Two rules carrying one id are two rules claiming one collection, so the second is refused rather than allowed to take over what the first owns. Give this document an id of its own; a name may be shared, an id may not."))
+                    ]));
+
+                continue;
+            }
+
+            claimed.Add(document.Id, name);
+            loaded.Add(new LoadedRuleDocument(name, document));
         }
 
         return new RuleDocumentScan(loaded, rejected);

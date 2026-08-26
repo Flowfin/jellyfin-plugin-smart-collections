@@ -133,19 +133,25 @@ added the tests.
 
 WHAT THAT DOES NOT COVER IS LARGER THAN WHAT IT DOES. The tests say nothing
 about what happens to a collection by any other route, and they cannot: nothing
-in either shipped assembly writes or deletes a collection at all yet, and a rule
-has no identity for a stamp to carry. The format declares a name for the
-collection a rule owns, and a name is display text rather than an identity,
-which is the separation the front page states in the same words:
+in either shipped assembly writes or deletes a collection at all yet. The format
+declares an identity for a rule and a name for the collection it owns, and the
+name is display text rather than an identity, which is the separation the front
+page states in the same words:
 
 ```
 node -e "const s=require('./Jellyfin.Plugin.SmartCollections.Engine/Rules/rule-document.schema.json');console.log(Object.keys(s.properties).join(', '))"
-schemaVersion, name
+schemaVersion, id, name
 git grep -n 'CreateCollection' -- '*.cs' ; echo "exit=$?"
 exit=1
 ```
 
-The identity is #29. The second guard #56 asks for, that a reinstall adopts the
+WHAT THE IDENTITY BUYS THIS PAGE TODAY IS NOTHING, and that is worth stating
+where a reader meets the member. A rule declares an id and no code writes one
+onto a collection, so there is still no stamp for an uninstall or a reinstall to
+read. The half of #29 that would put one there needs a create, which is the
+second command above returning nothing.
+
+The second guard #56 asks for, that a reinstall adopts the
 stamped collections rather than creating duplicates, is still unwritten and
 still the open half of that issue. Until it lands, what stands behind the
 adoption sentence in this page is a reader who checks it, not a check that runs.

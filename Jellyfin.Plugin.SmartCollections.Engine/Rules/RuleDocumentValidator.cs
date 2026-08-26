@@ -15,13 +15,23 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// anything that acts on it.
 ///
 /// What it checks today is the envelope: that the text is JSON, that its top level is an object,
-/// that it declares a schema version this plugin reads, and that it declares a name for the
-/// collection the rule owns. The rule inside the envelope is checked by stages that arrive with the vocabulary they check against, each adding its errors
+/// that it declares a schema version this plugin reads, that it declares an id for the rule, and
+/// that it declares a name for the collection the rule owns. The rule inside the envelope is checked by stages that arrive with the vocabulary they check against, each adding its errors
 /// to the same list with its own pointer. That order matters: a document whose version this
 /// plugin cannot read is refused before anything tries to interpret its contents, because reading
-/// as far as it parses would apply a rule that means something else. The name is checked after
-/// the version for the same reason: what a name may hold is a property of a format version, so
-/// judging one before the version is known would judge it against the wrong format.
+/// as far as it parses would apply a rule that means something else. The id and the name are
+/// checked after the version for the same reason: what either may hold is a property of a format
+/// version, so judging one before the version is known would judge it against the wrong format.
+///
+/// The id is checked before the name because it is what the rule is, and the name is what its
+/// collection is called. Every message about a document from here on names the rule, and a
+/// document that cannot be identified is one an administrator surface can only report by the file
+/// it came from, which is the coupling the id exists to break.
+///
+/// Whether an id collides with another document's is not a question about one document and is
+/// not asked here. One document is judged on its own bytes, so this type answers the same way
+/// whatever else is in the directory; the collision is refused by the scan that reads the
+/// directory, which is the only place that knows what else was loaded.
 /// </remarks>
 public static class RuleDocumentValidator
 {
@@ -46,6 +56,41 @@ public static class RuleDocumentValidator
     public const string SchemaVersionMember = "schemaVersion";
 
     private const string SchemaVersionPointer = "/" + SchemaVersionMember;
+
+    /// <summary>
+    /// The member a rule document carries its identity in.
+    /// </summary>
+    public const string IdMember = "id";
+
+    private const string IdPointer = "/" + IdMember;
+
+    /// <summary>
+    /// The most an id may hold, counted in UTF-16 code units.
+    /// </summary>
+    /// <remarks>
+    /// This is a number this plugin chose rather than one it read off the server. The columns a
+    /// provider key and its value are stored in declare no length on either supported line:
+    ///
+    /// <code>
+    /// for ref in v10.11.11 v12.0-rc4; do
+    ///   gh api "repos/jellyfin/jellyfin/contents/src/Jellyfin.Database/Jellyfin.Database.Implementations/Entities/BaseItemProvider.cs?ref=$ref"     ///     --jq .content | base64 -d | grep -cE 'MaxLength'
+    /// done
+    /// 0
+    /// 0
+    /// </code>
+    ///
+    /// So nothing downstream refuses a longer one and the bound exists for what an id has to fit
+    /// into here: one refusal message, one stamp on a collection and one line of a log. Unlike a
+    /// name it is never rendered to somebody browsing a library, so the bound is smaller: it is
+    /// far above any identifier a person types and far below a length that turns a document into
+    /// a payload.
+    /// </remarks>
+    public const int MaximumIdLength = 64;
+
+    /// <summary>
+    /// The set an id is made of, in the words the refusal uses.
+    /// </summary>
+    private const string IdSetInWords = "the lowercase letters a to z, the digits 0 to 9 and the hyphen";
 
     /// <summary>
     /// The member a rule document carries the collection's name in.
@@ -211,6 +256,55 @@ public static class RuleDocumentValidator
                         $"The document declares {SchemaVersionMember} {version} and this plugin reads up to {SchemaVersionMember} {CurrentSchemaVersion}. It is refused rather than read as far as it parses, because a newer version may have changed what an existing member means."));
             }
 
+            if (!root.TryGetProperty(IdMember, out var declaredId))
+            {
+                return Refuse(
+                    IdPointer,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"The document declares no {IdMember}. Every rule document carries one as a string at its top level, and it is what this rule is called by everything that is not a person. A document without one is refused rather than given an id derived from its name or its file, because an identity derived from either of those changes when that one is edited, which is the whole thing an identity exists not to do."));
+            }
+
+            if (declaredId.ValueKind != JsonValueKind.String)
+            {
+                return Refuse(
+                    IdPointer,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{IdMember} is {DescribeKind(declaredId.ValueKind)} and has to be a string."));
+            }
+
+            // Not null: the kind is String, and GetString returns null only for JsonValueKind.Null.
+            var id = declaredId.GetString()!;
+
+            if (id.Length == 0)
+            {
+                return Refuse(
+                    IdPointer,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{IdMember} is empty, and a rule with no identity cannot be told from any other."));
+            }
+
+            var outside = IndexOfCharacterOutsideTheIdSet(id);
+            if (outside >= 0)
+            {
+                return Refuse(
+                    IdPointer,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{IdMember} holds {Quote(id[outside])} at position {outside}, and an id is made of {IdSetInWords}. The set is narrow because this member is compared rather than read: two ids that a person cannot tell apart, or that differ only in how their text was encoded, would be two identities wearing one face."));
+            }
+
+            if (id.Length > MaximumIdLength)
+            {
+                return Refuse(
+                    IdPointer,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{IdMember} is {id.Length} characters long and the most an id may be is {MaximumIdLength}."));
+            }
+
             if (!root.TryGetProperty(NameMember, out var declaredName))
             {
                 return Refuse(
@@ -269,7 +363,7 @@ public static class RuleDocumentValidator
                         $"{NameMember} is {name.Length} characters long and the most a name may be is {MaximumNameLength}."));
             }
 
-            return RuleDocumentValidation.Accepted(new RuleDocument(version, text));
+            return RuleDocumentValidation.Accepted(new RuleDocument(version, id, text));
         }
     }
 
@@ -307,6 +401,41 @@ public static class RuleDocumentValidator
 
         return -1;
     }
+
+    // The position of the first character outside the declared set, or -1. The set is written as
+    // a range test rather than as a list or a character class, because what it has to be is
+    // exactly this and nothing a library decides: char.IsLetterOrDigit accepts every script and
+    // every digit Unicode knows, which is the opposite of what an identity wants.
+    //
+    // Three refusals the name member spells out separately are inside this one. Whitespace at an
+    // edge, whitespace anywhere else and a control character are all outside the set, so an id
+    // carrying one is refused here and the message names the position rather than the category.
+    private static int IndexOfCharacterOutsideTheIdSet(string id)
+    {
+        for (var index = 0; index < id.Length; index++)
+        {
+            var character = id[index];
+
+            var permitted = (character >= 'a' && character <= 'z')
+                || (character >= '0' && character <= '9')
+                || character == '-';
+
+            if (!permitted)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    // The character as a message can carry it. A control character or a space printed raw makes a
+    // refusal that says nothing where the character should be, so anything outside the printable
+    // ASCII range is named by its code point instead of shown.
+    private static string Quote(char character)
+        => character is >= ' ' and <= '~'
+            ? string.Create(CultureInfo.InvariantCulture, $"'{character}'")
+            : string.Create(CultureInfo.InvariantCulture, $"U+{(int)character:X4}");
 
     // The same vocabulary as Describe, minus the clause it adds for a number. Describe is called
     // where a number has already failed to be a 32-bit integer and saying so is the whole point

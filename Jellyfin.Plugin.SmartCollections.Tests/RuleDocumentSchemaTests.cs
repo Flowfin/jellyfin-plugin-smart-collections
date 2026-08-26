@@ -1,5 +1,6 @@
 using System;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Jellyfin.Plugin.SmartCollections.Rules;
 using Xunit;
 
@@ -73,7 +74,95 @@ public class RuleDocumentSchemaTests
 
         var result = RuleDocumentValidator.Read(
             "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": " + maximum
+            + ", \"" + RuleDocumentValidator.IdMember + "\": \"christmas\""
             + ", \"" + RuleDocumentValidator.NameMember + "\": \"Christmas\"}");
+
+        Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
+    }
+
+    [Fact]
+    public void TheSchemaRequiresTheIdMemberTheValidatorRequires()
+    {
+        var required = Schema().GetProperty("required");
+
+        Assert.Contains(
+            required.EnumerateArray(),
+            member => string.Equals(
+                member.GetString(),
+                RuleDocumentValidator.IdMember,
+                StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The editor's copy of the id bounds and the validator's are the same numbers. An editor
+    /// accepting an id the plugin refuses costs an operator a document they were told was fine.
+    /// </summary>
+    [Fact]
+    public void TheSchemaDeclaresTheSameIdBoundsTheValidatorReads()
+    {
+        var member = Schema()
+            .GetProperty("properties")
+            .GetProperty(RuleDocumentValidator.IdMember);
+
+        Assert.Equal("string", member.GetProperty("type").GetString());
+        Assert.Equal(1, member.GetProperty("minLength").GetInt32());
+        Assert.Equal(RuleDocumentValidator.MaximumIdLength, member.GetProperty("maxLength").GetInt32());
+    }
+
+    /// <summary>
+    /// The one member of this format a schema processor can express in full, and therefore the one
+    /// place the two declarations can disagree silently on a document rather than on a bound. The
+    /// pattern and the validator are asked the same question about the same strings, so a set
+    /// widened in one and not the other reds here rather than on somebody's editor.
+    /// </summary>
+    [Theory]
+    [InlineData("nineties-thrillers", true)]
+    [InlineData("a", true)]
+    [InlineData("0", true)]
+    [InlineData("-", true)]
+    [InlineData("Christmas", false)]
+    [InlineData("christmas films", false)]
+    [InlineData("christmas_films", false)]
+    [InlineData("christmas.films", false)]
+    [InlineData("weihnachtsfilme-f\u00fcr-alle", false)]
+    [InlineData("", false)]
+    public void TheSchemasPatternAndTheValidatorAgreeOnWhatAnIdMayHold(string id, bool expected)
+    {
+        var pattern = Schema()
+            .GetProperty("properties")
+            .GetProperty(RuleDocumentValidator.IdMember)
+            .GetProperty("pattern")
+            .GetString();
+
+        // A timeout because this pattern is read out of a file rather than written here, which is
+        // the same reason the engine may not construct one without a bound.
+        var bySchema = Regex.IsMatch(id, pattern!, RegexOptions.None, TimeSpan.FromSeconds(1));
+
+        var byValidator = RuleDocumentValidator
+            .Read("{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\"}")
+            .IsValid;
+
+        Assert.Equal(expected, bySchema);
+        Assert.Equal(bySchema, byValidator);
+    }
+
+    /// <summary>
+    /// The same crossing as the version bound, on the length rather than on the set: the longest
+    /// id the schema permits is one the validator takes.
+    /// </summary>
+    [Fact]
+    public void AnIdAtTheSchemasLengthBoundIsAcceptedByTheValidator()
+    {
+        var maxLength = Schema()
+            .GetProperty("properties")
+            .GetProperty(RuleDocumentValidator.IdMember)
+            .GetProperty("maxLength")
+            .GetInt32();
+
+        var result = RuleDocumentValidator.Read(
+            "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": 1, \""
+            + RuleDocumentValidator.IdMember + "\": \"" + new string('a', maxLength) + "\", \""
+            + RuleDocumentValidator.NameMember + "\": \"Christmas\"}");
 
         Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
     }
@@ -125,6 +214,7 @@ public class RuleDocumentSchemaTests
 
         var result = RuleDocumentValidator.Read(
             "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": 1, \""
+            + RuleDocumentValidator.IdMember + "\": \"christmas\", \""
             + RuleDocumentValidator.NameMember + "\": \"" + new string('a', maxLength) + "\"}");
 
         Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
