@@ -134,11 +134,13 @@ added the tests.
 WHAT THAT DOES NOT COVER IS LARGER THAN WHAT IT DOES. The tests say nothing
 about what happens to a collection by any other route, and they cannot: nothing
 in either shipped assembly writes or deletes a collection at all yet, and a rule
-has no identity for a stamp to carry.
+has no identity for a stamp to carry. The format declares a name for the
+collection a rule owns, and a name is display text rather than an identity,
+which is the separation the front page states in the same words:
 
 ```
 node -e "const s=require('./Jellyfin.Plugin.SmartCollections.Engine/Rules/rule-document.schema.json');console.log(Object.keys(s.properties).join(', '))"
-schemaVersion
+schemaVersion, name
 git grep -n 'CreateCollection' -- '*.cs' ; echo "exit=$?"
 exit=1
 ```
