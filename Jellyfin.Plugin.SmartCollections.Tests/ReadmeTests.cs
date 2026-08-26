@@ -68,6 +68,36 @@ public class ReadmeTests
     }
 
     /// <summary>
+    /// <summary>
+    /// Every member of the example is explained beneath it. The member list is read out of the
+    /// example rather than written here, so a member added to the document reds this test instead
+    /// of sitting on the front page unexplained. That is not hypothetical: the member deciding
+    /// what an operator sees in their library was published in that example with no clause under
+    /// it, no declaration in the schema and no refusal in the validator, and nothing anywhere
+    /// said so.
+    ///
+    /// A clause is a bullet naming the member in code ticks. Two members share one bullet where
+    /// they only make sense together, so a name reached by "and" counts as explained too.
+    /// </summary>
+    [Fact]
+    public void EveryMemberOfTheExampleHasAClauseUnderIt()
+    {
+        var readme = RepositoryFiles.ReadFromRoot("README.md");
+        var match = FirstJsonBlock.Match(readme);
+
+        Assert.True(match.Success, "README.md carries no fenced json block.");
+
+        using var document = JsonDocument.Parse(match.Groups["json"].Value);
+
+        foreach (var member in document.RootElement.EnumerateObject())
+        {
+            Assert.True(
+                readme.Contains("- `" + member.Name + "`", StringComparison.Ordinal)
+                    || readme.Contains("and `" + member.Name + "`", StringComparison.Ordinal),
+                "The example declares " + member.Name + " and no clause under it explains one.");
+        }
+    }
+
     /// What happens to the generated collections when the plugin is removed is a promise about
     /// visible library content, and the moment it matters is before an install. A document
     /// nothing points at is a document read after the fact, so the link is part of the promise

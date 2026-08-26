@@ -72,7 +72,60 @@ public class RuleDocumentSchemaTests
             .GetInt32();
 
         var result = RuleDocumentValidator.Read(
-            "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": " + maximum + "}");
+            "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": " + maximum
+            + ", \"" + RuleDocumentValidator.NameMember + "\": \"Christmas\"}");
+
+        Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
+    }
+
+    [Fact]
+    public void TheSchemaRequiresTheNameMemberTheValidatorRequires()
+    {
+        var required = Schema().GetProperty("required");
+
+        Assert.Contains(
+            required.EnumerateArray(),
+            member => string.Equals(
+                member.GetString(),
+                RuleDocumentValidator.NameMember,
+                StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The editor's copy of the length bound and the validator's are the same number. An editor
+    /// accepting a name the plugin refuses is the drift that costs an operator a document they
+    /// were told was fine, and it is silent in exactly the direction nobody checks.
+    /// </summary>
+    [Fact]
+    public void TheSchemaDeclaresTheSameNameBoundsTheValidatorReads()
+    {
+        var member = Schema()
+            .GetProperty("properties")
+            .GetProperty(RuleDocumentValidator.NameMember);
+
+        Assert.Equal("string", member.GetProperty("type").GetString());
+        Assert.Equal(1, member.GetProperty("minLength").GetInt32());
+        Assert.Equal(RuleDocumentValidator.MaximumNameLength, member.GetProperty("maxLength").GetInt32());
+    }
+
+    /// <summary>
+    /// The same crossing as the version bound above, on the member the schema cannot express in
+    /// full. A schema processor can hold the length and the type and knows nothing about edge
+    /// whitespace or a control character, so what is asserted here is that the longest name the
+    /// schema permits is one the validator takes.
+    /// </summary>
+    [Fact]
+    public void ANameAtTheSchemasLengthBoundIsAcceptedByTheValidator()
+    {
+        var maxLength = Schema()
+            .GetProperty("properties")
+            .GetProperty(RuleDocumentValidator.NameMember)
+            .GetProperty("maxLength")
+            .GetInt32();
+
+        var result = RuleDocumentValidator.Read(
+            "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": 1, \""
+            + RuleDocumentValidator.NameMember + "\": \"" + new string('a', maxLength) + "\"}");
 
         Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
     }

@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// </summary>
 public class RuleDocumentValidatorTests
 {
-    private const string Minimal = "{\"schemaVersion\": 1}";
+    private const string Minimal = "{\"schemaVersion\": 1, \"name\": \"Christmas\"}";
 
     [Fact]
     public void AValidDocumentIsAcceptedAndKeptExactlyAsItWasRead()
@@ -22,7 +22,7 @@ public class RuleDocumentValidatorTests
         // Deliberately not the shape a serialiser would emit: extra spacing, a trailing newline
         // and a member no version declares. Keeping the text as read is what lets a member this
         // version does not understand survive a round trip instead of being dropped.
-        const string Text = "{\n    \"schemaVersion\" :  1,\n    \"somethingLaterVersionsMayAdd\": []\n}\n";
+        const string Text = "{\n    \"schemaVersion\" :  1,\n    \"name\": \"Christmas\",\n    \"somethingLaterVersionsMayAdd\": []\n}\n";
 
         var result = RuleDocumentValidator.Read(Text);
 
@@ -157,6 +157,9 @@ public class RuleDocumentValidatorTests
     [InlineData("{\"schemaVersion\": 0}")]
     [InlineData("{\"schemaVersion\": 99}")]
     [InlineData("{\"schemaVersion\": 1,}")]
+    [InlineData("{\"schemaVersion\": 1}")]
+    [InlineData("{\"schemaVersion\": 1, \"name\": \"\"}")]
+    [InlineData("{\"schemaVersion\": 1, \"name\": 7}")]
     public void EveryRefusalCarriesAPointerAndAMessage(string text)
     {
         var result = RuleDocumentValidator.Read(text);
@@ -176,7 +179,7 @@ public class RuleDocumentValidatorTests
     public void TheLowestVersionIsAccepted()
     {
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": " + RuleDocumentValidator.LowestSchemaVersion + "}");
+            "{\"schemaVersion\": " + RuleDocumentValidator.LowestSchemaVersion + ", \"name\": \"Christmas\"}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -294,6 +297,182 @@ public class RuleDocumentValidatorTests
     public void ReadingBytesThatAreNotThereIsRefusedRatherThanTreatedAsEmpty()
     {
         Assert.Throws<ArgumentNullException>(() => RuleDocumentValidator.Read((byte[])null!));
+    }
+
+    /// <summary>
+    /// The member that decides what an operator sees. A document without one is refused rather
+    /// than named after the file it was read from: the file name is the store's business, and
+    /// borrowing it would mean renaming a collection by renaming a file.
+    /// </summary>
+    [Fact]
+    public void ADocumentWithNoNameIsRefusedAtTheMember()
+    {
+        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/name", error.Pointer);
+        Assert.Contains(RuleDocumentValidator.NameMember, error.Message, StringComparison.Ordinal);
+
+        // The distinctive half of the sentence. Without it this assertion also passes on the
+        // refusal for a name that is not a string, which an absent member reaches as
+        // JsonValueKind.Undefined, and the guard for a missing member would be provable by
+        // deleting it.
+        Assert.Contains("declares no name", error.Message, StringComparison.Ordinal);
+        Assert.Null(result.Document);
+    }
+
+    /// <summary>
+    /// The kind is named in the message, and a number is named as a number. The version member's
+    /// own refusal calls a number "a number that is not a 32-bit integer", which is the right
+    /// sentence there and reports a name as a bad integer if it is borrowed.
+    /// </summary>
+    [Theory]
+    [InlineData("{\"schemaVersion\": 1, \"name\": 7}", "a number")]
+    [InlineData("{\"schemaVersion\": 1, \"name\": true}", "a true or false value")]
+    [InlineData("{\"schemaVersion\": 1, \"name\": null}", "null")]
+    [InlineData("{\"schemaVersion\": 1, \"name\": []}", "an array")]
+    [InlineData("{\"schemaVersion\": 1, \"name\": {}}", "an object")]
+    public void ANameThatIsNotAStringIsRefusedAndTheMessageNamesWhatItIs(string text, string named)
+    {
+        var result = RuleDocumentValidator.Read(text);
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/name", error.Pointer);
+        Assert.Contains(named, error.Message, StringComparison.Ordinal);
+        Assert.Contains("has to be a string", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnEmptyNameIsRefused()
+    {
+        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"name\": \"\"}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/name", error.Pointer);
+        Assert.Contains("empty", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Refused rather than trimmed. Trimming would make the plugin rewrite what the operator
+    /// wrote, which is the thing the whole document format is built not to do, and it would let
+    /// two documents whose names differ only at an invisible edge become one name silently.
+    /// </summary>
+    [Theory]
+    [InlineData(" Christmas")]
+    [InlineData("Christmas ")]
+    [InlineData("\\tChristmas")]
+    [InlineData("Christmas\\n")]
+    [InlineData(" ")]
+    public void ANameWithWhitespaceAtEitherEndIsRefusedRatherThanTrimmed(string name)
+    {
+        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"name\": \"" + name + "\"}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/name", error.Pointer);
+        Assert.Contains("whitespace", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The near miss for the rule above. A space between words is what a collection called
+    /// <c>Nineties Thrillers</c> is made of, and a rule refusing edge whitespace by refusing
+    /// whitespace would refuse most names anybody writes.
+    /// </summary>
+    [Fact]
+    public void WhitespaceInsideANameIsWhatANameIsMadeOf()
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"name\": \"Nineties Thrillers\"}");
+
+        Assert.True(result.IsValid, Because(result));
+    }
+
+    /// <summary>
+    /// A control character reaches a document escaped, because a raw one never gets past the
+    /// parser. It renders as nothing where the name is shown, so the collection somebody sees
+    /// would be a different string from the one in the document, and the position is in the
+    /// message because that is the only way to find a character that displays as nothing.
+    /// </summary>
+    [Fact]
+    public void ANameHoldingAControlCharacterIsRefusedAndTheMessageSaysWhereItIs()
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"name\": \"Chri\\u0007stmas\"}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/name", error.Pointer);
+        Assert.Contains("control character", error.Message, StringComparison.Ordinal);
+        Assert.Contains("position 4", error.Message, StringComparison.Ordinal);
+        Assert.Contains("U+0007", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A tab at an edge is caught by the whitespace rule and a tab in the middle by the control
+    /// rule, so neither reaches a library. The two are asserted together because a reader of
+    /// either rule alone would think the other case falls through.
+    /// </summary>
+    [Fact]
+    public void ATabInTheMiddleIsRefusedAsAControlCharacter()
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"name\": \"Chri\\tstmas\"}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/name", error.Pointer);
+        Assert.Contains("control character", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ANameLongerThanTheMaximumIsRefusedWithBothNumbersInTheMessage()
+    {
+        var tooLong = new string('a', RuleDocumentValidator.MaximumNameLength + 1);
+
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"name\": \"" + tooLong + "\"}");
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("/name", error.Pointer);
+        Assert.Contains(
+            (RuleDocumentValidator.MaximumNameLength + 1).ToString(CultureInfo.InvariantCulture),
+            error.Message,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            RuleDocumentValidator.MaximumNameLength.ToString(CultureInfo.InvariantCulture),
+            error.Message,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The one-character near miss for the bound above, which is what separates a rule that
+    /// refuses too much from one that refuses what it says it does.
+    /// </summary>
+    [Fact]
+    public void ANameOfExactlyTheMaximumIsAccepted()
+    {
+        var atTheBound = new string('a', RuleDocumentValidator.MaximumNameLength);
+
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"name\": \"" + atTheBound + "\"}");
+
+        Assert.True(result.IsValid, Because(result));
+    }
+
+    /// <summary>
+    /// Two rules may carry one name, deliberately. The identity of a rule is its id, and the
+    /// collection it owns is found by the stamp rather than by the title, so refusing a duplicate
+    /// would make this member a second identity, which is the coupling the id exists to break.
+    /// A document is judged on its own here, and this asserts that nothing about it depends on
+    /// what another document happens to be called.
+    /// </summary>
+    [Fact]
+    public void TwoDocumentsMayCarryTheSameNameAndBothAreAccepted()
+    {
+        const string Text = "{\"schemaVersion\": 1, \"name\": \"Christmas\"}";
+
+        var first = RuleDocumentValidator.Read(Text);
+        var second = RuleDocumentValidator.Read(Text);
+
+        Assert.True(first.IsValid, Because(first));
+        Assert.True(second.IsValid, Because(second));
     }
 
     private static void AssertRefusedAsNotUtf8(byte[] content, int offset, string first)

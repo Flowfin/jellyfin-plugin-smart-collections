@@ -15,11 +15,13 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// anything that acts on it.
 ///
 /// What it checks today is the envelope: that the text is JSON, that its top level is an object,
-/// and that it declares a schema version this plugin reads. The rule inside the envelope is
-/// checked by stages that arrive with the vocabulary they check against, each adding its errors
+/// that it declares a schema version this plugin reads, and that it declares a name for the
+/// collection the rule owns. The rule inside the envelope is checked by stages that arrive with the vocabulary they check against, each adding its errors
 /// to the same list with its own pointer. That order matters: a document whose version this
 /// plugin cannot read is refused before anything tries to interpret its contents, because reading
-/// as far as it parses would apply a rule that means something else.
+/// as far as it parses would apply a rule that means something else. The name is checked after
+/// the version for the same reason: what a name may hold is a property of a format version, so
+/// judging one before the version is known would judge it against the wrong format.
 /// </remarks>
 public static class RuleDocumentValidator
 {
@@ -44,6 +46,31 @@ public static class RuleDocumentValidator
     public const string SchemaVersionMember = "schemaVersion";
 
     private const string SchemaVersionPointer = "/" + SchemaVersionMember;
+
+    /// <summary>
+    /// The member a rule document carries the collection's name in.
+    /// </summary>
+    public const string NameMember = "name";
+
+    /// <summary>
+    /// The most a name may hold, counted in UTF-16 code units.
+    /// </summary>
+    /// <remarks>
+    /// This is a number this plugin chose rather than one it read off the server. The column a
+    /// collection name is stored in declares no length on either supported line, so nothing
+    /// downstream refuses a longer one and the bound exists for what a name has to fit into
+    /// here: one refusal message, one row of an administrator page and one line of a log. It is
+    /// far above any name an operator would type and far below a length that turns a document
+    /// into a payload.
+    ///
+    /// The unit is what <see cref="string.Length"/> counts, so a name written in characters
+    /// outside the basic plane reaches this bound in half as many of them. That is stated rather
+    /// than corrected: the alternative counts text elements, which is a different number again,
+    /// and neither is the one an operator has in mind.
+    /// </remarks>
+    public const int MaximumNameLength = 255;
+
+    private const string NamePointer = "/" + NameMember;
 
     /// <summary>
     /// The three bytes an editor writes at the start of a file to say it is UTF-8.
@@ -184,6 +211,64 @@ public static class RuleDocumentValidator
                         $"The document declares {SchemaVersionMember} {version} and this plugin reads up to {SchemaVersionMember} {CurrentSchemaVersion}. It is refused rather than read as far as it parses, because a newer version may have changed what an existing member means."));
             }
 
+            if (!root.TryGetProperty(NameMember, out var declaredName))
+            {
+                return Refuse(
+                    NamePointer,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"The document declares no {NameMember}. Every rule document carries one as a string at its top level, and it is what the collection this rule owns is called. A document without one is refused rather than named after its file, because the file name is the store's business and an operator renaming a collection would then have to rename a file to do it."));
+            }
+
+            if (declaredName.ValueKind != JsonValueKind.String)
+            {
+                return Refuse(
+                    NamePointer,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{NameMember} is {DescribeKind(declaredName.ValueKind)} and has to be a string."));
+            }
+
+            // Not null: the kind is String, and GetString returns null only for JsonValueKind.Null.
+            var name = declaredName.GetString()!;
+
+            if (name.Length == 0)
+            {
+                return Refuse(
+                    NamePointer,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{NameMember} is empty, and a collection with no name is one nobody can find in a library."));
+            }
+
+            if (char.IsWhiteSpace(name[0]) || char.IsWhiteSpace(name[^1]))
+            {
+                return Refuse(
+                    NamePointer,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{NameMember} begins or ends with whitespace. It is refused rather than trimmed, because this plugin does not rewrite what you wrote, and two names differing only at an invisible edge are two names nobody can tell apart."));
+            }
+
+            var control = IndexOfControlCharacter(name);
+            if (control >= 0)
+            {
+                return Refuse(
+                    NamePointer,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{NameMember} holds a control character at position {control}, U+{(int)name[control]:X4}. The name is what a library shows, and a character that renders as nothing there makes the collection somebody sees a different string from the one written here."));
+            }
+
+            if (name.Length > MaximumNameLength)
+            {
+                return Refuse(
+                    NamePointer,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{NameMember} is {name.Length} characters long and the most a name may be is {MaximumNameLength}."));
+            }
+
             return RuleDocumentValidation.Accepted(new RuleDocument(version, text));
         }
     }
@@ -204,5 +289,32 @@ public static class RuleDocumentValidator
         JsonValueKind.True or JsonValueKind.False => "a true or false value",
         JsonValueKind.Null => "null",
         _ => "absent"
+    };
+
+    // The position of the first control character, or -1. Written as a loop rather than as a
+    // search over a set, because the set is a property of the code point and not a list somebody
+    // has to keep: C0 and C1 both count, and a name carrying one arrives escaped, since a raw
+    // one never gets past the parser.
+    private static int IndexOfControlCharacter(string name)
+    {
+        for (var index = 0; index < name.Length; index++)
+        {
+            if (char.IsControl(name[index]))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    // The same vocabulary as Describe, minus the clause it adds for a number. Describe is called
+    // where a number has already failed to be a 32-bit integer and saying so is the whole point
+    // there; here a number is simply not a string, and borrowing that sentence would report a
+    // name as a bad integer.
+    private static string DescribeKind(JsonValueKind kind) => kind switch
+    {
+        JsonValueKind.Number => "a number",
+        _ => Describe(kind)
     };
 }

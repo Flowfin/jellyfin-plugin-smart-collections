@@ -2,15 +2,21 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://github.com/Flowfin/jellyfin-plugin-smart-collections/blob/master/Jellyfin.Plugin.SmartCollections.Engine/Rules/rule-document.schema.json",
     "title": "Smart Collections rule document",
-    "description": "One rule document per collection. This file declares the envelope every version of the format carries. The rule inside the envelope is not declared here yet: the field vocabulary, the operator set, the value types, the item scope and the rule identity each arrive with the issue that decides them, and each adds its members to this schema at the same time as it adds its stage to the validator. A document is refused by Jellyfin.Plugin.SmartCollections.Rules.RuleDocumentValidator rather than by a schema processor, so that a refusal can carry a pointer into the document and a message in the words an operator reads. This file is what an editor points at, and a test holds its schemaVersion bounds to the constants that validator declares.",
+    "description": "One rule document per collection. This file declares the envelope every version of the format carries. The rule inside the envelope is not declared here yet: the field vocabulary, the operator set, the value types, the item scope and the rule identity each arrive with the issue that decides them, and each adds its members to this schema at the same time as it adds its stage to the validator. A document is refused by Jellyfin.Plugin.SmartCollections.Rules.RuleDocumentValidator rather than by a schema processor, so that a refusal can carry a pointer into the document and a message in the words an operator reads. This file is what an editor points at, and a test holds its schemaVersion bounds and its name bounds to the constants that validator declares.",
     "type": "object",
-    "required": ["schemaVersion"],
+    "required": ["schemaVersion", "name"],
     "properties": {
         "schemaVersion": {
             "description": "The version of this format the document is written in. Refused when absent, because a document without one would be read as whatever shape the installed plugin happens to expect. Refused when higher than the plugin reads, because a newer version may have changed what an existing member means, and reading as far as it parses would apply a rule that means something else.",
             "type": "integer",
             "minimum": 1,
             "maximum": 1
+        },
+        "name": {
+            "description": "What the collection this rule owns is called, as an operator reads it in their library. It is display text and never an identity: the identity is the rule's id, so changing this member renames the collection instead of producing a second one. Refused when absent, because a create has to supply a name and the alternatives are inventing one or borrowing the file name, and the file name is the store's business rather than the operator's. Refused when it is not a string, when it is empty, when it begins or ends with whitespace, when it holds a control character, and when it is longer than the declared maximum. Edge whitespace is refused rather than trimmed because this plugin does not rewrite what an operator wrote, and two names differing only by an invisible edge are two names nobody can tell apart. Control characters are refused because the name is rendered in a web interface, where a character that displays as nothing makes the collection somebody sees a different string from the one in the document. Two rules may carry the same name deliberately: the collections they own are told apart by the stamp rather than by the title, and refusing a duplicate would make this member a second identity, which is what the id exists to prevent. The maximum is this plugin's own number rather than the server's, which declares no length for the column a collection name is stored in.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
         }
     }
 }

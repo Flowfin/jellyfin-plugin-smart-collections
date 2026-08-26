@@ -17,7 +17,7 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// </summary>
 public sealed class RuleDocumentLoaderTests : IDisposable
 {
-    private const string Valid = "{\"schemaVersion\": 1}";
+    private const string Valid = "{\"schemaVersion\": 1, \"name\": \"Christmas\"}";
 
     private readonly string _directory;
 
