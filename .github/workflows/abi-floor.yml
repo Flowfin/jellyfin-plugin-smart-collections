@@ -72,20 +72,24 @@ jobs:
           # ABOVE 12.0.0 IS PUBLISHED, so there is no floor for this entry to
           # build against and it names the version the shipping build pins
           # instead. While the two name the same string, which they do today,
-          # this job PROVES NOTHING THE SHIPPING BUILD DOES NOT:
+          # this job PROVES NOTHING THE SHIPPING BUILD DOES NOT.
+          #
+          # The claim in front of that is the absence of a stable release, so the
+          # command below reads for exactly that and returns nothing while the
+          # claim holds. It stops reproducing on the day this entry has to move,
+          # which is what an enumeration of the published candidates cannot do:
           #
           #   curl -s https://api.nuget.org/v3-flatcontainer/jellyfin.controller/index.json \
-          #     | tr ',' '\n' | grep -o '"12\.[^"]*"' | tr -d '"'
-          #   12.0.0-rc1
-          #   12.0.0-rc2
-          #   12.0.0-rc3
-          #   12.0.0-rc4
-          #   12.0.0-rc5
-          #   12.0.0-rcrc3
+          #     | tr ',' '\n' | grep -o '"12\.[^"]*"' | tr -d '"' | grep -v -- '-'
+          #   exit=1
           #
-          # THAT STRING IS NO LONGER THE NEWEST ON THE LINE, and this comment
-          # said it was. rc5 is published and the shipping pin is rc4, and the
-          # two are not the same surface:
+          # AN ENUMERATION STOOD HERE AND HAD STOPPED REPRODUCING. It listed the
+          # candidates as far as rc5, rc6 is published, and the drift was found
+          # by running the command that enumeration handed the reader.
+          #
+          # THE SHIPPING PIN IS NOT THE NEWEST CANDIDATE ON THE LINE, and this
+          # comment once said it was. The pin is rc4, and rc4 and rc5 are not the
+          # same surface:
           #
           #   props() {
           #     gh api "repos/jellyfin/jellyfin/contents/MediaBrowser.Controller/Entities/InternalItemsQuery.cs?ref=$1" \
@@ -96,6 +100,16 @@ jobs:
           #   comm -13 q4 q5
           #   bool UserHasContentRestrictions
           #   comm -23 q4 q5 | wc -l
+          #   0
+          #
+          # The candidate that arrived after that enumeration was written moves
+          # neither direction of the same comparison, so it changes nothing in
+          # the argument below:
+          #
+          #   props v12.0-rc6 > q6
+          #   comm -13 q5 q6 | wc -l
+          #   0
+          #   comm -23 q5 q6 | wc -l
           #   0
           #
           # So this entry has two ways to stop adding nothing, not one. It bites
