@@ -11,7 +11,8 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// <summary>
 /// The server as far as a resolve reaches it: collections carrying a name and a provider
 /// dictionary, a lookup matching on a key and its value together the way the server's own query
-/// does, and a create that writes what it was handed.
+/// does, a create that writes what it was handed, and a rename that writes a title and touches
+/// nothing else.
 /// </summary>
 internal sealed class FakeCollectionOwnership : ICollectionOwnership
 {
@@ -29,6 +30,13 @@ internal sealed class FakeCollectionOwnership : ICollectionOwnership
     public List<InternalItemsQuery> Lookups { get; } = new();
 
     public List<FakeCollection> Created { get; } = new();
+
+    /// <summary>
+    /// Gets every rename this fake was asked for, in the order it was asked. A test that only
+    /// read the titles back could not tell a resolve that renamed once from one that renamed on
+    /// every run, and the second is a write to somebody's library per scheduled refresh.
+    /// </summary>
+    public List<(Guid Id, string Name)> Renames { get; } = new();
 
     public Guid Put(string name, params (string Key, string Value)[] providerIds)
         => Put(name, Guid.NewGuid(), providerIds);
@@ -49,7 +57,7 @@ internal sealed class FakeCollectionOwnership : ICollectionOwnership
 
     public IReadOnlyDictionary<string, string> ProviderIdsOf(Guid id) => Held(id).ProviderIds;
 
-    public IReadOnlyList<Guid> FindCollections(InternalItemsQuery lookup)
+    public IReadOnlyList<CollectionMatch> FindCollections(InternalItemsQuery lookup)
     {
         ArgumentNullException.ThrowIfNull(lookup);
         Lookups.Add(lookup);
@@ -73,7 +81,7 @@ internal sealed class FakeCollectionOwnership : ICollectionOwnership
                 => collection.ProviderIds.TryGetValue(pair.Key, out var held)
                     && (string.IsNullOrEmpty(pair.Value)
                         || string.Equals(held, pair.Value, StringComparison.Ordinal))))
-            .Select(collection => collection.Id)
+            .Select(collection => new CollectionMatch(collection.Id, collection.Name))
             .ToList();
 
         if (AnswersInReverse)
@@ -102,6 +110,23 @@ internal sealed class FakeCollectionOwnership : ICollectionOwnership
         Created.Add(collection);
 
         return Task.FromResult(collection.Id);
+    }
+
+    public Task RenameCollectionAsync(Guid collectionId, string name, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var held = Held(collectionId);
+        var index = _collections.IndexOf(held);
+
+        // The provider dictionary is carried across rather than rebuilt, so a rename that lost the
+        // mark would be a rename this fake reports as a mark that vanished rather than one it
+        // quietly reproduces.
+        _collections[index] = held with { Name = name };
+        Renames.Add((collectionId, name));
+
+        return Task.CompletedTask;
     }
 
     public Task DeleteCollectionAsync(Guid collectionId, CancellationToken cancellationToken)

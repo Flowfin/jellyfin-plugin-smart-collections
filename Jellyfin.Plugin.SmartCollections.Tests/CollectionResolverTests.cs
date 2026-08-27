@@ -24,6 +24,11 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// Creating instead of adopting fills a library with copies, one per run, and each copy looks
 /// exactly like the thing the rule was supposed to keep up to date.
 ///
+/// A third is quieter than either and it is what the rename tests below are about. A rule document
+/// whose declared name is edited resolves to the collection it already owns, and without a write
+/// afterwards that collection keeps the title it was created with. Nothing duplicates, nothing is
+/// destroyed, and the operator's edit never reaches the library.
+///
 /// The fake below is the server as far as this question reaches it: collections carrying a name and
 /// a provider dictionary, and a lookup that matches the way the server's own query does, on a
 /// provider key and its value together. That is what makes these tests about the resolve rather
@@ -86,6 +91,7 @@ public class CollectionResolverTests
         Assert.NotEqual(byHand, resolved);
         Assert.Equal(CollectionName, ownership.NameOf(byHand));
         Assert.Empty(ownership.ProviderIdsOf(byHand));
+        Assert.Empty(ownership.Renames);
     }
 
     /// <summary>
@@ -157,6 +163,166 @@ public class CollectionResolverTests
         Assert.Equal(smaller, other);
         Assert.Empty(forwards.Created);
         Assert.Empty(backwards.Created);
+    }
+
+    /// <summary>
+    /// The rename. An operator who edits the name in a rule document is asking for the collection
+    /// they can see to be called that, and until this the edit reached nothing.
+    /// </summary>
+    /// <remarks>
+    /// The failure this replaces is not a duplicate and not a deletion. The mark already made the
+    /// resolve return the collection the rule owned, so the run was green, the library was intact,
+    /// and the only thing wrong was that half of what the rule document said had no effect. That
+    /// is the shape of defect an operator reports as the plugin ignoring them.
+    /// </remarks>
+    [Fact]
+    public async Task ARuleWhoseDeclaredNameHasMovedRenamesTheCollectionItAlreadyOwns()
+    {
+        var ownership = new FakeCollectionOwnership();
+        var existing = ownership.Put("Christmas", (CollectionStamp.PluginKey, RuleId));
+
+        var resolved = await new CollectionResolver(ownership)
+            .ResolveAsync(new RuleDocument(1, RuleId, "Christmas Films", "{}"), CancellationToken.None);
+
+        Assert.Equal(existing, resolved);
+        Assert.Empty(ownership.Created);
+        Assert.Single(ownership.Collections);
+        Assert.Equal("Christmas Films", ownership.NameOf(existing));
+        Assert.Equal((existing, "Christmas Films"), Assert.Single(ownership.Renames));
+    }
+
+    /// <summary>
+    /// The rename leaves the mark where it was, so the run after it adopts the same collection
+    /// rather than meeting an unmarked one and creating a second beside it.
+    /// </summary>
+    [Fact]
+    public async Task ARenameKeepsTheMarkTheCollectionWasFoundBy()
+    {
+        var ownership = new FakeCollectionOwnership();
+        var existing = ownership.Put("Christmas", (CollectionStamp.PluginKey, RuleId));
+        var renamed = new RuleDocument(1, RuleId, "Christmas Films", "{}");
+
+        await new CollectionResolver(ownership).ResolveAsync(renamed, CancellationToken.None);
+        var again = await new CollectionResolver(ownership).ResolveAsync(renamed, CancellationToken.None);
+
+        Assert.Equal(existing, again);
+        Assert.Equal(
+            new KeyValuePair<string, string>(CollectionStamp.PluginKey, RuleId),
+            Assert.Single(ownership.ProviderIdsOf(existing)));
+    }
+
+    /// <summary>
+    /// A collection already carrying the declared name is not written to. A resolve that renamed
+    /// unconditionally would write to every collection this plugin owns on every scheduled
+    /// refresh, which is a metadata save per rule per run for nothing.
+    /// </summary>
+    [Fact]
+    public async Task AResolveWritesNoRenameWhenTheCollectionAlreadyCarriesTheDeclaredName()
+    {
+        var ownership = new FakeCollectionOwnership();
+        ownership.Put(CollectionName, (CollectionStamp.PluginKey, RuleId));
+
+        await new CollectionResolver(ownership).ResolveAsync(Rule(), CancellationToken.None);
+
+        Assert.Empty(ownership.Renames);
+    }
+
+    /// <summary>
+    /// The comparison is ordinal, so two names differing only in case are two different names.
+    /// </summary>
+    /// <remarks>
+    /// This is the one assertion here that tells the named comparison from the ambient default. A
+    /// resolve comparing case-insensitively leaves an operator who corrected the capitalisation of
+    /// their collection with the old capitalisation and no way to change it; a resolve comparing
+    /// under the current culture answers differently on a server running in Turkish, where the
+    /// pair below is not the pair it is here.
+    /// </remarks>
+    [Fact]
+    public async Task ANameDifferingOnlyInCaseIsARenameRatherThanAMatch()
+    {
+        var ownership = new FakeCollectionOwnership();
+        var existing = ownership.Put("nineties thrillers", (CollectionStamp.PluginKey, RuleId));
+
+        await new CollectionResolver(ownership).ResolveAsync(Rule(), CancellationToken.None);
+
+        Assert.Equal(CollectionName, ownership.NameOf(existing));
+        Assert.Equal((existing, CollectionName), Assert.Single(ownership.Renames));
+    }
+
+    /// <summary>
+    /// Where several collections carry one mark, the rename goes to the one the rule owns and to
+    /// no other. Renaming every match would turn a restored backup into two collections with one
+    /// title, and the resolve has already decided which of them is the owner.
+    /// </summary>
+    [Fact]
+    public async Task TheRenameGoesToTheCollectionTheRuleOwnsAndToNoOtherCarryingTheMark()
+    {
+        var smaller = new Guid("11111111-1111-1111-1111-111111111111");
+        var larger = new Guid("22222222-2222-2222-2222-222222222222");
+
+        var ownership = new FakeCollectionOwnership();
+        ownership.Put("Christmas", smaller, (CollectionStamp.PluginKey, RuleId));
+        ownership.Put("Christmas", larger, (CollectionStamp.PluginKey, RuleId));
+
+        var resolved = await new CollectionResolver(ownership)
+            .ResolveAsync(new RuleDocument(1, RuleId, "Christmas Films", "{}"), CancellationToken.None);
+
+        Assert.Equal(smaller, resolved);
+        Assert.Equal((smaller, "Christmas Films"), Assert.Single(ownership.Renames));
+        Assert.Equal("Christmas", ownership.NameOf(larger));
+    }
+
+    /// <summary>
+    /// A collection this plugin did not create is never the target of a rename, because the only
+    /// identifier a rename is ever handed came out of a lookup by mark.
+    /// </summary>
+    [Fact]
+    public async Task ACollectionCarryingNoMarkIsNotRenamedEvenWhenItCarriesTheRulesOldName()
+    {
+        var ownership = new FakeCollectionOwnership();
+        var byHand = ownership.Put("Christmas");
+
+        await new CollectionResolver(ownership)
+            .ResolveAsync(new RuleDocument(1, RuleId, "Christmas Films", "{}"), CancellationToken.None);
+
+        Assert.Equal("Christmas", ownership.NameOf(byHand));
+        Assert.Empty(ownership.Renames);
+    }
+
+    /// <summary>
+    /// The create carries the declared name already, so the first resolve of a rule writes one
+    /// call and not two.
+    /// </summary>
+    [Fact]
+    public async Task ACreatedCollectionIsNotRenamedAfterwards()
+    {
+        var ownership = new FakeCollectionOwnership();
+
+        await new CollectionResolver(ownership).ResolveAsync(Rule(), CancellationToken.None);
+
+        Assert.Single(ownership.Created);
+        Assert.Empty(ownership.Renames);
+    }
+
+    /// <summary>
+    /// A run cancelled before the rename does not write a title. The server's rename is a property
+    /// set and a metadata save rather than a call taking a token, so the port carries one and the
+    /// check happens in front of it, exactly as it does for the create.
+    /// </summary>
+    [Fact]
+    public async Task ACancelledResolveDoesNotRenameACollection()
+    {
+        var ownership = new FakeCollectionOwnership();
+        var existing = ownership.Put("Christmas", (CollectionStamp.PluginKey, RuleId));
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => new CollectionResolver(ownership)
+                .ResolveAsync(new RuleDocument(1, RuleId, "Christmas Films", "{}"), cancelled.Token));
+
+        Assert.Equal("Christmas", ownership.NameOf(existing));
+        Assert.Empty(ownership.Renames);
     }
 
     /// <summary>
