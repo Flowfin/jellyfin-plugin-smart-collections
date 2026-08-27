@@ -194,6 +194,59 @@ public class ServerLineManifestTests
         }
     }
 
+    /// <summary>
+    /// Reads the prose written under a top-level key: the block indicator on the key's own line is
+    /// dropped and the wrapped lines under it are joined, so a value written as a block and the
+    /// same value written on one line compare as the same text.
+    /// </summary>
+    /// <param name="entry">The entry text, as <see cref="Entries"/> returns it.</param>
+    /// <returns>The value as one line, with runs of whitespace collapsed.</returns>
+    private static string Prose(string entry)
+    {
+        var text = entry;
+
+        if (text.StartsWith('>') || text.StartsWith('|'))
+        {
+            var firstBreak = text.IndexOf('\n');
+
+            text = firstBreak < 0 ? string.Empty : text[(firstBreak + 1)..];
+        }
+
+        return string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    /// <summary>
+    /// The Jellyfin plugin template ships one manifest key whose value is the key written again,
+    /// <c>changelog</c>, and nothing in a build or a release run rejects it. The packaging tool
+    /// this repository pins copies that value verbatim into the metadata written beside the
+    /// archive and into the version entry of the repository manifest a Jellyfin server reads, so
+    /// it is the release notes an operator meets in the catalogue before installing. The gate in
+    /// front of the packaging step asks whether the key is present, which the template's word
+    /// satisfies exactly as a sentence would, so the word reaches an operator through a route that
+    /// is green at every step:
+    /// <code>
+    /// git show origin/master:.github/workflows/publish.yaml | sed -n '147,153p'
+    /// </code>
+    /// The property is stated over every key rather than over <c>changelog</c> alone, because what
+    /// went wrong is a placeholder surviving out of the template and the next one will not
+    /// necessarily be this key.
+    /// </summary>
+    [Fact]
+    public void NoManifestEntryIsItsOwnKeyWrittenAgain()
+    {
+        foreach (var manifest in RepositoryFiles.ManifestNames())
+        {
+            foreach (var (key, value) in Entries(manifest))
+            {
+                Assert.False(
+                    string.Equals(Prose(value), key, StringComparison.OrdinalIgnoreCase),
+                    manifest + " declares " + key + " as the word " + key
+                        + ", which is the plugin template's placeholder rather than something written for this"
+                        + " plugin. A catalogue shows this value to an operator, so write what it should say.");
+            }
+        }
+    }
+
     [Fact]
     public void EveryManifestClaimsTheAbiFloorOfTheLineItsFrameworkBelongsTo()
     {
