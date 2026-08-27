@@ -16,6 +16,7 @@
 #   FAIL, high confidence, near-zero false positive:
 #     - the body carries an issue reference
 #     - a build.yaml version bump also touches CHANGELOG.md
+#     - no negated closing keyword sits next to an issue reference (#182)
 #
 #   WARN, annotation only, never fails:
 #     - the diff is large
@@ -52,7 +53,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read # read the build.yaml patch through the pulls API
-      pull-requests: read # read the body and the changed-file list
+      pull-requests: read # read the body, the changed-file list and the commit messages
     steps:
       # No checkout. Every input comes from the pull request metadata and the
       # changed-file patches, so there is no working tree here to guard. The
@@ -75,6 +76,18 @@ jobs:
             });
             const changed = files.map((f) => f.filename);
             const isBot = pr.user && pr.user.type === "Bot";
+
+            // The commit messages, for FAIL 3 below. They are fetched here
+            // rather than there because this is where the pull request's
+            // contents are read, and because the arm that uses them has to see
+            // every commit rather than the head: a keyword in the third of five
+            // messages closes an issue exactly as one in the last does.
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
 
             // Who the FAIL tier is for.
             //
@@ -189,6 +202,98 @@ jobs:
               failures.push(
                 "build.yaml `version:` changed and CHANGELOG.md did not. " +
                   "Record the release in CHANGELOG.md.",
+              );
+            }
+
+            // FAIL 3: a closing keyword under a negation, next to a reference.
+            //
+            // GitHub closes an issue when a merged pull request's body or any
+            // of its commit messages carries a closing keyword directly in
+            // front of a reference. It reads the pair and not the sentence
+            // around it, so a change explaining that it does NOT finish an
+            // issue finishes it. Three issues on this tracker were shut that
+            // way and reopened, and the third came from a commit message, which
+            // cannot be edited afterwards the way a body can. #182 carries the
+            // three with the commands that read them.
+            //
+            // The subject is narrow on purpose. A plain `Closes #12` is the
+            // intended channel and is untouched; what is refused is a keyword
+            // with a negator immediately in front of it, which nobody writes
+            // meaning to close anything. That is why this arm can fail rather
+            // than warn.
+            //
+            // It applies whoever wrote the pull request, unlike FAIL 1. That
+            // check enforces a convention of this repository, which somebody
+            // arriving from outside cannot be expected to know. This one is not
+            // a convention: the tracker ends up wrong by the same amount
+            // whoever typed the sentence, and the repair is the same one line.
+            //
+            // Code is removed first, for the reason FAIL 1 removes it: a body
+            // quoting the refused sentence as evidence is recording the rule,
+            // not breaking it, and the pull request that lands this check is
+            // the first body that has to do so.
+            const NEGATED_CLOSER =
+              /(?:\b(?:no longer|never|cannot|can[''’]t|won[''’]t|doesn[''’]t|don[''’]t|didn[''’]t|isn[''’]t|aren[''’]t|wouldn[''’]t|shouldn[''’]t)|\bnot)\s+(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:issue\s+)?(?:#\d+|https?:\/\/\S*\/issues\/\d+)/i;
+            const negatesACloser = (text) => NEGATED_CLOSER.test(withoutCode(text));
+
+            // Held to fixtures before it judges anything, in the shape FAIL 1
+            // uses. The near misses are the half that matters: a plain closing
+            // keyword is the intended channel, a negation with no reference
+            // beside it closes nothing, and a body quoting the refused sentence
+            // as evidence is recording the rule rather than breaking it, so
+            // firing on any of the three would make this arm a tax on ordinary
+            // prose.
+            //
+            // The quotation fixture uses a code SPAN rather than a fence, and
+            // deliberately. A body pasting this fixture list as its evidence
+            // would otherwise carry a fence inside its own fence, and the strip
+            // pairs the first closing marker it meets - so the body arguing for
+            // this arm would be refused by it. The span exercises the same
+            // branch of the strip and survives being quoted.
+            const CLOSER_FIXTURES = [
+              ["This does not close #29.", true],
+              ["This doesn\u2019t close #29 yet.", true],
+              ["It will not fix #29.", true],
+              ["This no longer resolves #29.", true],
+              ["It does not close https://github.com/o/r/issues/29.", true],
+              ["Closes #29", false],
+              ["Fixes #29, and the suite is green.", false],
+              ["Refs #29. This does not close it.", false],
+              ["Recorded as `This does not close #29.` and nothing else.", false],
+              ["Nothing about issues here.", false],
+            ];
+            const closerDisagreeing = CLOSER_FIXTURES.filter(
+              ([text, wanted]) => negatesACloser(text) !== wanted,
+            );
+            if (closerDisagreeing.length) {
+              core.setFailed(
+                `The negated-closing-keyword test disagrees with ${closerDisagreeing.length} ` +
+                  `of its ${CLOSER_FIXTURES.length} fixtures, so it is not judging ` +
+                  "this pull request. Repair the test rather than the fixtures.",
+              );
+              return;
+            }
+
+            const REPAIR =
+              "GitHub reads the keyword next to the reference and not the " +
+              "sentence around it, so this closes the issue on merge. Write " +
+              "the reference without a closing keyword beside it: `#29 stays " +
+              "open` or `leaves #29 open` says the same thing and survives the " +
+              "parser.";
+
+            if (negatesACloser(body)) {
+              failures.push("The body negates a closing keyword. " + REPAIR);
+            }
+
+            const offendingCommits = commits
+              .filter((c) => negatesACloser((c.commit && c.commit.message) || ""))
+              .map((c) => c.sha.slice(0, 7));
+            if (offendingCommits.length) {
+              failures.push(
+                `A commit message negates a closing keyword (${offendingCommits.join(", ")}). ` +
+                  REPAIR +
+                  " A body can be edited after the merge and a landed message cannot, " +
+                  "so this one is repaired before the branch lands rather than after.",
               );
             }
 
