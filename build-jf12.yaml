@@ -21,4 +21,6 @@ artifacts:
   - "Jellyfin.Plugin.SmartCollections.Engine.dll"
   - "Jellyfin.Plugin.SmartCollections.dll"
 changelog: >
-  changelog
+  0.1.0.0 is the first release. It installs, registers its services and subscribes to the
+  library change events; it creates no collection and fills none, because the rule
+  evaluation that would do so is not written yet.

@@ -31,6 +31,11 @@ still being written.
 
 ### Changed
 
+- Both manifests declare release notes written for this plugin rather than the
+  Jellyfin plugin template's own word `changelog`. The packaging tool copies that
+  value verbatim into the metadata beside the archive and into the repository
+  manifest a server reads, so it is what a catalogue shows an operator before they
+  install, and every check in front of the packaging step is satisfied by the word.
 - The plugin advertises its own identifier rather than the one every copy of the
   Jellyfin plugin template ships with.
 - The CodeQL workflow scans under this repository's name rather than the
