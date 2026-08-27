@@ -59,21 +59,42 @@ public class UninstallHookTests
     /// that could, whoever calls it and whenever.
     /// </summary>
     /// <remarks>
-    /// The members are compared as a set rather than searched for by name, so a third call added
-    /// to either port reds this whether or not somebody thought of this page. That is the point at
+    /// The members are compared as a set rather than searched for by name, so a call added to
+    /// either port reds this whether or not somebody thought of this page. That is the point at
     /// which it is worth being red: #57 plans an explicit action that removes the generated
     /// collections, and the port member it needs is exactly what this refuses, so that change
     /// arrives here and rewrites the page in the same motion instead of contradicting it.
     ///
     /// The two membership calls take item identifiers, so what they change is what a collection
-    /// holds. Neither takes a provider entry, a name or a collection to delete.
+    /// holds. Neither takes a provider entry or a collection to delete.
+    ///
+    /// A RENAME IS IN THE SET NOW AND IT IS NOT A REMOVAL, which is the one entry here a reader
+    /// has to be told about rather than shown. #29 needs a rule's declared name to reach the
+    /// collection that rule owns, and the write that does it is <c>RenameCollectionAsync</c>. It
+    /// happens on a resolve, which runs on a refresh; nothing calls it on the way out, and this
+    /// class holds that separately by there being no uninstall hook to call anything at all. Its
+    /// parameters are asserted below for the same reason the removal's are: a rename that grew a
+    /// provider dictionary would be a call that could take the mark off a collection, and the
+    /// member-name set alone cannot tell those apart.
+    ///
+    /// The first sentence of the page says an uninstall renames nothing. That is still what it
+    /// says and it is still true; what has stopped being true is that no code of this plugin's
+    /// could rename a collection at any moment whatever, and the page says so where it describes
+    /// this check.
     /// </remarks>
     [Fact]
     public void NoPortThisPluginWritesThroughCanRemoveACollectionOrTakeAMarkOffOne()
     {
         Assert.Equal(
-            new[] { "CreateCollectionAsync", "FindCollections" },
+            new[] { "CreateCollectionAsync", "FindCollections", "RenameCollectionAsync" },
             Members(typeof(ICollectionOwnership)));
+
+        Assert.Equal(
+            new[] { typeof(Guid), typeof(string), typeof(CancellationToken) },
+            typeof(ICollectionOwnership)
+                .GetMethod("RenameCollectionAsync")!
+                .GetParameters()
+                .Select(parameter => parameter.ParameterType));
 
         Assert.Equal(
             new[] { "AddToCollectionAsync", "ItemsThatStillResolve", "RemoveFromCollectionAsync" },

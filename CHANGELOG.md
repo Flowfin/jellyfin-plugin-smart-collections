@@ -11,6 +11,10 @@ still being written.
 
 ### Added
 
+- The collection a rule owns is renamed when the name in the rule document
+  changes, rather than keeping the title it was created with. The rule document
+  is the declaration, so a collection renamed in the Jellyfin interface is
+  renamed back on the next refresh.
 - A test project, so the required test check runs an assertion instead of
   reporting success over an empty suite.
 - A check that the plugin's identifier agrees across the manifest, the plugin

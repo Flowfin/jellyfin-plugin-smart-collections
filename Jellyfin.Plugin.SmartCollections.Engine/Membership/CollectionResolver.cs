@@ -7,7 +7,8 @@ using Jellyfin.Plugin.SmartCollections.Rules;
 namespace Jellyfin.Plugin.SmartCollections.Membership;
 
 /// <summary>
-/// Turns a loaded rule into the collection that rule owns, creating it the first time.
+/// Turns a loaded rule into the collection that rule owns, creating it the first time and giving
+/// it the rule's declared name whenever the two have drifted apart.
 /// </summary>
 /// <remarks>
 /// Every path that changes a collection takes the collection as an argument:
@@ -31,6 +32,19 @@ namespace Jellyfin.Plugin.SmartCollections.Membership;
 /// Nothing here writes membership, and nothing here deletes. A rule whose collection an operator
 /// deleted gets a new one on the next resolve, because the rule is the declaration and the
 /// collection is what it produces.
+///
+/// The third mistake is quieter than either of those and it is what the rename is for. The name
+/// reaches the server on the create and, without a write afterwards, never again: a rule document
+/// whose name is edited resolves to the collection it already owned, under the title it was
+/// created with. Nothing duplicates and nothing is destroyed, so every check stays green and the
+/// operator's edit simply does not arrive. The rule document is the declaration, so the title the
+/// library shows follows it on every resolve rather than only on the first.
+///
+/// Which direction that runs is worth stating, because the mark makes both readable. The rule
+/// document wins: a collection renamed in the Jellyfin interface is renamed back on the next
+/// resolve. The alternative would be a plugin that writes a name it was not asked for into a rule
+/// file an operator hand-wrote, and between the two, the one that loses work is the one that
+/// edits the file.
 /// </remarks>
 public sealed class CollectionResolver
 {
@@ -39,7 +53,7 @@ public sealed class CollectionResolver
     /// <summary>
     /// Initializes a new instance of the <see cref="CollectionResolver"/> class.
     /// </summary>
-    /// <param name="ownership">The port the lookup and the create go through.</param>
+    /// <param name="ownership">The port the lookup, the create and the rename go through.</param>
     /// <exception cref="ArgumentNullException"><paramref name="ownership"/> is <see langword="null"/>.</exception>
     public CollectionResolver(ICollectionOwnership ownership)
     {
@@ -51,7 +65,7 @@ public sealed class CollectionResolver
     /// Resolves the collection a rule owns.
     /// </summary>
     /// <param name="rule">The rule, as it was loaded and validated.</param>
-    /// <param name="cancellationToken">Cancels the create, where one is needed.</param>
+    /// <param name="cancellationToken">Cancels the create or the rename, where one is needed.</param>
     /// <returns>The identifier of the collection this rule owns.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="rule"/> is <see langword="null"/>.</exception>
     public async Task<Guid> ResolveAsync(RuleDocument rule, CancellationToken cancellationToken)
@@ -62,7 +76,22 @@ public sealed class CollectionResolver
 
         if (marked.Count > 0)
         {
-            return Adopted(marked);
+            var owner = Adopted(marked);
+
+            // Ordinal, and named rather than defaulted. A rename that differs only in case or in
+            // accent is a rename an operator made deliberately, and a comparison that folded
+            // either would refuse to carry it out. The culture-sensitive default is also the one
+            // that gives a different answer on a server running in Turkish, which is the failure
+            // the determinism milestone exists against.
+            if (!string.Equals(owner.Name, rule.Name, StringComparison.Ordinal))
+            {
+                await _ownership.RenameCollectionAsync(
+                    owner.Id,
+                    rule.Name,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            return owner.Id;
         }
 
         return await _ownership.CreateCollectionAsync(
@@ -80,13 +109,13 @@ public sealed class CollectionResolver
     // too small to carry it. The smallest identifier is arbitrary and total, and total is the
     // property that matters: the same set answers the same way on every run, on either server
     // line, whatever order it arrived in.
-    private static Guid Adopted(IReadOnlyList<Guid> marked)
+    private static CollectionMatch Adopted(IReadOnlyList<CollectionMatch> marked)
     {
         var owner = marked[0];
 
         for (var index = 1; index < marked.Count; index++)
         {
-            if (marked[index].CompareTo(owner) < 0)
+            if (marked[index].Id.CompareTo(owner.Id) < 0)
             {
                 owner = marked[index];
             }

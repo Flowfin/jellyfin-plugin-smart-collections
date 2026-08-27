@@ -164,6 +164,35 @@ arrive without reddening it:
 git grep -n 'NoPortThisPluginWritesThroughCanRemoveACollectionOrTakeAMarkOffOne'   -- Jellyfin.Plugin.SmartCollections.Tests/UninstallHookTests.cs
 ```
 
+ONE OF THE PORTS CAN RENAME A COLLECTION NOW, AND THIS PAGE SAID NO CODE OF THIS
+PLUGIN'S COULD. What stood here was that neither port had any member that writes
+a title, so the first paragraph's promise that nothing is renamed held at the
+port rather than only at the moment. `RenameCollectionAsync` arrived with #29, so
+that reading is gone and the narrower one is what is left:
+
+```
+git grep -n 'RenameCollectionAsync' -- Jellyfin.Plugin.SmartCollections.Engine/
+Jellyfin.Plugin.SmartCollections.Engine/Membership/CollectionResolver.cs:88:                await _ownership.RenameCollectionAsync(
+Jellyfin.Plugin.SmartCollections.Engine/Membership/ICollectionOwnership.cs:26:/// <see cref="RenameCollectionAsync"/> writes a title onto a collection that already carries the
+Jellyfin.Plugin.SmartCollections.Engine/Membership/ICollectionOwnership.cs:107:    Task RenameCollectionAsync(Guid collectionId, string name, CancellationToken cancellationToken);
+```
+
+The first paragraph is unchanged and still true. A rename happens on a resolve,
+a resolve runs on a refresh, and an uninstall runs no code of this plugin's at
+all, which is what the two tests above this section hold and what nothing in the
+rename touches. Its parameters are asserted beside its name for the reason the
+removal's are: it takes a collection and a string, so a version of it that grew
+a provider dictionary would red the same check rather than quietly becoming a
+call that can take a mark off a collection.
+
+What an operator should read out of this is the one behaviour that changed. The
+title a collection carries follows the name in the rule document from now on, on
+every refresh rather than only on the first. Renaming one of these collections in
+the Jellyfin interface is therefore undone by the next run; renaming it in the
+rule document is what makes it stick. That is a refresh-time behaviour and it has
+nothing to do with uninstalling, which still leaves every title exactly as the
+last refresh wrote it.
+
 WHAT NONE OF THAT COVERS IS THE SERVER, and it is a larger gap than the one this
 section used to name. No collection has been created on a Jellyfin server by this
 plugin, because nothing calls the resolve yet: neither port has an adapter over
