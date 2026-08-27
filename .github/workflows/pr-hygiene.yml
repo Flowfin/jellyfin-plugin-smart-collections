@@ -238,9 +238,18 @@ jobs:
 
             // Held to fixtures before it judges anything, in the shape FAIL 1
             // uses. The near misses are the half that matters: a plain closing
-            // keyword is the intended channel and a negation with no reference
-            // beside it closes nothing, so firing on either would make this
-            // arm a tax on ordinary prose.
+            // keyword is the intended channel, a negation with no reference
+            // beside it closes nothing, and a body quoting the refused sentence
+            // as evidence is recording the rule rather than breaking it, so
+            // firing on any of the three would make this arm a tax on ordinary
+            // prose.
+            //
+            // The quotation fixture uses a code SPAN rather than a fence, and
+            // deliberately. A body pasting this fixture list as its evidence
+            // would otherwise carry a fence inside its own fence, and the strip
+            // pairs the first closing marker it meets - so the body arguing for
+            // this arm would be refused by it. The span exercises the same
+            // branch of the strip and survives being quoted.
             const CLOSER_FIXTURES = [
               ["This does not close #29.", true],
               ["This doesn\u2019t close #29 yet.", true],
@@ -250,7 +259,7 @@ jobs:
               ["Closes #29", false],
               ["Fixes #29, and the suite is green.", false],
               ["Refs #29. This does not close it.", false],
-              ["```\nThis does not close #29.\n```", false],
+              ["Recorded as `This does not close #29.` and nothing else.", false],
               ["Nothing about issues here.", false],
             ];
             const closerDisagreeing = CLOSER_FIXTURES.filter(
