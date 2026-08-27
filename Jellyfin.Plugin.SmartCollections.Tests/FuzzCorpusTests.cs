@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using Jellyfin.Plugin.SmartCollections.Rules;
 using Xunit;
 
@@ -16,6 +17,13 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// Reading the seeds from disk rather than restating them here is the point. A seed edited into a
 /// shape the parser throws on would otherwise make the next fuzzing run report a crash that is the
 /// harness's fault, and nobody would learn that until the run happened.
+///
+/// Answering is not the whole contract, and the seeds drifted out of the rest of it without
+/// anything going red. A refusal is an answer, so a corpus in which every seed is refused at the
+/// envelope satisfies the three properties above while giving the fuzzer nothing to mutate past
+/// it. That is what <see cref="TheCorpusHoldsADocumentTheValidatorAccepts"/> is for, and it is a
+/// property the corpus loses again on the day a later member becomes required, in a change that
+/// has no reason to open this directory.
 ///
 /// The directory is found by walking up to the repository root, which is what keeps this test
 /// working from whatever directory the runner starts it in, with no display, no server and no
@@ -50,6 +58,27 @@ public class FuzzCorpusTests
                 result.IsValid || result.Errors.Count > 0,
                 Path.GetFileName(path) + " was neither accepted nor refused with a reason.");
         }
+    }
+
+    [Fact]
+    public void TheCorpusHoldsADocumentTheValidatorAccepts()
+    {
+        // What the other three cannot see. They ask that every seed is answered, that none is
+        // empty and that the directory is not empty, and a refusal is an answer, so all three
+        // pass over a corpus in which nothing is accepted. The seeds are what the mutations start
+        // from, so a corpus refused to the last file explores the refusal paths and reaches the
+        // members past the envelope only by a mutation that invents a valid one by chance.
+        var accepted = Directory.GetFiles(CorpusDirectory())
+            .Where(path => RuleDocumentValidator.Read(File.ReadAllText(path)).IsValid)
+            .Select(Path.GetFileName)
+            .ToArray();
+
+        Assert.True(
+            accepted.Length > 0,
+            "No seed in " + CorpusDirectory() + " is a document the validator accepts, so every "
+                + "mutation the fuzzer makes starts from one refused at the envelope. Add a seed "
+                + "carrying every member the validator now requires, or repair the one a new "
+                + "required member turned into a refused document.");
     }
 
     [Fact]

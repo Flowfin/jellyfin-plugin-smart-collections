@@ -1,4 +1,6 @@
 {
     "schemaVersion" :  1,
+    "id": "with-an-unknown-member",
+    "name": "With an unknown member",
     "somethingLaterVersionsMayAdd": []
 }
