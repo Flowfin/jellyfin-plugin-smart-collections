@@ -11,6 +11,10 @@ still being written.
 
 ### Added
 
+- The pull request hygiene check refuses a closing keyword under a negation next
+  to an issue reference, in the body and in every commit message. GitHub reads
+  the pair rather than the sentence, so a change explaining that it leaves an
+  issue open used to shut it.
 - The collection a rule owns is renamed when the name in the rule document
   changes, rather than keeping the title it was created with. The rule document
   is the declaration, so a collection renamed in the Jellyfin interface is
