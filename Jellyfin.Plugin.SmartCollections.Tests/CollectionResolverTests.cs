@@ -411,5 +411,43 @@ public class CollectionResolverTests
         Assert.Throws<ArgumentNullException>(() => CollectionStamp.LookupQuery(null!));
     }
 
+    /// <summary>
+    /// The reverse case. A collection an operator deleted from Jellyfin comes back on the next
+    /// resolve, carrying the mark it carried before, because the rule document is the declaration
+    /// and the collection is what it produces.
+    /// </summary>
+    /// <remarks>
+    /// Two properties, and the second is the one that is easy to lose. The mark has to be the same
+    /// string both times, or the collection that came back is one the run after this cannot find,
+    /// and the library fills with a copy per run.
+    ///
+    /// The identifier is NOT the same, and asserting that it moves is the point rather than an
+    /// incidental detail of the fake. A create makes a new item, so a resolve that remembered the
+    /// identifier it answered with last time would hand out one the server no longer holds, and
+    /// every write behind it would go to nothing. Nothing here remembers one: an identifier is
+    /// produced by a resolve and lives for the run that asked.
+    /// </remarks>
+    [Fact]
+    public async Task ARuleWhoseCollectionWasDeletedComesBackUnderTheSameMark()
+    {
+        var ownership = new FakeCollectionOwnership();
+        var resolver = new CollectionResolver(ownership);
+
+        var first = await resolver.ResolveAsync(Rule(), CancellationToken.None);
+        await ownership.DeleteCollectionAsync(first, CancellationToken.None);
+
+        var second = await resolver.ResolveAsync(Rule(), CancellationToken.None);
+
+        var mark = new KeyValuePair<string, string>(CollectionStamp.PluginKey, RuleId);
+        Assert.Equal(2, ownership.Created.Count);
+        Assert.Equal(mark, Assert.Single(ownership.Created[0].ProviderIds));
+        Assert.Equal(mark, Assert.Single(ownership.Created[1].ProviderIds));
+
+        Assert.NotEqual(first, second);
+        Assert.Equal(second, Assert.Single(ownership.Collections).Id);
+        Assert.Equal(CollectionName, ownership.NameOf(second));
+        Assert.Empty(ownership.Renames);
+    }
+
     private static RuleDocument Rule() => new(1, RuleId, CollectionName, "{}");
 }
