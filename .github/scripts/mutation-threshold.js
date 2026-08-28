@@ -36,9 +36,25 @@
 // Several reports is a refusal rather than a choice between them: a threshold
 // judged against an unspecified run is the same fault one directory up.
 //
+// The page is judged beside the threshold (#192). `docs/mutation-score.md` is
+// where the score, the status counts and the killed-over-scored figure are
+// written down, it is what `docs/testing.md` sends a reader to, and until this
+// arm nothing re-extracted any of them: a change that raised the threshold
+// correctly and left the page alone passed every route here. It had already
+// happened once, and it was found by running the tool rather than by any route.
+//
+// WHAT THIS ARM CANNOT SEE IS THE PROSE AROUND THE FIGURES. The page argues
+// about what a whole-number threshold costs and about what the gap between the
+// score and the break buys back, in sentences that carry numbers derived from
+// the four this checks. A sentence that has gone stale around a correct figure
+// is a judgement about meaning, and no reading of the report makes it. The
+// review is where that is caught. The same is true of the paragraph in
+// `.github/workflows/mutation.yml`, which is outside this arm because #192
+// names the page.
+//
 // Usage:
 //
-//   node .github/scripts/mutation-threshold.js <stryker-output-directory> [config-file]
+//   node .github/scripts/mutation-threshold.js <stryker-output-directory> [config-file] [page-file]
 
 "use strict";
 
@@ -47,6 +63,7 @@ const path = require("node:path");
 
 const outputDir = process.argv[2];
 const configFile = process.argv[3] || "stryker-config.json";
+const pageFile = process.argv[4] || "docs/mutation-score.md";
 
 function fail(message) {
     console.error(`error: ${message}`);
@@ -139,13 +156,98 @@ console.log(`Mutants by status: ${JSON.stringify(counts)}`);
 console.log(`Score: ${killed}/${scored} = ${score.toFixed(2)}%`);
 console.log(`Threshold: break ${declared}, the score with its fraction dropped is ${taken}`);
 
+// Every refusal below goes into one list and the run exits once, so a reader
+// who has let both the threshold and the page go stale is told both times
+// rather than being sent back for the second after repairing the first.
+const problems = [];
+
 if (declared < taken) {
-    console.error(`::error::The mutation score is ${score.toFixed(2)}% and thresholds.break is left behind at ${declared}. ` + `Write ${taken} as "break" in ${configFile}, so the threshold states the score it was taken from, and record this run in docs/mutation-score.md.`);
-    process.exit(1);
+    problems.push(`The mutation score is ${score.toFixed(2)}% and thresholds.break is left behind at ${declared}. ` + `Write ${taken} as "break" in ${configFile}, so the threshold states the score it was taken from.`);
 }
 if (declared > taken) {
-    console.error(`::error::thresholds.break is ${declared} in ${configFile} and the mutation score is ${score.toFixed(2)}%, whose whole number is ${taken}. ` + "A threshold above the score reds every run; write the score the suite reaches.");
+    problems.push(`thresholds.break is ${declared} in ${configFile} and the mutation score is ${score.toFixed(2)}%, whose whole number is ${taken}. ` + "A threshold above the score reds every run; write the score the suite reaches.");
+}
+
+// The page beside the threshold (#192). Four figures are re-extracted from it
+// and compared against this run. Each shape is required: a page that stopped
+// carrying one reads as a page that agrees, which is the direction this whole
+// script exists against.
+//
+// The status counts are compared as a set of name-to-number pairs rather than as
+// the rendered line, because the order the statuses come out in follows the
+// order the report happens to list mutants and is not a fact about the tree. The
+// repair is printed as the line to write, so the reader is handed the text
+// rather than the difference.
+//
+// A status with no mutants is absent from the printed object rather than zero,
+// because the page pastes what the reader above it prints. So a page writing
+// `Timeout: 0` against a run that timed nothing out is refused, and the message
+// hands over the line to write rather than leaving the reader to guess which
+// spelling is meant.
+//
+// The two historical lines further down the page, which record a killed-and-
+// timed-out split measured on the tree of 2026-08-17, match none of these shapes
+// and are left alone on purpose: they are kept as the reading they were.
+let page;
+try {
+    // Read with the carriage returns removed, so a clone that materialises CRLF
+    // and a runner that materialises LF meet the same shapes.
+    page = fs.readFileSync(pageFile, "utf8").replace(/\r\n/g, "\n");
+} catch (err) {
+    fail(`cannot read the page ${pageFile}: ${err.message}`);
+}
+
+function figure(pattern, what) {
+    const hit = page.match(pattern);
+    if (!hit) {
+        problems.push(`${pageFile} carries no ${what} this check can read. A page that stopped carrying a figure reads as one that agrees with the run.`);
+        return null;
+    }
+    return hit;
+}
+
+const scored2 = score.toFixed(2);
+const headline = figure(/^(\d+\.\d{2}) %, and the threshold that holds it is (\d+)\.$/m, "headline score sentence");
+if (headline && (headline[1] !== scored2 || Number(headline[2]) !== declared)) {
+    problems.push(`${pageFile} says "${headline[0]}" and this run scored ${scored2}% against a break of ${declared}. ` + `Write "${scored2} %, and the threshold that holds it is ${declared}."`);
+}
+
+const banner = figure(/^\[\.\.\] The final mutation score is (\d+\.\d{2}) %$/m, "pasted tool banner");
+if (banner && banner[1] !== scored2) {
+    problems.push(`${pageFile} pastes a banner reading ${banner[1]} % and this run scored ${scored2}%. ` + `Write "[..] The final mutation score is ${scored2} %".`);
+}
+
+const countsLine = figure(/^\{ ([^}\n]*) \}$/m, "status count line");
+if (countsLine) {
+    const written = {};
+    for (const pair of countsLine[1].split(",")) {
+        const hit = pair.trim().match(/^([A-Za-z]+): (\d+)$/);
+        if (hit) {
+            written[hit[1]] = Number(hit[2]);
+        }
+    }
+    const line =
+        "{ " +
+        Object.entries(counts)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(", ") +
+        " }";
+    const same = Object.keys(counts).length === Object.keys(written).length && Object.entries(counts).every(([k, v]) => written[k] === v);
+    if (!same) {
+        problems.push(`${pageFile} records the status counts ${countsLine[0]} and this run produced ${line}. ` + "Write the run's line; the order the statuses appear in follows the report and is not compared.");
+    }
+}
+
+const ratio = figure(/^(\d+)\/(\d+) (\d+\.\d{2})$/m, "killed-over-scored line");
+if (ratio && (Number(ratio[1]) !== killed || Number(ratio[2]) !== scored || ratio[3] !== scored2)) {
+    problems.push(`${pageFile} records "${ratio[0]}" and this run produced "${killed}/${scored} ${scored2}". Write the run's figures.`);
+}
+
+if (problems.length > 0) {
+    for (const problem of problems) {
+        console.error(`::error::${problem}`);
+    }
     process.exit(1);
 }
 
-console.log("The threshold is the score this run reached, with its fraction dropped.");
+console.log(`The threshold is the score this run reached, with its fraction dropped, and ${pageFile} records this run.`);
