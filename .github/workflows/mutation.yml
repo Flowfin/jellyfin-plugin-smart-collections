@@ -121,11 +121,18 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-      - name: Hold the threshold at the score this run reached
+      - name: Hold the threshold and the page at the score this run reached
         # After the upload, so the report is downloadable from a run this step
         # reds, and after the tool rather than beside it: the tool refuses a
         # score BELOW the break, and this refuses a break left below the score,
         # which are the two directions of one relation. It is skipped when the
         # tool has already failed, because a score under its threshold is the
         # other direction and is already refused there.
+        #
+        # It judges `docs/mutation-score.md` in the same pass (#192). That page
+        # is where the score, the status counts and the killed-over-scored
+        # figure are written down and it is what `docs/testing.md` sends a
+        # reader to, and nothing re-extracted any of them until that arm: a
+        # change raising the threshold correctly and leaving the page alone
+        # passed every route here.
         run: node .github/scripts/mutation-threshold.js StrykerOutput
