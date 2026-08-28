@@ -12,6 +12,12 @@
 // a host and a test project, one combined figure lets engine coverage fall
 // while the total holds steady on the host's pages and controllers.
 //
+// A floor is compared in BOTH directions (#188). A score under its floor is a
+// suite that weakened; a score over its floor is an entry that has stopped
+// describing the tree it sits in, which is the fault this file exists against
+// read the other way round. Both are refused, and a floor with no score and a
+// score with no floor are refused beside them.
+//
 // The means is a Node script invoked by `node`, and it is the same command
 // locally and in CI, so the check is reproducible without a runner. Node is on
 // every GitHub runner and on any machine that already builds this plugin's
@@ -157,7 +163,30 @@ for (const [name, score] of [...measured].sort()) {
     if (branchShort) {
         problems.push(`${name} branch coverage is ${fmt(score.branch)}% and its floor is ${fmt(floor.branch)}%.`);
     }
-    rows.push(`  ${name}: line ${fmt(score.line)}% (floor ${fmt(floor.line)}%), ` + `branch ${fmt(score.branch)}% (floor ${fmt(floor.branch)}%)` + (lineShort || branchShort ? "  BELOW FLOOR" : ""));
+    // A floor left under the score it was taken from (#188). The floors file says of
+    // itself that a floor is measured rather than chosen and is raised in the
+    // same change that raises the coverage, and until this arm nothing held
+    // either sentence: a score above its floor was the row and nothing else, so
+    // an entry went on naming a figure the suite had passed. It is refused
+    // rather than reported for the reason the two absences around it are: an
+    // entry that is wrong is quoted back as though it were right, in a file
+    // whose whole purpose is to hold a number somebody measured.
+    //
+    // What the message has to carry to be affordable is the number to write, so
+    // it names the assembly, both figures and the file. That number is the
+    // printed row, which is exact while the report keeps a rate to four decimal
+    // places - the same bound the floors file's own note states, and the same
+    // repair if a collector starts writing a fifth.
+    const lineOver = score.line - EPSILON > floor.line;
+    const branchOver = score.branch - EPSILON > floor.branch;
+    if (lineOver) {
+        problems.push(`${name} line coverage is ${fmt(score.line)}% and its floor is left behind at ${fmt(floor.line)}%. ` + `Write ${fmt(score.line)} as the "line" floor for ${name} in ${floorsFile}, so the entry states the score it was taken from.`);
+    }
+    if (branchOver) {
+        problems.push(`${name} branch coverage is ${fmt(score.branch)}% and its floor is left behind at ${fmt(floor.branch)}%. ` + `Write ${fmt(score.branch)} as the "branch" floor for ${name} in ${floorsFile}, so the entry states the score it was taken from.`);
+    }
+    const mark = lineShort || branchShort ? "  BELOW FLOOR" : lineOver || branchOver ? "  FLOOR LEFT BEHIND" : "";
+    rows.push(`  ${name}: line ${fmt(score.line)}% (floor ${fmt(floor.line)}%), ` + `branch ${fmt(score.branch)}% (floor ${fmt(floor.branch)}%)` + mark);
 }
 
 // A floor naming an assembly nothing measured is the other direction of the
@@ -188,4 +217,4 @@ if (problems.length > 0) {
     process.exit(1);
 }
 
-console.log("Every measured assembly is at or above its recorded floor.");
+console.log("Every measured assembly is at the floor its entry records.");
