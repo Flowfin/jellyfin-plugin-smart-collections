@@ -26,9 +26,16 @@
 # above the score reds every run from the first one; a round number below it
 # lets the suite weaken by however much the gap was, quietly. `thresholds.break`
 # in `stryker-config.json` carries the number and the pull request that set it
-# carries the run that produced it. Losing one killed mutant out of the 75 that
-# are scored drops the score by 1.33 points, which is below the break, so a
+# carries the run that produced it. 148 mutants are scored, so one killed mutant
+# turning into a survivor costs 0.68 points and lands under the break, and a
 # deleted assertion reds this job rather than lowering the bar.
+#
+# THIS PARAGRAPH SAID 75 SCORED AND 1.33 POINTS, AND THE ENGINE HAS GROWN SINCE.
+# What made the drift worth a mechanism rather than a correction is that the
+# threshold went with it: the tool asks only whether the score is BELOW the
+# break, so the number stayed at 82 while the suite reached 85.81 and nothing in
+# the tree said so. The step below refuses that direction now (#190), and its
+# script carries the reasoning that #188 carries for the coverage floor.
 #
 # A run that produced no report fails here. `if-no-files-found: error` on the
 # upload is what stops a tool or infrastructure failure ending green with
@@ -113,3 +120,12 @@ jobs:
           path: StrykerOutput/**/reports/**
           retention-days: 14
           if-no-files-found: error
+
+      - name: Hold the threshold at the score this run reached
+        # After the upload, so the report is downloadable from a run this step
+        # reds, and after the tool rather than beside it: the tool refuses a
+        # score BELOW the break, and this refuses a break left below the score,
+        # which are the two directions of one relation. It is skipped when the
+        # tool has already failed, because a score under its threshold is the
+        # other direction and is already refused there.
+        run: node .github/scripts/mutation-threshold.js StrykerOutput
