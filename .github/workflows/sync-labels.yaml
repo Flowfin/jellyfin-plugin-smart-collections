@@ -1,5 +1,43 @@
 name: "🏷️ Sync labels"
 
+# THIS WORKFLOW DELETES LABELS THIS TRACKER USES, AND NOT ONLY THE ONES THE
+# CENTRAL FILE LEAVES OUT. It was run manually on 2026-08-29, in run
+# 33250014826, and it removed five labels the central file DECLARES under those
+# exact names -- `bug`, `ci`, `tests`, `help wanted` and `good first issue` --
+# taking 68 issue and pull request associations with them. The run reported
+# success. Everything it removed was restored by hand afterwards, so the tree
+# and the tracker read as they did before it; what is written here is what a run
+# does, not a state the tracker is in.
+#
+# The rule the run's own changelog shows: every existing label the config also
+# declares is reported `[changed]`, and the five that were deleted are the five
+# reported `[merge]` as well.
+#
+#   gh run view 33250014826 --repo Flowfin/jellyfin-plugin-smart-collections --log \
+#     | grep -oE '[a-z ]+ \[(changed|merge)\]' | sed 's/^ //'
+#
+# Those five are the entries whose `aliases` list contains the entry's OWN name
+# while a label of that name already exists here. The action reads the label as
+# an alias of the entry it already is, merges the alias into the entry and
+# deletes the source; source and target are one label, so the merge is a
+# deletion. `enhancement` is an alias of `feature`, where the two names differ,
+# and that one renamed correctly and carried its issues with it.
+#
+#   gh api repos/jellyfin/jellyfin-meta-plugins/contents/.github/plugin-repo-labels.yaml \
+#     --jq .content | base64 -d | grep -A5 '^- name: ci$'
+#
+# What the next scheduled run does is therefore predictable rather than open,
+# and it is a PREDICTION rather than something watched: `feature` now exists
+# here under its own name and lists `feature` among its aliases, so it meets the
+# same condition as the five. A run removes every label this tracker carries
+# except `documentation`, `question` and `dependencies`.
+#
+# Neither branch #17 opens with is available against that. The labels are
+# already aligned with the central file, and the shared workflow below pins the
+# action but not the config and passes `delete-other-labels: true` with no input
+# to turn it off. What is left is a choice about how this board relates to a
+# convention it shares with its siblings, and it is open on #17.
+
 on:
   schedule:
     - cron: "0 0 1 * *"
