@@ -21,14 +21,20 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// list, and no field in this first vocabulary has one. The column arrives with the first field
 /// that needs it rather than being carried empty by ten rows that do not.
 ///
-/// No row declares <see cref="RuleOperator.WithinLast"/> either, and that absence is a finding
-/// rather than a choice. The operator table declares the types an operator accepts against the
-/// type THE FIELD declares, which is what <c>RuleOperatorTable.Accepts</c> is documented to take,
-/// and <c>withinLast</c> declares <see cref="RuleValueType.Duration"/> while its own semantics
-/// sentence describes a field holding an instant. So a date field cannot declare it without the
-/// cross-table check in the suite refusing the row, and a duration field declaring it would be
-/// asking whether a length of time is inside a span ending now. The repair belongs to the
-/// operator set rather than here, and it is written up on the issue this table landed under.
+/// THE TWO DATE FIELDS DECLARE <see cref="RuleOperator.WithinLast"/>, AND NO ROW COULD DECLARE IT
+/// UNTIL 2026-08-30. The operator table carried one type column, read as the type the FIELD
+/// declares, and <c>withinLast</c> put <see cref="RuleValueType.Duration"/> in it while its own
+/// semantics sentence describes a field holding an instant. So a date field declaring it was
+/// refused by the cross-table check in the suite, a duration field declaring it would have asked
+/// whether a length of time is inside a span ending now, and the operator was unreachable from
+/// every rule anyone could write. The repair was the operator table's rather than this one's: it
+/// declares the field end and the value end separately now, <c>withinLast</c> applies to a
+/// <see cref="RuleValueType.Date"/> field and takes a <see cref="RuleValueType.Duration"/> beside
+/// it, and <c>dateAdded withinLast P30D</c> is a condition this vocabulary can express.
+///
+/// The cross-table check reads the field end, so a row declaring an operator that does not apply
+/// to the type the row holds still reds the suite. What changed is which of the two ends it asks
+/// about, not that it asks.
 /// </remarks>
 public static class RuleFieldTable
 {
@@ -46,7 +52,17 @@ public static class RuleFieldTable
     /// <summary>
     /// The operators a date accepts.
     /// </summary>
-    private static readonly RuleOperator[] Instant = [RuleOperator.Before, RuleOperator.After];
+    /// <remarks>
+    /// <c>withinLast</c> is the one of the three that does not take a date beside it. It applies
+    /// to a field holding an instant and takes a length of time, which is the row the operator
+    /// table declares two type columns for.
+    /// </remarks>
+    private static readonly RuleOperator[] Instant =
+    [
+        RuleOperator.Before,
+        RuleOperator.After,
+        RuleOperator.WithinLast
+    ];
 
     /// <summary>
     /// The operators a field holding several strings accepts.
