@@ -50,10 +50,25 @@ business, and this page makes no claim about it.
 ## What an `Operators` line means
 
 The operators that mean something for that field, which is a subset of what the
-operator set says the field's type allows and never a superset. The operator
-table answers whether an operator can compare a value of a type at all; a row
+operator set says a field of that type allows and never a superset. The operator
+table answers whether an operator applies to a field of a type at all; a row
 here answers whether the comparison means anything for this particular field,
 which is the narrower question and the one somebody writing a rule is asking.
+
+THE `Value type:` LINE ABOVE IS THE FIELD'S OWN TYPE AND NOT ALWAYS THE TYPE OF
+THE VALUE BESIDE A CONDITION. For sixteen of the seventeen operators the two are
+the same type. `withinLast` is the one where they are not: `dateAdded` holds a
+`Date` and `dateAdded withinLast P30D` writes a `Duration` beside it.
+`rule-operators.md` carries a `Field types:` line and a `Value types:` line per
+operator, which is where that pair is read.
+
+NO FIELD DECLARED `withinLast` UNTIL 2026-08-30, AND THIS PAGE RECORDED THAT AS
+A DEFECT IN THE OPERATOR SET. It was one: the operator set declared a single
+type column, read as the type the FIELD declares, and `withinLast` put `Duration`
+in it, so no date field could declare the operator without the cross-table check
+in the suite refusing the row and no duration field would have wanted it. The
+repair landed in the operator set rather than here, the column is two columns,
+and the two date fields below declare the operator.
 
 `rule-operators.md` is where each operator's own sentence lives, and
 `rule-values.md` is where the written form of each value type lives. Neither is
@@ -68,14 +83,6 @@ No field holds an enumeration. A field of that type owes a column naming the
 values it accepts, because the enumeration parser is handed that list, and no
 field in this first vocabulary has one. The column arrives with the first field
 that needs it rather than being carried empty by ten rows that do not.
-
-No field declares `withinLast`. The operator set declares the types an operator
-accepts against the type the FIELD declares, and `withinLast` declares
-`Duration` while its own sentence describes a field holding an instant, so no
-date field can declare it and a duration field declaring it would be asking
-whether a length of time is inside a span ending now. That is a defect in the
-operator set rather than a choice made here, and it is written up on the issue
-this page landed under.
 
 Which item kinds each field applies to is not here either. Every field below
 applies to both kinds the first version collects, so the absence states nothing
@@ -95,7 +102,7 @@ Semantics: The rating the community gives the item, out of ten.
 
 Value type: Date
 
-Operators: before, after
+Operators: before, after, withinLast
 
 Reaches the library: InternalItemsQuery.MinDateCreated
 
@@ -145,7 +152,7 @@ Semantics: The description the library holds for the item.
 
 Value type: Date
 
-Operators: before, after
+Operators: before, after, withinLast
 
 Reaches the library: InternalItemsQuery.MinPremiereDate
 
