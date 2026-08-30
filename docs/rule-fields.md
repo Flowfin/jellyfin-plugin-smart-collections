@@ -45,7 +45,8 @@ from this page.
 WHICH OPERATORS NARROW INSIDE THE QUERY IS NOT THIS LINE. A row names the
 property a field is about; whether a particular comparison over that field can
 be pushed into the query or has to be made afterwards is the compiler's
-business, and this page makes no claim about it.
+business, and this page makes no claim about it. `rule-queries.md` is where that
+is declared, pair by pair.
 
 ## What an `Operators` line means
 
