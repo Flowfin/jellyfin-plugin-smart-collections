@@ -95,6 +95,58 @@ public static class RuleValueParser
     ];
 
     /// <summary>
+    /// Parses a value against the type a condition's field and operator settled on.
+    /// </summary>
+    /// <param name="value">The value as the document wrote it.</param>
+    /// <param name="pointer">Where the value is, as a JSON Pointer.</param>
+    /// <param name="type">The type the value is parsed against.</param>
+    /// <param name="declaredNames">
+    /// The names an enumeration field accepts, in the order a refusal lists them. Read only where
+    /// <paramref name="type"/> is <see cref="RuleValueType.Enumeration"/>.
+    /// </param>
+    /// <returns>The value, or the reason it was refused.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="declaredNames"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="type"/> is not a declared type.</exception>
+    /// <remarks>
+    /// The one place the seven readers are chosen between, so a caller holding a type gets the
+    /// reader for it and never a reader for what the value happens to look like. Every caller in
+    /// this tree comes through here; the readers stay public because each one is the subject of
+    /// its own tests, and a dispatch that hid them would make those tests read through a table
+    /// they are not about.
+    ///
+    /// It is not called <c>Read</c>. <c>RuleValueDocumentTests.EveryDeclaredTypeHasAReaderNamedAfterIt</c>
+    /// reads every public static member of this class whose name begins with <c>Read</c> and
+    /// requires that set to be exactly one per declared type, which is what catches a type added
+    /// without a parser. A dispatch called <c>Read</c> would sit inside that population and weaken
+    /// the guard for a naming preference.
+    /// </remarks>
+    public static RuleValueParse Parse(
+        JsonElement value,
+        string pointer,
+        RuleValueType type,
+        IReadOnlyList<string> declaredNames)
+    {
+        ArgumentNullException.ThrowIfNull(declaredNames);
+
+        return type switch
+        {
+            RuleValueType.String => ReadString(value, pointer),
+            RuleValueType.Integer => ReadInteger(value, pointer),
+            RuleValueType.Decimal => ReadDecimal(value, pointer),
+            RuleValueType.Boolean => ReadBoolean(value, pointer),
+            RuleValueType.Date => ReadDate(value, pointer),
+            RuleValueType.Duration => ReadDuration(value, pointer),
+            RuleValueType.Enumeration => ReadEnumeration(value, pointer, declaredNames),
+
+            // Unreachable while every declared member is named above, and the suite refuses a
+            // member that is not. It is a throw rather than a fallback reader, for the reason
+            // RuleValueForm gives about its own: a fallback would let a type added without its
+            // reader parse as something it is not.
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "No reader is declared for this value type.")
+        };
+    }
+
+    /// <summary>
     /// Reads a string value.
     /// </summary>
     /// <param name="value">The value as the document wrote it.</param>

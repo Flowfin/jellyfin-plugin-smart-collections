@@ -108,23 +108,23 @@ public static class RuleOperatorTable
 
     private static readonly RuleOperatorRow[] Table =
     [
-        new(RuleOperator.Equals, "equals", Comparable, Comparable, "The field is exactly the value."),
-        new(RuleOperator.NotEquals, "notEquals", Comparable, Comparable, "The field is anything other than the value."),
-        new(RuleOperator.Contains, "contains", Textual, Textual, "The field holds the value somewhere inside it."),
-        new(RuleOperator.NotContains, "notContains", Textual, Textual, "The field holds the value nowhere inside it."),
-        new(RuleOperator.StartsWith, "startsWith", Textual, Textual, "The field begins with the value."),
-        new(RuleOperator.EndsWith, "endsWith", Textual, Textual, "The field ends with the value."),
-        new(RuleOperator.In, "in", Comparable, Comparable, "The field is one of the values in the list."),
-        new(RuleOperator.NotIn, "notIn", Comparable, Comparable, "The field is none of the values in the list."),
-        new(RuleOperator.GreaterThan, "greaterThan", Ordered, Ordered, "The field is above the value."),
-        new(RuleOperator.GreaterThanOrEqual, "greaterThanOrEqual", Ordered, Ordered, "The field is the value or above it."),
-        new(RuleOperator.LessThan, "lessThan", Ordered, Ordered, "The field is below the value."),
-        new(RuleOperator.LessThanOrEqual, "lessThanOrEqual", Ordered, Ordered, "The field is the value or below it."),
-        new(RuleOperator.IsEmpty, "isEmpty", EveryType, NoValue, "The field holds nothing."),
-        new(RuleOperator.IsNotEmpty, "isNotEmpty", EveryType, NoValue, "The field holds something."),
-        new(RuleOperator.Before, "before", Instant, Instant, "The field is earlier than the value."),
-        new(RuleOperator.After, "after", Instant, Instant, "The field is later than the value."),
-        new(RuleOperator.WithinLast, "withinLast", Instant, Span, "The field is inside the span that ends at the instant the evaluation was given.")
+        new(RuleOperator.Equals, "equals", Comparable, Comparable, false, "The field is exactly the value."),
+        new(RuleOperator.NotEquals, "notEquals", Comparable, Comparable, false, "The field is anything other than the value."),
+        new(RuleOperator.Contains, "contains", Textual, Textual, false, "The field holds the value somewhere inside it."),
+        new(RuleOperator.NotContains, "notContains", Textual, Textual, false, "The field holds the value nowhere inside it."),
+        new(RuleOperator.StartsWith, "startsWith", Textual, Textual, false, "The field begins with the value."),
+        new(RuleOperator.EndsWith, "endsWith", Textual, Textual, false, "The field ends with the value."),
+        new(RuleOperator.In, "in", Comparable, Comparable, true, "The field is one of the values in the list."),
+        new(RuleOperator.NotIn, "notIn", Comparable, Comparable, true, "The field is none of the values in the list."),
+        new(RuleOperator.GreaterThan, "greaterThan", Ordered, Ordered, false, "The field is above the value."),
+        new(RuleOperator.GreaterThanOrEqual, "greaterThanOrEqual", Ordered, Ordered, false, "The field is the value or above it."),
+        new(RuleOperator.LessThan, "lessThan", Ordered, Ordered, false, "The field is below the value."),
+        new(RuleOperator.LessThanOrEqual, "lessThanOrEqual", Ordered, Ordered, false, "The field is the value or below it."),
+        new(RuleOperator.IsEmpty, "isEmpty", EveryType, NoValue, false, "The field holds nothing."),
+        new(RuleOperator.IsNotEmpty, "isNotEmpty", EveryType, NoValue, false, "The field holds something."),
+        new(RuleOperator.Before, "before", Instant, Instant, false, "The field is earlier than the value."),
+        new(RuleOperator.After, "after", Instant, Instant, false, "The field is later than the value."),
+        new(RuleOperator.WithinLast, "withinLast", Instant, Span, false, "The field is inside the span that ends at the instant the evaluation was given.")
     ];
 
     private static readonly Dictionary<string, RuleOperatorRow> ByName = BuildIndex();
@@ -219,6 +219,49 @@ public static class RuleOperatorTable
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// The type the value beside a condition is parsed against.
+    /// </summary>
+    /// <param name="operator">The operator the condition applies.</param>
+    /// <param name="fieldType">The type the field the condition names declares.</param>
+    /// <returns>The type one value beside that operator is written as.</returns>
+    /// <exception cref="ArgumentException">
+    /// The operator takes no value of the field's type and does not declare exactly one of its
+    /// own, which is either an operator that takes no value at all or a pair the field end already
+    /// refuses. Ask <see cref="RuleOperatorRow.TakesAValue"/> and <see cref="AcceptsField"/> first.
+    /// </exception>
+    /// <remarks>
+    /// The two ends of a condition agree on sixteen of the seventeen rows, and where they do the
+    /// answer is the field's own type: that is what makes <c>productionYear equals 1994</c> parse
+    /// as a whole number rather than as whatever the value happens to look like. <c>withinLast</c>
+    /// is the row where they differ, and there the answer is the value end, which is the single
+    /// type that column declares.
+    ///
+    /// The field's type is preferred over the value column rather than the other way round,
+    /// because the value column is a set on every row that accepts more than one type and a set
+    /// cannot say which member a particular condition meant. The field's row can, and it is the
+    /// one the document already named.
+    /// </remarks>
+    public static RuleValueType ValueTypeFor(RuleOperator @operator, RuleValueType fieldType)
+    {
+        var row = Of(@operator);
+
+        if (AcceptsValue(@operator, fieldType))
+        {
+            return fieldType;
+        }
+
+        if (row.ValueTypes.Count != 1)
+        {
+            throw new ArgumentException(
+                "The operator \"" + row.Name + "\" takes no value of type " + fieldType
+                + " and declares no single type of its own, so there is no type to parse against. Ask TakesAValue and AcceptsField before asking this.",
+                nameof(@operator));
+        }
+
+        return row.ValueTypes[0];
     }
 
     /// <summary>

@@ -6,9 +6,9 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// One operator, as the table declares it.
 /// </summary>
 /// <remarks>
-/// Five things and no more: which operator this is, what a document writes to name it, which types
-/// of field it applies to, which types of value it takes beside it, and what it means in one
-/// sentence.
+/// Six things and no more: which operator this is, what a document writes to name it, which types
+/// of field it applies to, which types of value it takes beside it, whether it takes one value or
+/// a list of them, and what it means in one sentence.
 ///
 /// The written name is declared rather than derived from the member. Deriving it would make the
 /// wire format a property of a C# identifier, so renaming the member for a compiler warning would
@@ -37,12 +37,14 @@ public sealed class RuleOperatorRow
         string name,
         IReadOnlyList<RuleValueType> fieldTypes,
         IReadOnlyList<RuleValueType> valueTypes,
+        bool takesAList,
         string semantics)
     {
         Operator = @operator;
         Name = name;
         FieldTypes = fieldTypes;
         ValueTypes = valueTypes;
+        TakesAList = takesAList;
         Semantics = semantics;
     }
 
@@ -67,6 +69,27 @@ public sealed class RuleOperatorRow
     /// the operator takes no value.
     /// </summary>
     public IReadOnlyList<RuleValueType> ValueTypes { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the operator is written with a list of values beside it
+    /// rather than with one.
+    /// </summary>
+    /// <remarks>
+    /// How many values an operator takes is a property of the operator and is not derivable from
+    /// either type column: <c>in</c> and <c>equals</c> accept the same seven types and one of them
+    /// is written <c>["Thriller", "Horror"]</c> while the other is written <c>"Thriller"</c>. It is
+    /// declared here for the reason the two type columns are declared: a stage reading a value has
+    /// to know which shape to expect before it can refuse the other one, and a stage that inferred
+    /// the shape from what the document happened to write would accept a single value beside
+    /// <c>in</c> and quietly mean something the operator's own sentence does not say.
+    ///
+    /// It is asked only after <see cref="TakesAValue"/>. <c>isEmpty</c> and <c>isNotEmpty</c> take
+    /// no value at all, so they take neither one nor a list, and this is <see langword="false"/>
+    /// there rather than carrying a third state that would then have to agree with the empty
+    /// <see cref="ValueTypes"/> beside it. The suite refuses a row that declares a list and no
+    /// value type.
+    /// </remarks>
+    public bool TakesAList { get; }
 
     /// <summary>
     /// Gets what it means, in one sentence.

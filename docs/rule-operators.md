@@ -1,15 +1,17 @@
 # The operators a rule may name
 
 The operator set is closed. Which operators exist, which types of field each one
-applies to, which types of value each one takes and what each one means are
-declared in `RuleOperatorTable`, and this page is that table written out.
+applies to, which types of value each one takes, how many values it is written
+with and what each one means are declared in `RuleOperatorTable`, and this page
+is that table written out.
 
 Each section below carries a marker line of the form `## Operator: <name>`, a
-`Field types:` line, a `Value types:` line and a `Semantics:` line. The names
-are what a rule document writes, the type lists and the sentences are what the
-table declares, and `RuleOperatorDocumentTests` holds the page to the table in
-both directions, so an operator added without a section reds the suite and a
-section describing an operator that does not exist reds it too.
+`Field types:` line, a `Value types:` line, a `Values written:` line and a
+`Semantics:` line. The names are what a rule document writes, the lists, the
+counts and the sentences are what the table declares, and
+`RuleOperatorDocumentTests` holds the page to the table in every one of those
+directions, so an operator added without a section reds the suite and a section
+describing an operator that does not exist reds it too.
 
 ## Why the set is closed
 
@@ -33,6 +35,33 @@ Ordering over text is not here either. `greaterThan` and its three neighbours
 accept no string, because ordering text is either culture-sensitive, which would
 make one rule collect different items on two servers, or ordinal, which orders
 by code point and is almost never what somebody writing a rule means.
+
+## What the `Values written:` line means
+
+A type says what a value may be. It does not say how many of them the condition
+writes, and the two are separate questions: `equals` and `in` accept the same
+seven types, and one of them is written
+
+```
+{ "field": "genres", "operator": "equals", "value": "Thriller" }
+```
+
+while the other is written
+
+```
+{ "field": "officialRating", "operator": "in", "value": ["PG", "PG-13"] }
+```
+
+Three answers. `none` is `isEmpty` and `isNotEmpty`, which ask about the field
+alone and carry no `value` member at all; a condition applying one with a value
+beside it is refused rather than having the value dropped. `a list` is `in` and
+`notIn`, written as a JSON array with at least one member; an empty array is
+refused, because a condition comparing a field against no value narrows nothing
+and whoever wrote it meant to fill it in. `one` is the other thirteen.
+
+The count is declared rather than inferred from what a document happens to
+write. A stage that read one value beside `in` and accepted it would mean
+something the operator's own sentence does not say, and it would do so silently.
 
 ## What the two type lines mean
 
@@ -71,6 +100,8 @@ Field types: String, Integer, Decimal, Boolean, Date, Duration, Enumeration
 
 Value types: String, Integer, Decimal, Boolean, Date, Duration, Enumeration
 
+Values written: one
+
 Semantics: The field is exactly the value.
 
 ## Operator: notEquals
@@ -78,6 +109,8 @@ Semantics: The field is exactly the value.
 Field types: String, Integer, Decimal, Boolean, Date, Duration, Enumeration
 
 Value types: String, Integer, Decimal, Boolean, Date, Duration, Enumeration
+
+Values written: one
 
 Semantics: The field is anything other than the value.
 
@@ -87,6 +120,8 @@ Field types: String
 
 Value types: String
 
+Values written: one
+
 Semantics: The field holds the value somewhere inside it.
 
 ## Operator: notContains
@@ -94,6 +129,8 @@ Semantics: The field holds the value somewhere inside it.
 Field types: String
 
 Value types: String
+
+Values written: one
 
 Semantics: The field holds the value nowhere inside it.
 
@@ -103,6 +140,8 @@ Field types: String
 
 Value types: String
 
+Values written: one
+
 Semantics: The field begins with the value.
 
 ## Operator: endsWith
@@ -110,6 +149,8 @@ Semantics: The field begins with the value.
 Field types: String
 
 Value types: String
+
+Values written: one
 
 Semantics: The field ends with the value.
 
@@ -119,6 +160,8 @@ Field types: String, Integer, Decimal, Boolean, Date, Duration, Enumeration
 
 Value types: String, Integer, Decimal, Boolean, Date, Duration, Enumeration
 
+Values written: a list
+
 Semantics: The field is one of the values in the list.
 
 ## Operator: notIn
@@ -126,6 +169,8 @@ Semantics: The field is one of the values in the list.
 Field types: String, Integer, Decimal, Boolean, Date, Duration, Enumeration
 
 Value types: String, Integer, Decimal, Boolean, Date, Duration, Enumeration
+
+Values written: a list
 
 Semantics: The field is none of the values in the list.
 
@@ -135,6 +180,8 @@ Field types: Integer, Decimal, Date, Duration
 
 Value types: Integer, Decimal, Date, Duration
 
+Values written: one
+
 Semantics: The field is above the value.
 
 ## Operator: greaterThanOrEqual
@@ -142,6 +189,8 @@ Semantics: The field is above the value.
 Field types: Integer, Decimal, Date, Duration
 
 Value types: Integer, Decimal, Date, Duration
+
+Values written: one
 
 Semantics: The field is the value or above it.
 
@@ -151,6 +200,8 @@ Field types: Integer, Decimal, Date, Duration
 
 Value types: Integer, Decimal, Date, Duration
 
+Values written: one
+
 Semantics: The field is below the value.
 
 ## Operator: lessThanOrEqual
@@ -158,6 +209,8 @@ Semantics: The field is below the value.
 Field types: Integer, Decimal, Date, Duration
 
 Value types: Integer, Decimal, Date, Duration
+
+Values written: one
 
 Semantics: The field is the value or below it.
 
@@ -167,6 +220,8 @@ Field types: String, Integer, Decimal, Boolean, Date, Duration, Enumeration
 
 Value types: none
 
+Values written: none
+
 Semantics: The field holds nothing.
 
 ## Operator: isNotEmpty
@@ -174,6 +229,8 @@ Semantics: The field holds nothing.
 Field types: String, Integer, Decimal, Boolean, Date, Duration, Enumeration
 
 Value types: none
+
+Values written: none
 
 Semantics: The field holds something.
 
@@ -183,6 +240,8 @@ Field types: Date
 
 Value types: Date
 
+Values written: one
+
 Semantics: The field is earlier than the value.
 
 ## Operator: after
@@ -191,6 +250,8 @@ Field types: Date
 
 Value types: Date
 
+Values written: one
+
 Semantics: The field is later than the value.
 
 ## Operator: withinLast
@@ -198,6 +259,8 @@ Semantics: The field is later than the value.
 Field types: Date
 
 Value types: Duration
+
+Values written: one
 
 Semantics: The field is inside the span that ends at the instant the evaluation was given.
 
