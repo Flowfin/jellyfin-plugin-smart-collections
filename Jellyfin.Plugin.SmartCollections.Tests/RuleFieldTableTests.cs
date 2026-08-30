@@ -227,6 +227,83 @@ public class RuleFieldTableTests
         }
     }
 
+    /// <summary>
+    /// The list a narrowed refusal shows is the row's own order rather than a sorted one, so what
+    /// somebody repairing a document reads and what <c>docs/rule-fields.md</c> carries are the
+    /// same order.
+    /// </summary>
+    [Fact]
+    public void TheOperatorNamesOfARowAreItsOwnOrder()
+    {
+        Assert.Equal(
+            "contains, notContains, isEmpty, isNotEmpty",
+            RuleFieldTable.OperatorNames(RuleFieldTable.Of(RuleField.Genres)));
+    }
+
+    /// <summary>
+    /// The narrowed refusal the operator issue's fourth clause asks for, and it lists less than
+    /// that clause asks: the operators this FIELD accepts rather than the ones its type allows.
+    /// Listing the type's set would name operators the field refuses, so a document repaired from
+    /// that list would be refused a second time.
+    /// </summary>
+    [Fact]
+    public void AnUnknownOperatorIsRefusedWithWhatThisFieldAcceptsAndNothingWider()
+    {
+        var error = RuleFieldTable.RefuseUnknownOperator(
+            RuleFieldTable.Of(RuleField.Genres),
+            "matchRegex",
+            "/match/allOf/0/operator");
+
+        Assert.Equal("/match/allOf/0/operator", error.Pointer);
+        Assert.Equal(
+            "There is no operator called \"matchRegex\". The operators for a \"genres\" field are contains, notContains, isEmpty, isNotEmpty.",
+            error.Message);
+        Assert.DoesNotContain("startsWith", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnOperatorThisFieldDoesNotAcceptIsRefusedNamingBothAndWhatItDoesAccept()
+    {
+        var error = RuleFieldTable.RefuseOperator(
+            RuleFieldTable.Of(RuleField.Genres),
+            RuleOperator.StartsWith,
+            "/match/allOf/0/operator");
+
+        Assert.Equal("/match/allOf/0/operator", error.Pointer);
+        Assert.Equal(
+            "The field \"genres\" does not accept the operator \"startsWith\". It accepts contains, notContains, isEmpty, isNotEmpty.",
+            error.Message);
+    }
+
+    /// <summary>
+    /// Asked for a refusal that is not owed, the table throws rather than manufacturing a message
+    /// saying an accepted pair is not accepted, which is what the operator table already does at
+    /// both of its own ends.
+    /// </summary>
+    [Fact]
+    public void ThereIsNoRefusalForAnOperatorTheFieldAccepts()
+    {
+        var thrown = Assert.Throws<ArgumentException>(
+            () => RuleFieldTable.RefuseOperator(
+                RuleFieldTable.Of(RuleField.Genres),
+                RuleOperator.Contains,
+                "/match/allOf/0/operator"));
+
+        Assert.Equal("operator", thrown.ParamName);
+    }
+
+    [Fact]
+    public void TheNarrowedRefusalsRefuseANullRowAndANullName()
+    {
+        var genres = RuleFieldTable.Of(RuleField.Genres);
+
+        Assert.Throws<ArgumentNullException>(() => RuleFieldTable.OperatorNames(null!));
+        Assert.Throws<ArgumentNullException>(() => RuleFieldTable.RefuseUnknownOperator(null!, "x", string.Empty));
+        Assert.Throws<ArgumentNullException>(() => RuleFieldTable.RefuseUnknownOperator(genres, null!, string.Empty));
+        Assert.Throws<ArgumentNullException>(
+            () => RuleFieldTable.RefuseOperator(null!, RuleOperator.StartsWith, string.Empty));
+    }
+
     [Fact]
     public void TheRefusalRefusesANullName()
     {

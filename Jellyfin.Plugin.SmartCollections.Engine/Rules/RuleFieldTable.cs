@@ -303,6 +303,101 @@ public static class RuleFieldTable
                 $"There is no field called \"{name}\". The fields are {string.Join(", ", Names)}."));
     }
 
+    /// <summary>
+    /// The list of operator names a condition on this field may write, in the order the row
+    /// declares them.
+    /// </summary>
+    /// <param name="field">The field's row.</param>
+    /// <returns>The names, comma separated.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="field"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// The names rather than the members, because a refusal is read by somebody repairing a
+    /// document and a document writes names. The order is the row's rather than sorted, so the
+    /// list a refusal shows and the list <c>docs/rule-fields.md</c> carries are the same order.
+    /// </remarks>
+    public static string OperatorNames(RuleFieldRow field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+
+        var names = new string[field.Operators.Count];
+
+        for (var i = 0; i < names.Length; i++)
+        {
+            names[i] = RuleOperatorTable.Of(field.Operators[i]).Name;
+        }
+
+        return string.Join(", ", names);
+    }
+
+    /// <summary>
+    /// The refusal for an operator name no operator has, narrowed to one field.
+    /// </summary>
+    /// <param name="field">The field the condition names.</param>
+    /// <param name="name">The operator name as the document wrote it.</param>
+    /// <param name="pointer">Where the name is, as a JSON Pointer.</param>
+    /// <returns>The refusal, naming what was written and the operators this field accepts.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="field"/> or <paramref name="name"/> is <see langword="null"/>.
+    /// </exception>
+    /// <remarks>
+    /// THIS IS THE NARROWING <see cref="RuleOperatorTable.RefuseUnknownOperator"/> SAYS IS ONE
+    /// CALL SITE, AND IT LISTS LESS THAN THAT REMARK PROMISED. The wider refusal names all
+    /// seventeen; the operator issue asks for the ones that suit the field's TYPE; this names the
+    /// ones the field's own row declares, which is narrower again. Listing the type's set would
+    /// name operators this field refuses, so a document repaired from that list would be refused a
+    /// second time by the check below - which is a worse message than the wide one it replaced.
+    ///
+    /// The wide refusal is not dead. It is what a caller with no field to narrow against builds,
+    /// and the stage that reads an operator only has a field because the stage before it resolved
+    /// one.
+    /// </remarks>
+    public static RuleValidationError RefuseUnknownOperator(RuleFieldRow field, string name, string pointer)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        ArgumentNullException.ThrowIfNull(name);
+
+        return new RuleValidationError(
+            pointer,
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"There is no operator called \"{name}\". The operators for a \"{field.Name}\" field are {OperatorNames(field)}."));
+    }
+
+    /// <summary>
+    /// The refusal for an operator this field does not accept, where the operator exists and
+    /// applies to a field of this field's type.
+    /// </summary>
+    /// <param name="field">The field the condition names.</param>
+    /// <param name="operator">The operator the condition applies.</param>
+    /// <param name="pointer">Where the condition is, as a JSON Pointer.</param>
+    /// <returns>The refusal, naming the field, the operator and what the field does accept.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="field"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="field"/> accepts <paramref name="operator"/>.</exception>
+    /// <remarks>
+    /// The narrower of the two refusals a condition's operator can meet, and it is a different
+    /// sentence from the operator table's because it is a different statement. That one says the
+    /// operator cannot compare a field of this TYPE at all; this one says it can, and that this
+    /// particular field does not offer the comparison anyway - <c>genres startsWith</c> is the
+    /// case, where the field holds a list and a substring test over a list means nothing.
+    /// </remarks>
+    public static RuleValidationError RefuseOperator(RuleFieldRow field, RuleOperator @operator, string pointer)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+
+        if (Accepts(field.Field, @operator))
+        {
+            throw new ArgumentException(
+                "This field accepts this operator, so there is nothing to refuse. Ask Accepts before building a refusal.",
+                nameof(@operator));
+        }
+
+        return new RuleValidationError(
+            pointer,
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"The field \"{field.Name}\" does not accept the operator \"{RuleOperatorTable.Of(@operator).Name}\". It accepts {OperatorNames(field)}."));
+    }
+
     private static Dictionary<string, RuleFieldRow> BuildIndex()
     {
         var index = new Dictionary<string, RuleFieldRow>(StringComparer.Ordinal);
