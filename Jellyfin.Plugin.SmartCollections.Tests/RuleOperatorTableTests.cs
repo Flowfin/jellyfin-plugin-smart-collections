@@ -287,4 +287,76 @@ public class RuleOperatorTableTests
             Assert.NotNull(RuleOperatorTable.Find(name));
         }
     }
+
+    /// <summary>
+    /// How many values an operator is written with is a third column rather than something read
+    /// off either type list, and this is the reading that says so: <c>equals</c> and <c>in</c>
+    /// declare the same seven types at both ends and are written differently.
+    /// </summary>
+    [Fact]
+    public void ExactlyTwoOperatorsAreWrittenWithAList()
+    {
+        Assert.Equal(
+            ["in", "notIn"],
+            RuleOperatorTable.Rows.Where(row => row.TakesAList).Select(row => row.Name).ToArray());
+
+        var equals = RuleOperatorTable.Of(RuleOperator.Equals);
+        var inOperator = RuleOperatorTable.Of(RuleOperator.In);
+
+        Assert.Equal(equals.ValueTypes, inOperator.ValueTypes);
+        Assert.Equal(equals.FieldTypes, inOperator.FieldTypes);
+        Assert.NotEqual(equals.TakesAList, inOperator.TakesAList);
+    }
+
+    /// <summary>
+    /// A row taking no value takes neither one nor a list, so the two columns cannot disagree
+    /// about <c>isEmpty</c>. Without this a row could declare a list and an empty value column,
+    /// and the stage reading a value would ask for an array against a type that does not exist.
+    /// </summary>
+    [Fact]
+    public void ARowThatTakesAListTakesAValue()
+    {
+        foreach (var row in RuleOperatorTable.Rows)
+        {
+            Assert.True(row.TakesAValue || !row.TakesAList, row.Name + " takes a list and no value.");
+        }
+    }
+
+    /// <summary>
+    /// The type one value is parsed against, which is the field's own type on sixteen rows and the
+    /// operator's single value type on the row where the two ends differ.
+    /// </summary>
+    [Theory]
+    [InlineData(RuleOperator.Equals, RuleValueType.String, RuleValueType.String)]
+    [InlineData(RuleOperator.Equals, RuleValueType.Integer, RuleValueType.Integer)]
+    [InlineData(RuleOperator.In, RuleValueType.Date, RuleValueType.Date)]
+    [InlineData(RuleOperator.GreaterThan, RuleValueType.Decimal, RuleValueType.Decimal)]
+    [InlineData(RuleOperator.WithinLast, RuleValueType.Date, RuleValueType.Duration)]
+    public void TheTypeAValueIsParsedAgainstIsTheFieldsUnlessTheTwoEndsDiffer(
+        RuleOperator @operator,
+        RuleValueType fieldType,
+        RuleValueType expected)
+    {
+        Assert.Equal(expected, RuleOperatorTable.ValueTypeFor(@operator, fieldType));
+    }
+
+    /// <summary>
+    /// Asked about a pair that has no answer it throws rather than returning a type nothing
+    /// declared. Both ways of reaching that are here: an operator that takes no value at all, and
+    /// a pair the field end already refuses, which is a caller that skipped a question.
+    /// </summary>
+    [Theory]
+    [InlineData(RuleOperator.IsEmpty, RuleValueType.String)]
+    [InlineData(RuleOperator.IsNotEmpty, RuleValueType.Date)]
+    [InlineData(RuleOperator.GreaterThan, RuleValueType.String)]
+    public void AValueTypeForAPairWithNoAnswerThrowsRatherThanInventingOne(
+        RuleOperator @operator,
+        RuleValueType fieldType)
+    {
+        var thrown = Assert.Throws<ArgumentException>(
+            () => RuleOperatorTable.ValueTypeFor(@operator, fieldType));
+
+        Assert.Contains(RuleOperatorTable.Of(@operator).Name, thrown.Message, StringComparison.Ordinal);
+        Assert.Contains(fieldType.ToString(), thrown.Message, StringComparison.Ordinal);
+    }
 }

@@ -405,4 +405,72 @@ public class RuleValueParserTests
             "The value " + written + " is not a JSON number with no fractional part, between -9223372036854775808 and 9223372036854775807.",
             RefusalOf(RuleValueParser.ReadInteger(Json(written), Pointer)));
     }
+
+    /// <summary>
+    /// The dispatch, one arm per declared type. Which reader a value goes through is decided by
+    /// the type it is asked for and never by what the value looks like, which is the whole
+    /// difference from converting against a reflected property type.
+    /// </summary>
+    [Theory]
+    [InlineData(RuleValueType.String, "\"Thriller\"")]
+    [InlineData(RuleValueType.Integer, "1994")]
+    [InlineData(RuleValueType.Decimal, "8.1")]
+    [InlineData(RuleValueType.Boolean, "true")]
+    [InlineData(RuleValueType.Date, "\"2024-01-01\"")]
+    [InlineData(RuleValueType.Duration, "\"P30D\"")]
+    public void TheDispatchSendsAValueToTheReaderForTheTypeItWasAskedFor(RuleValueType type, string written)
+    {
+        var parse = RuleValueParser.Parse(Json(written), Pointer, type, []);
+
+        Assert.True(parse.IsAccepted, parse.Error?.Message);
+        Assert.Equal(type, parse.Value!.Type);
+    }
+
+    /// <summary>
+    /// The enumeration arm is the one that reads the fourth argument, and it is the reason the
+    /// dispatch carries one at all.
+    /// </summary>
+    [Fact]
+    public void TheDispatchHandsTheDeclaredNamesToTheEnumerationReader()
+    {
+        var accepted = RuleValueParser.Parse(Json("\"Films\""), Pointer, RuleValueType.Enumeration, ["Films", "Series"]);
+
+        Assert.True(accepted.IsAccepted, accepted.Error?.Message);
+        Assert.Equal(RuleValueType.Enumeration, accepted.Value!.Type);
+        Assert.Equal("Films", accepted.Value.Value);
+
+        var refused = RuleValueParser.Parse(Json("\"Books\""), Pointer, RuleValueType.Enumeration, ["Films", "Series"]);
+
+        Assert.False(refused.IsAccepted);
+        Assert.Contains("Films, Series", refused.Error!.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A value that does not parse comes back as the refusal the reader for that type builds,
+    /// rather than being tried against another reader until one accepts it.
+    /// </summary>
+    [Fact]
+    public void TheDispatchDoesNotFallBackToAReaderThatWouldAcceptTheValue()
+    {
+        var parse = RuleValueParser.Parse(Json("\"1994\""), Pointer, RuleValueType.Integer, []);
+
+        Assert.False(parse.IsAccepted);
+        Assert.Equal(
+            "The value \"1994\" is not " + RuleValueForm.Of(RuleValueType.Integer) + ".",
+            parse.Error!.Message);
+    }
+
+    [Fact]
+    public void ATypeWithNoReaderThrowsRatherThanParsingAsSomethingElse()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => RuleValueParser.Parse(Json("\"Thriller\""), Pointer, (RuleValueType)99, []));
+    }
+
+    [Fact]
+    public void TheDispatchRefusesANullNameList()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => RuleValueParser.Parse(Json("\"Thriller\""), Pointer, RuleValueType.String, null!));
+    }
 }

@@ -29,10 +29,10 @@ public class RuleOperatorDocumentTests
     private const string NoValueTypes = "none";
 
     private static readonly Regex Section = new(
-        @"^## Operator: (?<name>[A-Za-z]+)\r?\n\r?\nField types: (?<fieldTypes>.+?)\r?\n\r?\nValue types: (?<valueTypes>.+?)\r?\n\r?\nSemantics: (?<semantics>.+?)\r?$",
+        @"^## Operator: (?<name>[A-Za-z]+)\r?\n\r?\nField types: (?<fieldTypes>.+?)\r?\n\r?\nValue types: (?<valueTypes>.+?)\r?\n\r?\nValues written: (?<values>.+?)\r?\n\r?\nSemantics: (?<semantics>.+?)\r?$",
         RegexOptions.Multiline | RegexOptions.CultureInvariant);
 
-    private sealed record DocumentedOperator(string FieldTypes, string ValueTypes, string Semantics);
+    private sealed record DocumentedOperator(string FieldTypes, string ValueTypes, string Values, string Semantics);
 
     private static IReadOnlyDictionary<string, DocumentedOperator> Documented()
         => Section.Matches(RepositoryFiles.ReadFromRoot(Page))
@@ -41,6 +41,7 @@ public class RuleOperatorDocumentTests
                 section => new DocumentedOperator(
                     section.Groups["fieldTypes"].Value,
                     section.Groups["valueTypes"].Value,
+                    section.Groups["values"].Value,
                     section.Groups["semantics"].Value),
                 StringComparer.Ordinal);
 
@@ -49,6 +50,22 @@ public class RuleOperatorDocumentTests
 
     private static string WrittenValueTypes(RuleOperatorRow row)
         => row.TakesAValue ? string.Join(", ", row.ValueTypes) : NoValueTypes;
+
+    /// <summary>
+    /// The words the page writes for how many values an operator is written with. Words rather
+    /// than a numeral, because two of the three answers are not numbers: an operator taking none
+    /// carries no member at all, and one taking a list carries an array whose length the document
+    /// chooses.
+    /// </summary>
+    private static string WrittenValues(RuleOperatorRow row)
+    {
+        if (!row.TakesAValue)
+        {
+            return NoValueTypes;
+        }
+
+        return row.TakesAList ? "a list" : "one";
+    }
 
     /// <summary>
     /// Without this the comparisons below pass on a page somebody emptied, because two empty sets
@@ -89,6 +106,58 @@ public class RuleOperatorDocumentTests
         {
             Assert.Equal(WrittenValueTypes(row), documented[row.Name].ValueTypes);
         }
+    }
+
+    /// <summary>
+    /// The third column, held the same way as the two above it. Without this the page could say
+    /// that <c>in</c> is written with one value while the table says it is written with a list,
+    /// and the two would disagree about the one thing a reader consults this page for before they
+    /// write an <c>in</c> condition.
+    /// </summary>
+    [Fact]
+    public void EverySectionCarriesHowManyValuesTheTableDeclares()
+    {
+        var documented = Documented();
+
+        foreach (var row in RuleOperatorTable.Rows)
+        {
+            Assert.Equal(WrittenValues(row), documented[row.Name].Values);
+        }
+    }
+
+    /// <summary>
+    /// The comparison above passes on a page that wrote one answer on all seventeen sections,
+    /// because a table declaring one answer on all seventeen would agree with it. This is the
+    /// reading that says the page separates the three answers exactly where the table does, and it
+    /// names the rows rather than counting them.
+    /// </summary>
+    [Fact]
+    public void ThePageSeparatesTheThreeAnswersWhereTheTableDoes()
+    {
+        var documented = Documented();
+
+        foreach (var answer in new[] { "one", "a list", NoValueTypes })
+        {
+            var onThePage = documented
+                .Where(section => string.Equals(section.Value.Values, answer, StringComparison.Ordinal))
+                .Select(section => section.Key)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+
+            var inTheTable = RuleOperatorTable.Rows
+                .Where(row => string.Equals(WrittenValues(row), answer, StringComparison.Ordinal))
+                .Select(row => row.Name)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+
+            Assert.Equal(inTheTable, onThePage);
+            Assert.NotEmpty(onThePage);
+        }
+
+        Assert.Equal("a list", documented["in"].Values);
+        Assert.Equal("a list", documented["notIn"].Values);
+        Assert.Equal("one", documented["equals"].Values);
+        Assert.Equal(NoValueTypes, documented["isEmpty"].Values);
     }
 
     /// <summary>
