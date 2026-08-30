@@ -229,9 +229,14 @@ public static class RuleOperatorTable
     /// <returns>The refusal, naming the name and every legal one.</returns>
     /// <remarks>
     /// Every legal name rather than the ones that suit the field's declared type. Narrowing the
-    /// list to a field's type is what the done condition on the operator issue asks for and it
-    /// needs the field table, which is not in this tree yet; listing all of them is wider than
-    /// that and never wrong, and the day the table lands the narrowing is this one call site.
+    /// list to a field's type is what the done condition on the operator issue asks for; listing
+    /// all of them is wider than that and never wrong.
+    ///
+    /// THIS REMARK SAID THE FIELD TABLE WAS NOT IN THIS TREE YET. It is - see
+    /// <see cref="RuleFieldTable"/> - and the sentence outlived the change that landed it. What
+    /// the narrowing waits on is the call site that reads a condition's field and its operator
+    /// together, which no caller of this method is: this one is handed a name and a pointer and
+    /// has no field to narrow against.
     /// </remarks>
     public static RuleValidationError RefuseUnknownOperator(string name, string pointer)
     {
