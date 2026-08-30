@@ -203,8 +203,14 @@ Semantics: The field is inside the span that ends at the instant the evaluation 
 
 ## What this page cannot yet say
 
-Which operators a given field accepts is the field table's, and there is no
-field table in this tree. Until there is, a document naming an operator no
-operator has is refused with every legal name rather than with the ones that
-suit the field it was written against, and that narrowing is one call site on
-the day the field table lands.
+Which operators a given field accepts is the field table's, and it is in this
+tree: `rule-fields.md` is that table written out, and each row there carries the
+operators that mean something for that field.
+
+THIS SECTION SAID THERE WAS NO FIELD TABLE IN THIS TREE. There has been one
+since `#203`, and the sentence stayed here through the change that landed it.
+What is still true is the half about the refusal: a document naming an operator
+no operator has is refused with every legal name rather than with the ones that
+suit the field it was written against. What that waits on is not the table any
+more but the one call site that reads a condition's field and operator together,
+which is `#22`'s fourth done condition and is not in this tree.
