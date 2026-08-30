@@ -201,16 +201,42 @@ Value types: Duration
 
 Semantics: The field is inside the span that ends at the instant the evaluation was given.
 
-## What this page cannot yet say
+## What a refusal names, now that a condition can be read
 
 Which operators a given field accepts is the field table's, and it is in this
 tree: `rule-fields.md` is that table written out, and each row there carries the
 operators that mean something for that field.
 
-THIS SECTION SAID THERE WAS NO FIELD TABLE IN THIS TREE. There has been one
-since `#203`, and the sentence stayed here through the change that landed it.
-What is still true is the half about the refusal: a document naming an operator
-no operator has is refused with every legal name rather than with the ones that
-suit the field it was written against. What that waits on is not the table any
-more but the one call site that reads a condition's field and operator together,
-which is `#22`'s fourth done condition and is not in this tree.
+THIS SECTION SAID A DOCUMENT NAMING AN UNKNOWN OPERATOR WAS REFUSED WITH ALL
+SEVENTEEN NAMES, AND SAID BEFORE THAT THERE WAS NO FIELD TABLE AT ALL. The table
+landed in `#203` and the stage that reads a condition's operator against it has
+landed since, so both halves of what stood here are spent. What a condition meets
+now is the narrow list:
+
+    There is no operator called "matchRegex". The operators for a "genres" field are contains, notContains, isEmpty, isNotEmpty.
+
+That is narrower than this section used to promise. It lists the operators the
+FIELD'S ROW declares rather than the ones its type allows, because a list that
+named operators the field refuses would send somebody repairing a document to a
+second refusal.
+
+The wide list is still what a caller with no field to narrow against builds, and
+this page keeps describing it for that reason rather than because nothing uses
+the other.
+
+## Two refusals sit between a declared operator and an accepted one
+
+They are different statements and they are deliberately not one message.
+
+    The operator "contains" does not apply to a field of type Integer. It applies to a field of type String.
+
+is the operator set's answer: the comparison is not defined over a whole number
+at all, whatever field it was written against.
+
+    The field "genres" does not accept the operator "startsWith". It accepts contains, notContains, isEmpty, isNotEmpty.
+
+is the field row's answer: the comparison IS defined over strings, and this
+particular field does not offer it, because a prefix test over a list of genres
+means nothing. One message for both would tell whoever wrote the second document
+that the operator does not work on text, which is false and sends them the wrong
+way.

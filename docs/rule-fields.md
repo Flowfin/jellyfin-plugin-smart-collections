@@ -70,6 +70,12 @@ in the suite refusing the row and no duration field would have wanted it. The
 repair landed in the operator set rather than here, the column is two columns,
 and the two date fields below declare the operator.
 
+A CONDITION IS REFUSED AGAINST THIS LINE, WHICH IT WAS NOT UNTIL THE STAGE THAT
+READS AN OPERATOR LANDED. A document writing an operator this row does not
+declare is refused with the row's own list, and a document writing one no
+operator has is refused with the same list rather than with all seventeen.
+`rule-operators.md` carries both sentences and the reason they are two.
+
 `rule-operators.md` is where each operator's own sentence lives, and
 `rule-values.md` is where the written form of each value type lives. Neither is
 restated here.
