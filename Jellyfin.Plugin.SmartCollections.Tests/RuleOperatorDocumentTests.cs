@@ -11,8 +11,12 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// <summary>
 /// The operator set is only closed if somebody can read what is in it. These tests hold
 /// <c>docs/rule-operators.md</c> to the table in both directions: an operator with no section, a
-/// section for an operator that does not exist, a type list that has drifted and a semantics
+/// section for an operator that does not exist, either type list having drifted and a semantics
 /// sentence that has drifted all red the suite.
+///
+/// EITHER LIST, RATHER THAN THE LIST. A section carries a field-type line and a value-type line,
+/// the two differ on three rows, and a page holding one of them to the table while reading the
+/// other off nothing would leave exactly the rows the second column exists for unread.
 /// </summary>
 public class RuleOperatorDocumentTests
 {
@@ -25,19 +29,25 @@ public class RuleOperatorDocumentTests
     private const string NoValueTypes = "none";
 
     private static readonly Regex Section = new(
-        @"^## Operator: (?<name>[A-Za-z]+)\r?\n\r?\nValue types: (?<types>.+?)\r?\n\r?\nSemantics: (?<semantics>.+?)\r?$",
+        @"^## Operator: (?<name>[A-Za-z]+)\r?\n\r?\nField types: (?<fieldTypes>.+?)\r?\n\r?\nValue types: (?<valueTypes>.+?)\r?\n\r?\nSemantics: (?<semantics>.+?)\r?$",
         RegexOptions.Multiline | RegexOptions.CultureInvariant);
 
-    private sealed record DocumentedOperator(string Types, string Semantics);
+    private sealed record DocumentedOperator(string FieldTypes, string ValueTypes, string Semantics);
 
     private static IReadOnlyDictionary<string, DocumentedOperator> Documented()
         => Section.Matches(RepositoryFiles.ReadFromRoot(Page))
             .ToDictionary(
                 section => section.Groups["name"].Value,
-                section => new DocumentedOperator(section.Groups["types"].Value, section.Groups["semantics"].Value),
+                section => new DocumentedOperator(
+                    section.Groups["fieldTypes"].Value,
+                    section.Groups["valueTypes"].Value,
+                    section.Groups["semantics"].Value),
                 StringComparer.Ordinal);
 
-    private static string WrittenTypes(RuleOperatorRow row)
+    private static string WrittenFieldTypes(RuleOperatorRow row)
+        => string.Join(", ", row.FieldTypes);
+
+    private static string WrittenValueTypes(RuleOperatorRow row)
         => row.TakesAValue ? string.Join(", ", row.ValueTypes) : NoValueTypes;
 
     /// <summary>
@@ -60,14 +70,54 @@ public class RuleOperatorDocumentTests
     }
 
     [Fact]
+    public void EverySectionCarriesTheFieldTypesTheTableDeclares()
+    {
+        var documented = Documented();
+
+        foreach (var row in RuleOperatorTable.Rows)
+        {
+            Assert.Equal(WrittenFieldTypes(row), documented[row.Name].FieldTypes);
+        }
+    }
+
+    [Fact]
     public void EverySectionCarriesTheValueTypesTheTableDeclares()
     {
         var documented = Documented();
 
         foreach (var row in RuleOperatorTable.Rows)
         {
-            Assert.Equal(WrittenTypes(row), documented[row.Name].Types);
+            Assert.Equal(WrittenValueTypes(row), documented[row.Name].ValueTypes);
         }
+    }
+
+    /// <summary>
+    /// The two comparisons above would both pass on a page that wrote one list twice, because the
+    /// table it is compared against writes one list twice on fourteen of the seventeen rows. This
+    /// is the reading that says the page separates the two lines exactly where the table does, and
+    /// it names the row the second column was added for rather than counting to three.
+    /// </summary>
+    [Fact]
+    public void ThePageSeparatesTheTwoListsWhereTheTableDoes()
+    {
+        var documented = Documented();
+
+        var differingOnThePage = documented
+            .Where(section => !string.Equals(section.Value.FieldTypes, section.Value.ValueTypes, StringComparison.Ordinal))
+            .Select(section => section.Key)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        var differingInTheTable = RuleOperatorTable.Rows
+            .Where(row => !string.Equals(WrittenFieldTypes(row), WrittenValueTypes(row), StringComparison.Ordinal))
+            .Select(row => row.Name)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(differingInTheTable, differingOnThePage);
+        Assert.Contains("withinLast", differingOnThePage);
+        Assert.Equal("Date", documented["withinLast"].FieldTypes);
+        Assert.Equal("Duration", documented["withinLast"].ValueTypes);
     }
 
     [Fact]

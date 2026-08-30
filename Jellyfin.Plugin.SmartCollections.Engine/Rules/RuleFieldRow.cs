@@ -6,8 +6,8 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// One field, as the table declares it.
 /// </summary>
 /// <remarks>
-/// Five things and no more: which field this is, what a document writes to name it, the type the
-/// value beside it holds, the operators it accepts, and how it reaches the library.
+/// Five things and no more: which field this is, what a document writes to name it, the type it
+/// holds, the operators it accepts, and how it reaches the library.
 ///
 /// The written name is declared rather than derived from the member, for the reason
 /// <see cref="RuleOperatorRow"/> gives about its own: deriving it would make the wire format a
@@ -58,8 +58,14 @@ public sealed class RuleFieldRow
     public string Name { get; }
 
     /// <summary>
-    /// Gets the type the value beside this field holds.
+    /// Gets the type this field holds.
     /// </summary>
+    /// <remarks>
+    /// The FIELD's type, which is not always the type of the value written beside it. For every
+    /// operator but <c>withinLast</c> the two are the same type, so this column read as either end
+    /// gave the same answer; the operator table is where the two ends are told apart, and this
+    /// column is the field end.
+    /// </remarks>
     public RuleValueType ValueType { get; }
 
     /// <summary>

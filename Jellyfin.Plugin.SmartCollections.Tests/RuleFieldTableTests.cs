@@ -85,20 +85,20 @@ public class RuleFieldTableTests
     }
 
     /// <summary>
-    /// Every operator a row declares that takes a value has to be one the operator set accepts
-    /// for the type that row holds. Without this the two tables can drift into a field offering a
+    /// Every operator a row declares has to be one the operator set applies to a field of the
+    /// type that row holds. Without this the two tables can drift into a field offering a
     /// comparison the operator behind it refuses, which is a rule that validates and then cannot
     /// be compiled.
     /// </summary>
     /// <remarks>
-    /// The two operators that take no value are outside this, and that is the operator set's own
-    /// answer rather than a hole cut for them: <c>Accepts</c> is asked whether an operator can
-    /// compare a value of a type, <c>isEmpty</c> and <c>isNotEmpty</c> compare no value at all,
-    /// and their rows declare the empty set to say so. Asking them the question returns false for
-    /// every type, so a field declaring one would be refused for a reason that is not about it.
+    /// The FIELD end of the operator's row, which is the end this column is comparable with. The
+    /// two operators that take no value are inside this check rather than skipped past it: their
+    /// field end is every declared type, so asking the question about them is meaningful, and it
+    /// was the value end being empty that once made a field declaring one look refusable for a
+    /// reason that was not about it.
     /// </remarks>
     [Fact]
-    public void EveryOperatorARowDeclaresThatTakesAValueIsAcceptedForTheTypeThatRowHolds()
+    public void EveryOperatorARowDeclaresAppliesToTheTypeThatRowHolds()
     {
         foreach (var row in RuleFieldTable.Rows)
         {
@@ -106,22 +106,17 @@ public class RuleFieldTableTests
             {
                 var declared = RuleOperatorTable.Of(@operator);
 
-                if (!declared.TakesAValue)
-                {
-                    continue;
-                }
-
                 Assert.True(
-                    RuleOperatorTable.Accepts(@operator, row.ValueType),
+                    RuleOperatorTable.AcceptsField(@operator, row.ValueType),
                     row.Name + " declares " + declared.Name
-                    + ", which the operator set does not accept for " + row.ValueType + ".");
+                    + ", which the operator set does not apply to a field of type " + row.ValueType + ".");
             }
         }
     }
 
     /// <summary>
-    /// Without this the test above passes on a table where every row declared only the two
-    /// operators it skips, which is the shape a reader would least expect it to be blind to.
+    /// Without this the test above passes on a table where every row declared only operators that
+    /// take no value, which is the shape a reader would least expect it to be blind to.
     /// </summary>
     [Fact]
     public void TheRowsDeclareOperatorsThatTakeAValue()
@@ -129,6 +124,25 @@ public class RuleFieldTableTests
         Assert.Contains(
             RuleFieldTable.Rows,
             row => row.Operators.Any(@operator => RuleOperatorTable.Of(@operator).TakesAValue));
+    }
+
+    /// <summary>
+    /// The defect this vocabulary was born with, refused rather than left for a reader to catch.
+    /// An operator in the closed set that no field declares is one no rule anybody writes can
+    /// name, so it is documented, tested and unreachable - which is exactly what
+    /// <c>withinLast</c> was while the operator table carried one type column read as the field's.
+    /// </summary>
+    [Fact]
+    public void EveryOperatorTheClosedSetDeclaresIsReachableFromAtLeastOneField()
+    {
+        var declared = RuleFieldTable.Rows
+            .SelectMany(row => row.Operators)
+            .Distinct()
+            .Select(@operator => RuleOperatorTable.Of(@operator).Name)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(RuleOperatorTable.Names, declared);
     }
 
     [Fact]
@@ -177,6 +191,26 @@ public class RuleFieldTableTests
         Assert.True(RuleFieldTable.Accepts(RuleField.Genres, RuleOperator.Contains));
         Assert.False(RuleFieldTable.Accepts(RuleField.Genres, RuleOperator.StartsWith));
         Assert.False(RuleFieldTable.Accepts(RuleField.Overview, RuleOperator.Equals));
+    }
+
+    /// <summary>
+    /// The two date fields are where <c>withinLast</c> becomes writable, and a rule naming it on
+    /// anything else is refused. Named rather than derived, because the derivation is the test
+    /// above and this is the reading that says which fields it landed on.
+    /// </summary>
+    [Fact]
+    public void TheDateFieldsDeclareWithinLastAndNoOtherFieldDoes()
+    {
+        Assert.True(RuleFieldTable.Accepts(RuleField.DateAdded, RuleOperator.WithinLast));
+        Assert.True(RuleFieldTable.Accepts(RuleField.PremiereDate, RuleOperator.WithinLast));
+
+        Assert.Equal(
+            new[] { "dateAdded", "premiereDate" },
+            RuleFieldTable.Rows
+                .Where(row => row.Operators.Contains(RuleOperator.WithinLast))
+                .Select(row => row.Name)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray());
     }
 
     [Fact]
