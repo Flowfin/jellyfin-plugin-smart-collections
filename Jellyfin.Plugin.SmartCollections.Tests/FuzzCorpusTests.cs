@@ -9,7 +9,7 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// The seeds the fuzzer starts from, held to the contract the fuzz target asserts (#18).
 /// </summary>
 /// <remarks>
-/// The fuzz harness catches nothing, because <see cref="RuleDocumentValidator.Read"/> is meant to
+/// The fuzz harness catches nothing, because <see cref="RuleDocumentValidator.Read(string)"/> is meant to
 /// answer with a result for every input rather than throw. That property is what turns an
 /// exception in a fuzzing run into a finding instead of an expected outcome, and it is asserted
 /// here so it is checked on every ordinary run rather than only on the scheduled one.

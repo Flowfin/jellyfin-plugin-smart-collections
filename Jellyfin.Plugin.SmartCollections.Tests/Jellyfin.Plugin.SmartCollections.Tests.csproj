@@ -7,6 +7,19 @@
     <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
     <RootNamespace>Jellyfin.Plugin.SmartCollections.Tests</RootNamespace>
     <Nullable>enable</Nullable>
+    <!-- Asked for so the compiler parses the documentation comments in this project, which is
+         what refuses one whose XML does not close. Both shipped projects ask for it and a
+         malformed comment is a red build there; this project raised warnings to errors and asked
+         for no documentation file, so the same mistake was silent in the one project holding most
+         of this repository's explanatory prose. Two of them had landed and stayed.
+
+         CS1591 is the warning for a public member carrying no documentation comment, and it
+         arrives with the documentation file rather than being asked for. It is suppressed because
+         requiring a comment on every test method is a rule about how tests are written and not
+         about malformed XML, and imposing one here would be deciding that rule in a property
+         group. What the suppression leaves unreported is the state this project is already in. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
