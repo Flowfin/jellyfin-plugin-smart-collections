@@ -198,7 +198,7 @@ public class CollectionRefreshGateTests
         CollectionRefreshGate gate,
         CancellationToken cancellationToken)
         => MembershipApplier.ApplyAsync(
-            [new CollectionRefresh(collectionId, MembershipDiff.Between([], [Arriving]))],
+            [new CollectionRefresh("a-rule", collectionId, MembershipDiff.Between([], [Arriving]))],
             writer,
             gate,
             cancellationToken);

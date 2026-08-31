@@ -144,9 +144,9 @@ public static class MembershipApplier
         }
         catch (Exception ex)
         {
-            return new CollectionRefreshOutcome(refresh.CollectionId, added, removed, dropped, ex);
+            return new CollectionRefreshOutcome(refresh.RuleId, refresh.CollectionId, added, removed, dropped, ex);
         }
 
-        return new CollectionRefreshOutcome(refresh.CollectionId, added, removed, dropped, null);
+        return new CollectionRefreshOutcome(refresh.RuleId, refresh.CollectionId, added, removed, dropped, null);
     }
 }
