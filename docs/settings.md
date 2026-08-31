@@ -1,15 +1,16 @@
 # The values this plugin runs on, and the reason for each
 
-Two intervals decide when a burst of library changes is treated as finished.
-They are the only values of this kind the plugin has today, and this page is
-where their defaults and the reason for each are written down, so that changing
-one is a decision somebody takes against a stated reason rather than a number
-they found in a constructor.
+Three values of this kind exist today. Two intervals decide when a burst of
+library changes is treated as finished, and one bound decides how many past runs
+a rule's record keeps. This page is where their defaults and the reason for each
+are written down, so that changing one is a decision somebody takes against a
+stated reason rather than a number they found in a constructor.
 
 | Value                | Default    | What it decides                                                                   |
 | -------------------- | ---------- | --------------------------------------------------------------------------------- |
 | `DefaultQuietPeriod` | `00:00:30` | How long the change stream has to be quiet before a burst is treated as finished. |
 | `DefaultMaximumWait` | `00:05:00` | The longest a change waits behind a stream that keeps producing more.             |
+| `DefaultDepth`       | `10`       | How many past runs a rule's refresh record keeps.                                 |
 
 ## Why the quiet period is thirty seconds
 
@@ -36,11 +37,31 @@ reaches it. That gap is not decoration: a batch carries the reason it closed,
 and a maximum set close to the quiet period would make every batch report the
 maximum, which turns an informative field into a constant.
 
-## Neither is settable, and the configuration declares nothing
+## Why the history keeps ten runs
 
-Both are constructor arguments with the defaults above, handed in at
-registration. Changing either one is a change to this repository and a new
-build, not something an operator can do on a running server.
+It answers one question: is this rule failing, or did it fail once. The last few
+runs answer that, and every run of every rule kept for the life of a server
+nobody restarts is growth with no ceiling.
+
+Ten is a week of daily refreshes with room for the manual ones an operator makes
+while repairing a rule. **That number is not measured against anything.** No
+refresh has ever run on a server, so unlike the two intervals above it is a
+defensible starting bound rather than a figure taken from a behaviour, and this
+sentence stays here until one is.
+
+One thing the record cannot do, which matters when reading it. It holds no
+instant, because the instant a run used is the instant its rule resolved relative
+dates against - an input to an evaluation, recorded with its result, which is
+what the invariant lint's `ambient-clock-in-the-engine` refuses the alternative
+to. Nothing evaluates a rule yet, so the record can say that the last four runs
+failed and cannot say over how many days.
+
+## None of the three is settable, and the configuration declares nothing
+
+All three are constructor arguments with the defaults above, handed in at
+registration or at construction. Changing any of them is a change to this
+repository and a new build, not something an operator can do on a running
+server.
 
 ```
 git show origin/master:Jellyfin.Plugin.SmartCollections/Configuration/PluginConfiguration.cs \
@@ -58,15 +79,23 @@ one is #47.
 
 ## What holds this page
 
-`SettingsDocumentTests` reads the table above and the public static `TimeSpan`
-fields the coalescer declares, and compares them in both directions. A value
-whose default moves without its row moving reds the suite, and so does a row
-naming a value the type does not declare.
+`SettingsDocumentTests` reads the table above and the public static fields the
+declaring types carry, and compares them in both directions. A value whose
+default moves without its row moving reds the suite, and so does a row naming a
+value no type declares.
 
-The comparison is derived rather than listed. The test asks the type for its
-fields instead of carrying a list of names, so a third interval added tomorrow
-is covered by this page's obligation on the day the field appears, without
-anybody remembering to extend a test.
+The comparison is derived rather than listed. The test asks each type for its
+fields instead of carrying a list of names, so a fourth value added tomorrow is
+covered by this page's obligation on the day the field appears, without anybody
+remembering to extend a test.
+
+WHAT IT DOES CARRY IS A LIST OF TYPES, and that is the bound worth knowing rather
+than leaving to be discovered. A value declared on a type not in that list
+reaches no row and nothing says so, which is why the list is short and why the
+test names it as the one thing it holds by hand. A field of a kind the test
+cannot write out reds it with a message naming the field, rather than being
+skipped: skipping would take a value out of this page's obligation silently,
+which is the failure the comparison exists against.
 
 ## What is not on this page
 
