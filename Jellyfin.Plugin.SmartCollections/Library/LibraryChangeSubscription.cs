@@ -28,9 +28,19 @@ namespace Jellyfin.Plugin.SmartCollections.Library;
 /// What the handlers do is deliberately almost nothing: they name the item and the kind to whatever
 /// observers are registered, and return. The server raises these events synchronously on the thread
 /// doing the library work, so an evaluation inside one of them would run once per imported episode
-/// on the importing thread. Accumulating the changes and deciding when an evaluation runs is #35,
-/// which registers itself as an observer. No observer is registered today, so the fan-out below is
-/// over an empty list and the subscription costs one delegate call per library event.
+/// on the importing thread. Accumulating the changes and deciding when an evaluation runs is the
+/// coalescer's, and it is registered as an observer, so the fan-out below is over one element
+/// rather than over none:
+///
+/// <code>
+/// git grep -l 'AddSingleton.ILibraryChangeObserver' -- Jellyfin.Plugin.SmartCollections/
+/// Jellyfin.Plugin.SmartCollections/PluginServiceRegistrator.cs
+/// </code>
+///
+/// THIS PARAGRAPH SAID NO OBSERVER WAS REGISTERED AND THAT THE SUBSCRIPTION COST ONE DELEGATE CALL
+/// PER LIBRARY EVENT. That was true until the coalescer was registered, and it is the sentence a
+/// reader would rest on when judging what this costs on a busy import, so it was wrong in the
+/// direction that costs.
 /// </remarks>
 public sealed class LibraryChangeSubscription : IHostedService
 {
