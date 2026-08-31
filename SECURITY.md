@@ -5,8 +5,7 @@
 Report privately through GitHub, at
 [Report a vulnerability](https://github.com/Flowfin/jellyfin-plugin-smart-collections/security/advisories/new).
 Private reporting is enabled on this repository, so that form works for anyone
-with a GitHub account and the report is visible only to the maintainer until it
-is resolved.
+with a GitHub account and the report is visible only to me until it is resolved.
 
 Do not open a public issue for something with a security dimension. A public
 issue is a disclosure.
@@ -18,9 +17,9 @@ What helps a report land:
 - what an attacker gets, in one sentence, and who has to be able to do what to
   get it
 
-Expect an acknowledgement. There is one maintainer, so there is no rota and no
-guaranteed response window, and saying so is more use than a number nobody is
-on the hook for.
+Expect an acknowledgement. I am the only person reading these reports, so there
+is no rota and no guaranteed response window, and saying so is more use than a
+number nobody is on the hook for.
 
 ## Which versions get fixes
 
