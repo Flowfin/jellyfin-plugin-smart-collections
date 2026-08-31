@@ -71,4 +71,17 @@ public class RuleCompositionDocumentTests
     {
         Assert.Contains("## What this stage does not read", RepositoryFiles.ReadFromRoot(Page), StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// The page tells a reader that order-preserving is not order-independent and names the tests
+    /// that hold the second. A name on a page outliving the thing it names is what this stops.
+    /// </summary>
+    [Fact]
+    public void ThePageNamesWhereOrderIndependenceIsHeldAndThatIsInTheTree()
+    {
+        Assert.Contains("`RuleDocumentQueryTests`", RepositoryFiles.ReadFromRoot(Page), StringComparison.Ordinal);
+
+        Assert.NotNull(typeof(RuleCompositionDocumentTests).Assembly.GetType(
+            "Jellyfin.Plugin.SmartCollections.Tests.RuleDocumentQueryTests"));
+    }
 }

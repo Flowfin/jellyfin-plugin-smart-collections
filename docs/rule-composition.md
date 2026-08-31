@@ -89,4 +89,9 @@ can still be told from one whose groups are wrong, which are different repairs.
 
 The tree preserves the order the document wrote. That is not the same as the
 compiled form being independent of that order, which is a property of the
-compiler rather than of this stage, and it is owed where the compiler is.
+compiler rather than of this stage, and that property is held now.
+`RuleDocumentQueryTests` walks one document and the same document with its
+siblings reordered through every stage that reads a rule, and asserts that the
+two compile to the same query. What does move with the members is the pointers,
+which is what makes a refusal point at the place an operator has to repair, and
+that is asserted beside it rather than left as a sentence.
