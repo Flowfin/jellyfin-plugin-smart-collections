@@ -15,18 +15,30 @@ namespace Jellyfin.Plugin.SmartCollections.Membership;
 public sealed class CollectionRefreshOutcome
 {
     internal CollectionRefreshOutcome(
+        string ruleId,
         Guid collectionId,
         IReadOnlyList<Guid> added,
         IReadOnlyList<Guid> removed,
         IReadOnlyList<Guid> dropped,
         Exception? fault)
     {
+        RuleId = ruleId;
         CollectionId = collectionId;
         Added = added;
         Removed = removed;
         Dropped = dropped;
         Fault = fault;
     }
+
+    /// <summary>
+    /// Gets the identity of the rule this outcome is about.
+    /// </summary>
+    /// <remarks>
+    /// This is the key a run is remembered under. The collection identifier beside it is not one:
+    /// a collection an operator deletes comes back under the same mark with a new identifier, so a
+    /// history keyed on it reads as a rule that has never run before.
+    /// </remarks>
+    public string RuleId { get; }
 
     /// <summary>
     /// Gets the collection this outcome is about.

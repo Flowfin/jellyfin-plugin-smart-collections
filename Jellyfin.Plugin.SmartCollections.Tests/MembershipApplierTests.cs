@@ -40,7 +40,7 @@ public class MembershipApplierTests
         writer.ThrowOnTheAddOf(Collection, position: 3);
 
         var outcomes = await MembershipApplier.ApplyAsync(
-            [new CollectionRefresh(Collection, diff)],
+            [new CollectionRefresh(Rule, Collection, diff)],
             writer,
             new CollectionRefreshGate(),
             CancellationToken.None);
@@ -68,7 +68,7 @@ public class MembershipApplierTests
         writer.ThrowOnTheAddOf(Collection, position: 3);
 
         await MembershipApplier.ApplyAsync(
-            [new CollectionRefresh(Collection, diff)],
+            [new CollectionRefresh(Rule, Collection, diff)],
             writer,
             new CollectionRefreshGate(),
             CancellationToken.None);
@@ -88,7 +88,7 @@ public class MembershipApplierTests
         writer.Seed(Collection, [Identifier(1), Identifier(2)]);
 
         await MembershipApplier.ApplyAsync(
-            [new CollectionRefresh(Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1), Identifier(3)]))],
+            [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1), Identifier(3)]))],
             writer,
             new CollectionRefreshGate(),
             CancellationToken.None);
@@ -119,9 +119,9 @@ public class MembershipApplierTests
         var diff = MembershipDiff.Between([Identifier(1)], [Identifier(1), arriving]);
         var outcomes = await MembershipApplier.ApplyAsync(
             [
-                new CollectionRefresh(first, diff),
-                new CollectionRefresh(second, diff),
-                new CollectionRefresh(third, diff)
+                new CollectionRefresh("first-rule", first, diff),
+                new CollectionRefresh("second-rule", second, diff),
+                new CollectionRefresh("third-rule", third, diff)
             ],
             writer,
             new CollectionRefreshGate(),
@@ -154,7 +154,7 @@ public class MembershipApplierTests
 
         var diff = MembershipDiff.Between([], [arriving]);
         var outcomes = await MembershipApplier.ApplyAsync(
-            [new CollectionRefresh(good, diff), new CollectionRefresh(bad, diff)],
+            [new CollectionRefresh("good-rule", good, diff), new CollectionRefresh("bad-rule", bad, diff)],
             writer,
             new CollectionRefreshGate(),
             CancellationToken.None);
@@ -165,6 +165,125 @@ public class MembershipApplierTests
             arriving.ToString("D", CultureInfo.InvariantCulture),
             failed.Fault!.Message,
             StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The outcome names the rule the refresh was derived from, on the path where nothing went
+    /// wrong.
+    /// </summary>
+    [Fact]
+    public async Task AnOutcomeNamesTheRuleTheRefreshWasDerivedFrom()
+    {
+        var arriving = Identifier(9);
+
+        var writer = new FakeCollectionWriter();
+        writer.PutInLibrary([arriving]);
+        writer.Seed(Collection, []);
+
+        var outcomes = await MembershipApplier.ApplyAsync(
+            [new CollectionRefresh("recently-added-films", Collection, MembershipDiff.Between([], [arriving]))],
+            writer,
+            new CollectionRefreshGate(),
+            CancellationToken.None);
+
+        Assert.Equal("recently-added-films", outcomes[0].RuleId);
+        Assert.Equal(Collection, outcomes[0].CollectionId);
+    }
+
+    /// <summary>
+    /// And on the path where something did. The fault outcome is built at a second site, so a
+    /// change that carries the identity on one of the two and not the other is a rule whose
+    /// history has a hole in it exactly where the failures are.
+    /// </summary>
+    [Fact]
+    public async Task AFailedOutcomeNamesItsRuleToo()
+    {
+        var arriving = Identifier(9);
+
+        var writer = new FakeCollectionWriter();
+        writer.PutInLibrary([arriving]);
+        writer.Seed(Collection, []);
+        writer.ThrowOnTheAddOf(Collection, position: 1);
+
+        var outcomes = await MembershipApplier.ApplyAsync(
+            [new CollectionRefresh("recently-added-films", Collection, MembershipDiff.Between([], [arriving]))],
+            writer,
+            new CollectionRefreshGate(),
+            CancellationToken.None);
+
+        Assert.False(outcomes[0].Succeeded);
+        Assert.Equal("recently-added-films", outcomes[0].RuleId);
+    }
+
+    /// <summary>
+    /// The reason the identity is carried at all, stated as the case that loses it. An operator
+    /// deleting a collection gets it back under the same mark with a NEW identifier, which
+    /// <c>CollectionResolverTests.ARuleWhoseCollectionWasDeletedComesBackUnderTheSameMark</c>
+    /// asserts on the resolve. Two runs of one rule either side of that are two runs of one rule,
+    /// and a record keyed on the collection reads the second as a rule that has never run.
+    /// </summary>
+    [Fact]
+    public async Task ARuleWhoseCollectionCameBackUnderANewIdentifierIsStillTheSameRule()
+    {
+        var arriving = Identifier(9);
+        var before = Identifier(30);
+        var after = Identifier(31);
+
+        var writer = new FakeCollectionWriter();
+        writer.PutInLibrary([arriving]);
+        writer.Seed(before, []);
+        writer.Seed(after, []);
+
+        var diff = MembershipDiff.Between([], [arriving]);
+        var first = await MembershipApplier.ApplyAsync(
+            [new CollectionRefresh("recently-added-films", before, diff)],
+            writer,
+            new CollectionRefreshGate(),
+            CancellationToken.None);
+        var second = await MembershipApplier.ApplyAsync(
+            [new CollectionRefresh("recently-added-films", after, diff)],
+            writer,
+            new CollectionRefreshGate(),
+            CancellationToken.None);
+
+        Assert.NotEqual(first[0].CollectionId, second[0].CollectionId);
+        Assert.Equal(first[0].RuleId, second[0].RuleId);
+    }
+
+    /// <summary>
+    /// A run over several collections keeps each outcome under its own rule, in the order the
+    /// refreshes were handed over. A record that took the rule from anywhere but the refresh
+    /// beside it would put one rule's run in another rule's history.
+    /// </summary>
+    [Fact]
+    public async Task EachOutcomeCarriesTheRuleOfTheRefreshItAnswers()
+    {
+        var arriving = Identifier(9);
+        var first = Identifier(20);
+        var second = Identifier(21);
+        var third = Identifier(22);
+
+        var writer = new FakeCollectionWriter();
+        writer.PutInLibrary([arriving]);
+        writer.Seed(first, []);
+        writer.Seed(second, []);
+        writer.Seed(third, []);
+        writer.ThrowOnTheAddOf(second, position: 1);
+
+        var diff = MembershipDiff.Between([], [arriving]);
+        var outcomes = await MembershipApplier.ApplyAsync(
+            [
+                new CollectionRefresh("first-rule", first, diff),
+                new CollectionRefresh("second-rule", second, diff),
+                new CollectionRefresh("third-rule", third, diff)
+            ],
+            writer,
+            new CollectionRefreshGate(),
+            CancellationToken.None);
+
+        Assert.Equal(
+            ["first-rule", "second-rule", "third-rule"],
+            outcomes.Select(outcome => outcome.RuleId));
     }
 
     /// <summary>
@@ -183,7 +302,7 @@ public class MembershipApplierTests
         writer.Seed(Collection, []);
 
         var outcomes = await MembershipApplier.ApplyAsync(
-            [new CollectionRefresh(Collection, MembershipDiff.Between([], [stays, vanished]))],
+            [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([], [stays, vanished]))],
             writer,
             new CollectionRefreshGate(),
             CancellationToken.None);
@@ -207,7 +326,7 @@ public class MembershipApplierTests
         writer.Seed(Collection, []);
 
         var outcomes = await MembershipApplier.ApplyAsync(
-            [new CollectionRefresh(Collection, MembershipDiff.Between([], [vanished]))],
+            [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([], [vanished]))],
             writer,
             new CollectionRefreshGate(),
             CancellationToken.None);
@@ -231,7 +350,7 @@ public class MembershipApplierTests
         writer.Seed(Collection, [vanished]);
 
         var outcomes = await MembershipApplier.ApplyAsync(
-            [new CollectionRefresh(Collection, MembershipDiff.Between([vanished], []))],
+            [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([vanished], []))],
             writer,
             new CollectionRefreshGate(),
             CancellationToken.None);
@@ -254,7 +373,7 @@ public class MembershipApplierTests
         writer.Seed(Collection, [Identifier(1)]);
 
         var outcomes = await MembershipApplier.ApplyAsync(
-            [new CollectionRefresh(Collection, MembershipDiff.Between([Identifier(1)], [Identifier(1)]))],
+            [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([Identifier(1)], [Identifier(1)]))],
             writer,
             new CollectionRefreshGate(),
             CancellationToken.None);
@@ -277,7 +396,7 @@ public class MembershipApplierTests
         writer.Seed(Collection, [Identifier(1), Identifier(2)]);
 
         var outcomes = await MembershipApplier.ApplyAsync(
-            [new CollectionRefresh(Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1)]))],
+            [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1)]))],
             writer,
             new CollectionRefreshGate(),
             CancellationToken.None);
@@ -301,7 +420,7 @@ public class MembershipApplierTests
         writer.ThrowOnTheRemoveOf(Collection);
 
         var outcomes = await MembershipApplier.ApplyAsync(
-            [new CollectionRefresh(Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1), arriving]))],
+            [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1), arriving]))],
             writer,
             new CollectionRefreshGate(),
             CancellationToken.None);
@@ -328,7 +447,7 @@ public class MembershipApplierTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => MembershipApplier.ApplyAsync(
-                [new CollectionRefresh(Collection, MembershipDiff.Between([], [Identifier(3)]))],
+                [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([], [Identifier(3)]))],
                 writer,
                 new CollectionRefreshGate(),
                 cancelled.Token));
@@ -361,7 +480,7 @@ public class MembershipApplierTests
         var diff = MembershipDiff.Between([], [arriving]);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => MembershipApplier.ApplyAsync(
-                [new CollectionRefresh(first, diff), new CollectionRefresh(second, diff)],
+                [new CollectionRefresh("first-rule", first, diff), new CollectionRefresh("second-rule", second, diff)],
                 writer,
                 new CollectionRefreshGate(),
                 shutdown.Token));
@@ -387,8 +506,16 @@ public class MembershipApplierTests
             () => MembershipApplier.ApplyAsync([], null!, new CollectionRefreshGate(), CancellationToken.None));
         await Assert.ThrowsAsync<ArgumentNullException>(
             () => MembershipApplier.ApplyAsync([], writer, null!, CancellationToken.None));
-        Assert.Throws<ArgumentNullException>(() => new CollectionRefresh(Collection, null!));
+        Assert.Throws<ArgumentNullException>(() => new CollectionRefresh(Rule, Collection, null!));
+        Assert.Throws<ArgumentNullException>(
+            () => new CollectionRefresh(null!, Collection, MembershipDiff.Between([], [])));
     }
+
+    /// <summary>
+    /// The rule the single-collection cases here are refreshing. It is a rule identity rather than
+    /// a collection name, because that is what an outcome is keyed on.
+    /// </summary>
+    private const string Rule = "a-rule";
 
     private static readonly Guid Collection = Identifier(99);
 
