@@ -1,9 +1,6 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using Jellyfin.Plugin.SmartCollections.Rules;
 using MediaBrowser.Controller.Entities;
 using Xunit;
@@ -18,17 +15,13 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// </summary>
 /// <remarks>
 /// Every assertion about "every other property" is taken by reflecting over the query type the
-/// suite is compiled against rather than against a list of names. The two supported server lines
-/// carry different numbers of properties, so a checked-in list would red one leg of the suite for
-/// a reason that has nothing to do with this plugin.
+/// suite is compiled against rather than against a list of names, through
+/// <see cref="QuerySnapshot"/>.
 ///
-/// WHAT THE SNAPSHOT BELOW CANNOT SEE is written down rather than left for a later reader to
-/// discover, and it is two things. A change inside a property whose value is an object with no
-/// value equality is invisible, because such a property renders as its type name; a compiler that
-/// reached into the query's own options object and changed something there would pass these tests,
-/// and nothing here does that. And a property with no getter cannot be read at all: both supported
-/// lines carry exactly one, <c>Parent</c>, and the compile table writes no such property, which is
-/// asserted below rather than assumed.
+/// WHAT THE SNAPSHOT CANNOT SEE is written down where the snapshot is, in
+/// <see cref="QuerySnapshot"/>. Of the two bounds it names, the one this file has to answer for is
+/// the second: the compile table writes no property that has no getter, which is asserted below
+/// rather than assumed.
 /// </remarks>
 public class RuleQueryCompilerTests
 {
@@ -69,48 +62,13 @@ public class RuleQueryCompilerTests
     }
 
     /// <summary>
-    /// Every property of the query, rendered so that two queries can be compared without asking
-    /// each property type for an equality it may not have.
-    /// </summary>
-    private static IReadOnlyDictionary<string, string> Snapshot(InternalItemsQuery query)
-        => typeof(InternalItemsQuery)
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(property => property.CanRead)
-            .ToDictionary(
-                property => property.Name,
-                property => Render(property.GetValue(query)),
-                StringComparer.Ordinal);
-
-    private static string Render(object? value) => value switch
-    {
-        null => "<null>",
-        string text => text,
-        IEnumerable items => "["
-            + string.Join(", ", items.Cast<object?>().Select(item => item?.ToString() ?? "<null>"))
-            + "]",
-        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-        _ => value.GetType().Name
-    };
-
-    private static string[] Moved(InternalItemsQuery query)
-    {
-        var baseline = Snapshot(new InternalItemsQuery());
-
-        return Snapshot(query)
-            .Where(entry => !string.Equals(baseline[entry.Key], entry.Value, StringComparison.Ordinal))
-            .Select(entry => entry.Key)
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .ToArray();
-    }
-
-    /// <summary>
     /// The reading every test below rests on reads something. A snapshot that silently returned
     /// nothing would make every comparison here trivially true.
     /// </summary>
     [Fact]
     public void TheSnapshotReadsEveryPropertyTheCompileTableWrites()
     {
-        var snapshot = Snapshot(new InternalItemsQuery());
+        var snapshot = QuerySnapshot.Of(new InternalItemsQuery());
 
         Assert.NotEmpty(snapshot);
         foreach (var row in RuleQueryTable.Rows)
@@ -132,7 +90,7 @@ public class RuleQueryCompilerTests
 
             Assert.True(compilation.IsAccepted);
             Assert.Empty(compilation.AfterTheQuery);
-            Assert.Equal([row.QueryProperty], Moved(compilation.Query));
+            Assert.Equal([row.QueryProperty], QuerySnapshot.Moved(compilation.Query));
         }
     }
 
@@ -143,7 +101,7 @@ public class RuleQueryCompilerTests
 
         Assert.True(compilation.IsAccepted);
         Assert.Empty(compilation.AfterTheQuery);
-        Assert.Empty(Moved(compilation.Query));
+        Assert.Empty(QuerySnapshot.Moved(compilation.Query));
     }
 
     [Fact]
@@ -156,7 +114,7 @@ public class RuleQueryCompilerTests
         ]);
 
         Assert.True(compilation.IsAccepted);
-        Assert.Equal(["Genres", "Years"], Moved(compilation.Query));
+        Assert.Equal(["Genres", "Years"], QuerySnapshot.Moved(compilation.Query));
     }
 
     /// <summary>
@@ -173,7 +131,7 @@ public class RuleQueryCompilerTests
         ]);
 
         Assert.True(compilation.IsAccepted);
-        Assert.Equal(["ExcludeTags", "Tags"], Moved(compilation.Query));
+        Assert.Equal(["ExcludeTags", "Tags"], QuerySnapshot.Moved(compilation.Query));
     }
 
     /// <summary>
@@ -214,7 +172,7 @@ public class RuleQueryCompilerTests
 
         Assert.False(compilation.IsAccepted);
         Assert.Empty(compilation.AfterTheQuery);
-        Assert.Empty(Moved(compilation.Query));
+        Assert.Empty(QuerySnapshot.Moved(compilation.Query));
     }
 
     [Fact]
@@ -229,7 +187,7 @@ public class RuleQueryCompilerTests
         var compilation = RuleQueryCompiler.Compile([condition]);
 
         Assert.True(compilation.IsAccepted);
-        Assert.Empty(Moved(compilation.Query));
+        Assert.Empty(QuerySnapshot.Moved(compilation.Query));
         Assert.Same(condition, Assert.Single(compilation.AfterTheQuery));
     }
 
@@ -249,7 +207,7 @@ public class RuleQueryCompilerTests
         var compilation = RuleQueryCompiler.Compile([condition]);
 
         Assert.True(compilation.IsAccepted);
-        Assert.Empty(Moved(compilation.Query));
+        Assert.Empty(QuerySnapshot.Moved(compilation.Query));
         Assert.Same(condition, Assert.Single(compilation.AfterTheQuery));
     }
 
@@ -289,7 +247,7 @@ public class RuleQueryCompilerTests
             var compilation = RuleQueryCompiler.Compile([condition]);
 
             Assert.True(compilation.IsAccepted);
-            Assert.Empty(Moved(compilation.Query));
+            Assert.Empty(QuerySnapshot.Moved(compilation.Query));
             Assert.Same(condition, Assert.Single(compilation.AfterTheQuery));
         }
     }
@@ -337,7 +295,7 @@ public class RuleQueryCompilerTests
             var compilation = RuleQueryCompiler.Compile([condition]);
 
             Assert.True(compilation.IsAccepted);
-            Assert.Empty(Moved(compilation.Query));
+            Assert.Empty(QuerySnapshot.Moved(compilation.Query));
             Assert.Same(condition, Assert.Single(compilation.AfterTheQuery));
         }
     }
@@ -364,7 +322,7 @@ public class RuleQueryCompilerTests
         ]);
 
         Assert.True(compilation.IsAccepted);
-        Assert.Equal(["Years"], Moved(compilation.Query));
+        Assert.Equal(["Years"], QuerySnapshot.Moved(compilation.Query));
     }
 
     /// <summary>
@@ -383,8 +341,8 @@ public class RuleQueryCompilerTests
         Assert.True(RuleQueryCompiler.Compile(conditions).IsAccepted);
 
         Assert.Equal(
-            Snapshot(RuleQueryCompiler.Compile(conditions).Query),
-            Snapshot(RuleQueryCompiler.Compile(conditions).Query));
+            QuerySnapshot.Of(RuleQueryCompiler.Compile(conditions).Query),
+            QuerySnapshot.Of(RuleQueryCompiler.Compile(conditions).Query));
     }
 
     [Fact]
