@@ -14,10 +14,19 @@ namespace Jellyfin.Plugin.SmartCollections.Library;
 /// its own faults, because an exception out of here is swallowed by the server and nothing above
 /// learns that an event was lost.
 ///
-/// Nothing implements this yet. The subscription and its lifetime are what this milestone's
-/// registration issue owes; what accumulates the changes and decides when an evaluation runs is
-/// the coalescing issue, #35, and this is the seam it plugs into. The list of observers is
-/// resolved rather than the coalescer being named here, so that issue picks its own type.
+/// One type implements this and nothing in this file names it. The list of observers is resolved,
+/// so the subscription fans out to whatever is registered rather than to a type written down here,
+/// and what that resolves to is read rather than restated:
+///
+/// <code>
+/// git grep -l ': ILibraryChangeObserver' -- Jellyfin.Plugin.SmartCollections/
+/// Jellyfin.Plugin.SmartCollections/Library/LibraryChangeCoalescer.cs
+/// </code>
+///
+/// THIS PARAGRAPH SAID NOTHING IMPLEMENTED THIS YET and named two issues that would change that.
+/// Both closed and the implementation arrived. A remark saying a seam is unused is what a reader
+/// trusts when they are deciding whether a change here reaches anything, so it was wrong in the
+/// direction that costs.
 /// </remarks>
 public interface ILibraryChangeObserver
 {

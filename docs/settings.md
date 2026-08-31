@@ -83,7 +83,10 @@ exit=1
 ```
 
 The first arrives with the scheduled task, which is #34. The second arrives with
-the evaluation, which is #30 and #37. The third is a switch over a subscription
+the bound on what one evaluation reads, which is #37. It used to name #30 beside
+it; #30 is closed and what it landed compiles a condition onto a query without
+reading a library, so a reader following that pointer met a finished issue and no
+page size. The third is a switch over a subscription
 that today is always registered, and it is worth having only once there is
 something behind it to switch off. Writing a default and a reason for any of the
 three now would be writing about a value nothing reads, which is the shape this
