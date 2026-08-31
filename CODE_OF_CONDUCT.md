@@ -59,12 +59,12 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the maintainer at [nils.lehnen@proton.me](mailto:nils.lehnen@proton.me).
+reported to me at [nils.lehnen@proton.me](mailto:nils.lehnen@proton.me).
 All complaints will be reviewed and investigated promptly and fairly.
 
-There is one maintainer, so a report about the maintainer has nowhere else in
-this repository to go. Reports of that kind belong with GitHub, through the
-report form on the account or repository.
+I am the only person who acts on a report here, so a report about me has
+nowhere else in this repository to go. Reports of that kind belong with GitHub,
+through the report form on the account or repository.
 
 All community leaders are obligated to respect the privacy and security of the
 reporter of any incident.
