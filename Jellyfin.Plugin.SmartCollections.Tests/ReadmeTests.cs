@@ -1,7 +1,10 @@
 using System;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Jellyfin.Plugin.SmartCollections.Rules;
 using Xunit;
 
 namespace Jellyfin.Plugin.SmartCollections.Tests;
@@ -43,9 +46,15 @@ public class ReadmeTests
 
     /// <summary>
     /// The example is meant to be copied into a rule directory, so it has to be a document and
-    /// not a sketch of one. The schema it will be validated against does not exist yet; what is
-    /// checkable today is that it parses and that it carries the fields the format requires of
-    /// every document.
+    /// not a sketch of one. This test reads the envelope: that the example parses, and that it
+    /// carries the members every document carries. What the rule inside it says is read by
+    /// <see cref="TheExampleWritesConditionsInTheVocabularyTheEngineDeclares"/>, against the
+    /// tables rather than against a list written here.
+    ///
+    /// THIS REMARK SAID THE SCHEMA THE EXAMPLE WOULD BE VALIDATED AGAINST DID NOT EXIST YET, and
+    /// that a parse was all that was checkable. A schema is in the tree and so are the tables the
+    /// example's own values answer to. What is still absent is a validator that reads a rule, and
+    /// that is a different absence from the one this sentence named.
     /// </summary>
     [Fact]
     public void ReadmeShowsARuleDocumentThatParses()
@@ -65,6 +74,113 @@ public class ReadmeTests
         {
             Assert.True(root.TryGetProperty(required, out _), "The example declares no " + required + ".");
         }
+    }
+
+    /// <summary>
+    /// The rule inside the example is written in the vocabulary the engine declares: every group
+    /// is one of the composition stage's members, every field and every operator is a row of its
+    /// table, and each field's row accepts the operator written beside it.
+    /// </summary>
+    /// <remarks>
+    /// The names are read out of the tables rather than listed here, so a name removed from a
+    /// table tomorrow reds the front page instead of leaving it behind. What this test cannot see
+    /// is the members no table decides yet, which are the ones the envelope does not declare
+    /// either, so it reads the rule and stops there.
+    ///
+    /// The condition count is asserted because the walk over an empty group agrees with the walk
+    /// over a correct one, and an example somebody emptied would pass a comparison that only
+    /// refuses what it meets.
+    /// </remarks>
+    [Fact]
+    public void TheExampleWritesConditionsInTheVocabularyTheEngineDeclares()
+    {
+        var match = FirstJsonBlock.Match(RepositoryFiles.ReadFromRoot("README.md"));
+
+        Assert.True(match.Success, "README.md carries no fenced json block.");
+
+        using var document = JsonDocument.Parse(match.Groups["json"].Value);
+
+        Assert.True(
+            document.RootElement.TryGetProperty("match", out var rule),
+            "The example declares no match.");
+
+        var conditions = 0;
+        ReadGroup(rule, "/match", ref conditions);
+
+        Assert.True(conditions > 0, "The example's rule declares no condition.");
+    }
+
+    /// <summary>
+    /// Walks one group of the example, counting the conditions it reaches.
+    /// </summary>
+    /// <param name="group">The group object.</param>
+    /// <param name="pointer">Where it sits, for a message that names the place.</param>
+    /// <param name="conditions">Running count of the conditions reached.</param>
+    private static void ReadGroup(JsonElement group, string pointer, ref int conditions)
+    {
+        Assert.Equal(JsonValueKind.Object, group.ValueKind);
+
+        foreach (var member in group.EnumerateObject())
+        {
+            Assert.True(
+                RuleCompositionReader.GroupNames.Contains(member.Name, StringComparer.Ordinal),
+                pointer + " carries " + member.Name + ", which is not one of "
+                    + string.Join(", ", RuleCompositionReader.GroupNames) + ".");
+
+            Assert.Equal(JsonValueKind.Array, member.Value.ValueKind);
+
+            var index = 0;
+
+            foreach (var element in member.Value.EnumerateArray())
+            {
+                var at = pointer + "/" + member.Name + "/" + index.ToString(CultureInfo.InvariantCulture);
+
+                if (element.TryGetProperty(RuleFieldReader.FieldMember, out _))
+                {
+                    ReadCondition(element, at);
+                    conditions++;
+                }
+                else
+                {
+                    ReadGroup(element, at, ref conditions);
+                }
+
+                index++;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads one condition of the example against the two tables.
+    /// </summary>
+    /// <param name="condition">The condition object.</param>
+    /// <param name="pointer">Where it sits, for a message that names the place.</param>
+    private static void ReadCondition(JsonElement condition, string pointer)
+    {
+        var fieldName = condition.GetProperty(RuleFieldReader.FieldMember).GetString();
+        var field = fieldName is null ? null : RuleFieldTable.Find(fieldName);
+
+        Assert.True(
+            field is not null,
+            pointer + " names the field " + fieldName + ", which the field table does not declare. It declares "
+                + string.Join(", ", RuleFieldTable.Names) + ".");
+
+        Assert.True(
+            condition.TryGetProperty(RuleOperatorReader.OperatorMember, out var written),
+            pointer + " names no operator.");
+
+        var operatorName = written.GetString();
+        var row = operatorName is null ? null : RuleOperatorTable.Find(operatorName);
+
+        Assert.True(
+            row is not null,
+            pointer + " names the operator " + operatorName + ", which the operator table does not declare. It declares "
+                + string.Join(", ", RuleOperatorTable.Names) + ".");
+
+        Assert.True(
+            RuleFieldTable.Accepts(field!.Field, row!.Operator),
+            pointer + " applies " + row.Name + " to " + field.Name + ", which accepts "
+                + RuleFieldTable.OperatorNames(field) + ".");
     }
 
     /// <summary>

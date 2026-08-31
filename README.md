@@ -100,10 +100,10 @@ for it to belong, and how the collection is ordered.
     "name": "Nineties Thrillers",
     "collects": ["Movie"],
     "match": {
-        "all": [
+        "allOf": [
             { "field": "genres", "operator": "contains", "value": "Thriller" },
-            { "field": "productionYear", "operator": "atLeast", "value": 1990 },
-            { "field": "productionYear", "operator": "atMost", "value": 1999 }
+            { "field": "productionYear", "operator": "greaterThanOrEqual", "value": 1990 },
+            { "field": "productionYear", "operator": "lessThanOrEqual", "value": 1999 }
         ]
     },
     "order": { "field": "sortName", "direction": "ascending" },
@@ -133,7 +133,7 @@ Reading it clause by clause:
   rules may deliberately carry the same name; what tells their collections apart
   is the stamp rather than the title.
 - `collects` names the item kinds the rule gathers.
-- `match` is a tree of conditions. `all` requires every clause to hold. Which
+- `match` is a tree of conditions. `allOf` requires every clause to hold. Which
   composition operators exist and how deeply they may nest is part of the rule
   language rather than something a document decides for itself.
 - `field` and `operator` come from a declared table rather than from whatever
