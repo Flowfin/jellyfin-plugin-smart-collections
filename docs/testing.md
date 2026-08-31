@@ -91,13 +91,21 @@ needs both at once. What the suite holds meanwhile is the decision in front of
 each port, `CollectionResolver` and `MembershipApplier`, neither of which names
 a server type.
 
-The surface an evaluation reads is still not built and still has no fake.
-Nothing compiles a rule into a query, and `FakeLibraryChangeSource` raises the
-three library events and holds no items, so it stands in for what starts an
-evaluation rather than for what an evaluation reads. Running a rule against a
-library is therefore something this suite cannot express yet rather than
-something it does without a server. #30 is where the query is compiled and the
-port that answers it would arrive with it.
+A rule's query is composed now and nothing answers it, which is a different
+state from the one this paragraph used to record. `RuleQueryTable` declares the
+pairs of a field and an operator the server's query carries, `RuleQueryRow`
+holds each pair's write, `RuleQueryCompiler` walks a rule's conditions onto one
+query and `RuleQueryCompilation` carries what came out. Every one of those is
+asserted without a server, because a query is an object with properties and the
+suite reads them by reflecting over the type the build resolved.
+
+WHAT IS STILL ABSENT IS THE PORT AND ITS FAKE. Nothing here asks the server for
+the items a compiled query selects: there is no interface over
+`ILibraryManager.GetItemList` and no fake behind one, and
+`FakeLibraryChangeSource` raises the three library events and holds no items, so
+it stands in for what starts an evaluation rather than for what an evaluation
+reads. Running a rule against a library is therefore still something this suite
+cannot express rather than something it does without a server.
 
 The one place a running server is the right answer is the interoperability
 matrix, which boots containers on an ordinary runner, needs no display and no

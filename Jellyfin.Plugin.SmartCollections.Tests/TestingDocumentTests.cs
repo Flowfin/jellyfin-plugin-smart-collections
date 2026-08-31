@@ -42,6 +42,10 @@ public class TestingDocumentTests
     {
         "CollectionStamp.cs",
         "ICollectionOwnership.cs",
+        "RuleQueryCompilation.cs",
+        "RuleQueryCompiler.cs",
+        "RuleQueryRow.cs",
+        "RuleQueryTable.cs",
     };
 
     private static readonly string[] ProductProjects =
@@ -104,9 +108,10 @@ public class TestingDocumentTests
 
     /// <summary>
     /// The other half of that replacement is the half a reader is most likely to take on trust,
-    /// and the half that stops being true without anybody editing this document. The page used to
-    /// say no query was composed at all; it says now that one question composes one, so what is
-    /// held here is that no second question quietly joined it.
+    /// and the half that stops being true without anybody editing this document. The page has said
+    /// in turn that no query was composed at all, that one question composed one, and now that a
+    /// rule's own query is composed beside it; what is held here is that no further question
+    /// quietly joined those two.
     /// </summary>
     /// <remarks>
     /// The page's claim about the surface an evaluation reads is still a negative one, and the
@@ -123,8 +128,9 @@ public class TestingDocumentTests
         Assert.Contains("`CollectionStamp.LookupQuery`", document, StringComparison.Ordinal);
         Assert.Contains("`ICollectionOwnership`", document, StringComparison.Ordinal);
         Assert.Contains("`FakeCollectionOwnership`", document, StringComparison.Ordinal);
+        Assert.Contains("`RuleQueryCompiler`", document, StringComparison.Ordinal);
         Assert.Contains(
-            "The surface an evaluation reads is still not built and still has no fake.",
+            "WHAT IS STILL ABSENT IS THE PORT AND ITS FAKE.",
             document,
             StringComparison.Ordinal);
 
