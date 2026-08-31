@@ -184,7 +184,6 @@ public class ReadmeTests
     }
 
     /// <summary>
-    /// <summary>
     /// Every member of the example is explained beneath it. The member list is read out of the
     /// example rather than written here, so a member added to the document reds this test instead
     /// of sitting on the front page unexplained. That is not hypothetical: the member deciding
@@ -214,6 +213,7 @@ public class ReadmeTests
         }
     }
 
+    /// <summary>
     /// What happens to the generated collections when the plugin is removed is a promise about
     /// visible library content, and the moment it matters is before an install. A document
     /// nothing points at is a document read after the fact, so the link is part of the promise

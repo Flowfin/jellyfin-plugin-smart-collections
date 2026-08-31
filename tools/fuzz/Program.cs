@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.SmartCollections.Fuzz;
 /// break.
 ///
 /// NOTHING IS CAUGHT HERE, and that is the property being asserted rather than an omission.
-/// <see cref="RuleDocumentValidator.Read"/> answers with a result in every case it is designed
+/// <see cref="RuleDocumentValidator.Read(string)"/> answers with a result in every case it is designed
 /// for, including a document that is not JSON, so an exception leaving it is a finding rather
 /// than an expected outcome. A harness that swallowed one would report a clean run over a parser
 /// that throws, which is the failure this file exists to avoid. A crasher is triaged as its own

@@ -19,6 +19,9 @@
     <AssemblyName>RuleDocumentFuzz</AssemblyName>
     <RootNamespace>Jellyfin.Plugin.SmartCollections.Fuzz</RootNamespace>
     <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ImplicitUsings>disable</ImplicitUsings>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
