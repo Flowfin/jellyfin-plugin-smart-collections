@@ -162,6 +162,59 @@ public class RuleDocumentQueryTests
     }
 
     /// <summary>
+    /// Reading one document twice produces one compiled output. The conditions are compared as
+    /// what they say rather than as objects, because two reads build two of everything: what has
+    /// to be identical is the field, the operator, the place and the values, and the query they
+    /// compile to.
+    /// </summary>
+    /// <remarks>
+    /// This is #28's fourth done condition. It is asserted over a document that walks every stage
+    /// rather than over a hand-built condition list, because what that condition is about is a
+    /// conversion driven by the document: the prior art in this space rewrites dates into another
+    /// form by mutating the parsed rule in place, so the second read of one document does not
+    /// agree with the first.
+    /// </remarks>
+    [Fact]
+    public void ReadingTheSameDocumentTwiceProducesIdenticalCompiledOutput()
+    {
+        static IReadOnlyList<string> Written(string json)
+            => ReadRule(json).Conditions
+                .Select(condition => condition.Pointer
+                                     + " " + condition.Field.Name
+                                     + " " + condition.Operator.Name
+                                     + " " + string.Join(", ", condition.Values.Select(value => value.ToString())))
+                .ToList();
+
+        Assert.Equal(Written(ThreeConditions), Written(ThreeConditions));
+        Assert.Equal(
+            QuerySnapshot.Of(Compile(ThreeConditions)),
+            QuerySnapshot.Of(Compile(ThreeConditions)));
+    }
+
+    /// <summary>
+    /// The comparison above is only worth anything if what it compares says what the document
+    /// said, so this reads one of those lines rather than leaving the rendering unasserted.
+    /// </summary>
+    [Fact]
+    public void TheRenderedConditionsSayWhatTheDocumentWrote()
+    {
+        var written = ReadRule(ThreeConditions).Conditions
+            .Select(condition => condition.Pointer
+                                 + " " + condition.Field.Name
+                                 + " " + condition.Operator.Name
+                                 + " " + string.Join(", ", condition.Values.Select(value => value.ToString())))
+            .ToList();
+
+        Assert.Equal(
+            [
+                "/match/allOf/0 genres contains String: Thriller",
+                "/match/allOf/1 productionYear equals Integer: 1994",
+                "/match/allOf/2 tags contains String: keep"
+            ],
+            written);
+    }
+
+    /// <summary>
     /// The pointers DO move with the members, which is what makes a refusal point at the place the
     /// operator has to repair. That is the half the assertion above is deliberately not over, so it
     /// is asserted rather than left as a sentence.
