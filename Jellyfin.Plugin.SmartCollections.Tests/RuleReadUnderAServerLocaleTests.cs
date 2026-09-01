@@ -219,7 +219,7 @@ public class RuleReadUnderAServerLocaleTests
         {
             var walked = UnderLocale(locale, () => Walk(RefusedRule));
 
-            Assert.False(walked.Accepted);
+            Assert.False(walked.Accepted, locale + " accepted a rule the invariant read refused.");
             Assert.Equal(reference.Errors, walked.Errors);
         }
     }
@@ -275,7 +275,9 @@ public class RuleReadUnderAServerLocaleTests
         {
             var query = UnderLocale(locale, () => Compiled(Rule));
 
-            Assert.Equal(expected.MinPremiereDate, query.MinPremiereDate);
+            Assert.True(
+                expected.MinPremiereDate == query.MinPremiereDate,
+                locale + " read the date as " + query.MinPremiereDate);
             Assert.Equal(expected.MinCommunityRating, query.MinCommunityRating);
             Assert.Equal(expected.Years, query.Years);
         }

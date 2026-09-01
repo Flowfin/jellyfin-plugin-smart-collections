@@ -64,7 +64,7 @@ public class RuleItemKindDocumentTests
 
         foreach (var row in RuleItemKindTable.Rows)
         {
-            Assert.Equal(SelectsPrefix + row.ServerKind.ToString(), documented[row.Name].Selects);
+            Assert.Equal(SelectsPrefix + row.ServerKind, documented[row.Name].Selects);
         }
     }
 
