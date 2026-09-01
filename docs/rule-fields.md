@@ -149,6 +149,60 @@ Selects: BaseItemKind.Series
 
 Semantics: A series, which is the show rather than any of its seasons or episodes.
 
+## The fields read after the query
+
+A field reaches the library through a property of the server's own item query or
+it does not, and where it does not the condition is answered by reading each item
+the query returned. Those fields are the whole of what the post-query stage
+exists for, so they are listed here with the reason each one is on the list
+rather than only marked one row at a time: a field arriving on it is a decision
+somebody should have to see, because the stage is where a design like this loses
+its speed if it is allowed to grow.
+
+The list is derived from the table rather than typed beside it.
+`RuleFieldDocumentTests` requires the set below to be exactly the rows carrying no
+query property, in both directions, so a field that moves into the stage without a
+section here reds the suite and a section for a field the query narrows on reds it
+too.
+
+A `Reason:` line says why the query cannot carry the field. It is a fact about the
+server rather than about this plugin, and each one below carries the command that
+was run to read it.
+
+## Read after the query: overview
+
+Reason: The server's item query carries one property about a description and it asks only whether the item has one, so no comparison over the text can be pushed into it.
+
+The property is `HasOverview`, a nullable boolean, on both supported lines:
+
+```
+for ref in v10.11.11 v12.0-rc4; do
+  gh api "repos/jellyfin/jellyfin/contents/MediaBrowser.Controller/Entities/InternalItemsQuery.cs?ref=$ref"     --jq .content | base64 -d | grep -nE 'Overview'
+done
+152:        public bool? HasOverview { get; set; }
+130:            || HasOverview.HasValue
+265:        public bool? HasOverview { get; set; }
+```
+
+WHAT THAT LEAVES OPEN is `isEmpty` and `isNotEmpty`, which ask exactly the
+question that property answers rather than a question about the text. Whether
+those two pairs belong in the compile table is a question about what the server
+means by `HasOverview` for an item whose description is present and blank, which
+nothing here has measured, so the pairs are not declared and this paragraph is
+what a later reader starts from rather than a claim that they cannot be.
+
+## Read after the query: runtime
+
+Reason: The server's item query carries no property over how long an item runs, so every comparison on it is made over the items the query returned.
+
+```
+for ref in v10.11.11 v12.0-rc4; do
+  gh api "repos/jellyfin/jellyfin/contents/MediaBrowser.Controller/Entities/InternalItemsQuery.cs?ref=$ref"     --jq .content | base64 -d | grep -cE 'Runtime|RunTimeTicks'
+done
+0
+0
+```
+
 ## Field: communityRating
 
 Value type: Decimal
