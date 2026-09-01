@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Jellyfin.Plugin.SmartCollections.Rules;
@@ -26,6 +27,29 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 public class RuleQueryCompilerTests
 {
     private static readonly DateTimeOffset AnInstant = new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    /// <summary>
+    /// The scope every compilation below is made against. A rule always declares one, so there is
+    /// no call here without it, and taking both kinds keeps these tests about the conditions.
+    /// </summary>
+    private static readonly IReadOnlyList<RuleItemKindRow> BothKinds = RuleItemKindTable.Rows;
+
+    /// <summary>
+    /// The property the scope writes. Every accepted compilation moves it, so the assertions below
+    /// name it rather than exempting it: a test that filtered it out would pass on a compiler that
+    /// stopped bounding the query.
+    /// </summary>
+    private const string ScopeProperty = "IncludeItemTypes";
+
+    /// <summary>
+    /// The properties an accepted compilation moves, which is what the conditions wrote plus the
+    /// scope, in the order <see cref="QuerySnapshot.Moved"/> returns them.
+    /// </summary>
+    private static string[] AndTheScope(params string[] properties)
+        => properties
+            .Append(ScopeProperty)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
 
     private static RuleConditionValue Condition(
         RuleField field,
@@ -86,35 +110,83 @@ public class RuleQueryCompilerTests
     {
         foreach (var row in RuleQueryTable.Rows)
         {
-            var compilation = RuleQueryCompiler.Compile([Condition(row, "/match/allOf/0")]);
+            var compilation = RuleQueryCompiler.Compile(BothKinds, [Condition(row, "/match/allOf/0")]);
 
             Assert.True(compilation.IsAccepted);
             Assert.Empty(compilation.AfterTheQuery);
-            Assert.Equal([row.QueryProperty], QuerySnapshot.Moved(compilation.Query));
+            Assert.Equal(AndTheScope(row.QueryProperty), QuerySnapshot.Moved(compilation.Query));
         }
     }
 
+    /// <summary>
+    /// The done condition this test carries, and the bound the post-query stage rests on: a rule
+    /// whose conditions the query cannot express still asks the server for its declared kinds and
+    /// never for the library. The scope is written whether or not one condition compiled.
+    /// </summary>
     [Fact]
-    public void NoConditionsCompileToAQueryThatNarrowsNothing()
+    public void NoConditionsCompileToAQueryNarrowedByTheScopeAndNothingElse()
     {
-        var compilation = RuleQueryCompiler.Compile([]);
+        var compilation = RuleQueryCompiler.Compile(BothKinds, []);
 
         Assert.True(compilation.IsAccepted);
         Assert.Empty(compilation.AfterTheQuery);
-        Assert.Empty(QuerySnapshot.Moved(compilation.Query));
+        Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
     }
+
+    /// <summary>
+    /// The other half of the done condition's last clause: the query names what it collects and
+    /// never what it does not, so the exclusion list is left where the server's constructor leaves
+    /// it.
+    /// </summary>
+    [Fact]
+    public void TheScopeIsCompiledToExactlyTheDeclaredKindsAndExcludesNothing()
+    {
+        foreach (var scope in new[] { BothKinds, new[] { RuleItemKindTable.Of(RuleItemKind.Series) } })
+        {
+            var compilation = RuleQueryCompiler.Compile(scope, []);
+
+            Assert.True(compilation.IsAccepted);
+            Assert.Equal(
+                scope.Select(row => row.ServerKind),
+                compilation.Query.IncludeItemTypes);
+            Assert.Empty(compilation.Query.ExcludeItemTypes);
+        }
+    }
+
+    /// <summary>
+    /// A scope is a set and the reader hands it over in the table's order, so the query a rule
+    /// compiles to does not depend on the order a document wrote its kinds in.
+    /// </summary>
+    [Fact]
+    public void TheScopeIsWrittenInTheTablesOrder()
+    {
+        var compilation = RuleQueryCompiler.Compile(BothKinds, []);
+
+        Assert.Equal(
+            RuleItemKindTable.Rows.Select(row => row.ServerKind),
+            compilation.Query.IncludeItemTypes);
+    }
+
+    /// <summary>
+    /// An empty scope would compile to an include list the server reads as no narrowing at all,
+    /// which is the one shape this stage may not produce. The scope reader cannot hand one over,
+    /// so this is a fault in a caller that built a scope some other way.
+    /// </summary>
+    [Fact]
+    public void AnEmptyScopeIsRefusedRatherThanCompiledToAnUnboundedQuery()
+        => Assert.Throws<ArgumentException>(() => RuleQueryCompiler.Compile([], []));
 
     [Fact]
     public void ConditionsOverDifferentPropertiesAreAllWritten()
     {
-        var compilation = RuleQueryCompiler.Compile(
+        var compilation = RuleQueryCompiler.Compile(BothKinds, 
         [
             Condition(RuleField.Genres, RuleOperator.Contains, "/match/allOf/0", RuleValue.Of(RuleValueType.String, "Thriller")),
             Condition(RuleField.ProductionYear, RuleOperator.Equals, "/match/allOf/1", RuleValue.Of(RuleValueType.Integer, 1994L))
         ]);
 
         Assert.True(compilation.IsAccepted);
-        Assert.Equal(["Genres", "Years"], QuerySnapshot.Moved(compilation.Query));
+        Assert.Equal(AndTheScope("Genres", "Years"), QuerySnapshot.Moved(compilation.Query));
     }
 
     /// <summary>
@@ -124,14 +196,14 @@ public class RuleQueryCompilerTests
     [Fact]
     public void TwoConditionsOnOneFieldWritingDifferentPropertiesAreBothCompiled()
     {
-        var compilation = RuleQueryCompiler.Compile(
+        var compilation = RuleQueryCompiler.Compile(BothKinds, 
         [
             Condition(RuleField.Tags, RuleOperator.Contains, "/match/allOf/0", RuleValue.Of(RuleValueType.String, "keep")),
             Condition(RuleField.Tags, RuleOperator.NotContains, "/match/allOf/1", RuleValue.Of(RuleValueType.String, "drop"))
         ]);
 
         Assert.True(compilation.IsAccepted);
-        Assert.Equal(["ExcludeTags", "Tags"], QuerySnapshot.Moved(compilation.Query));
+        Assert.Equal(AndTheScope("ExcludeTags", "Tags"), QuerySnapshot.Moved(compilation.Query));
     }
 
     /// <summary>
@@ -141,7 +213,7 @@ public class RuleQueryCompilerTests
     [Fact]
     public void TwoConditionsWritingOneQueryPropertyAreRefusedNamingBoth()
     {
-        var compilation = RuleQueryCompiler.Compile(
+        var compilation = RuleQueryCompiler.Compile(BothKinds, 
         [
             Condition(RuleField.ProductionYear, RuleOperator.Equals, "/match/allOf/0", RuleValue.Of(RuleValueType.Integer, 1994L)),
             Condition(RuleField.ProductionYear, RuleOperator.In, "/match/allOf/1", RuleValue.Of(RuleValueType.Integer, 1995L))
@@ -164,7 +236,7 @@ public class RuleQueryCompilerTests
     [Fact]
     public void ARefusedCompilationNarrowsNothing()
     {
-        var compilation = RuleQueryCompiler.Compile(
+        var compilation = RuleQueryCompiler.Compile(BothKinds, 
         [
             Condition(RuleField.Tags, RuleOperator.Contains, "/match/allOf/0", RuleValue.Of(RuleValueType.String, "keep")),
             Condition(RuleField.Tags, RuleOperator.Contains, "/match/allOf/1", RuleValue.Of(RuleValueType.String, "also"))
@@ -184,10 +256,10 @@ public class RuleQueryCompilerTests
             "/match/allOf/0",
             RuleValue.Of(RuleValueType.String, "Part II"));
 
-        var compilation = RuleQueryCompiler.Compile([condition]);
+        var compilation = RuleQueryCompiler.Compile(BothKinds, [condition]);
 
         Assert.True(compilation.IsAccepted);
-        Assert.Empty(QuerySnapshot.Moved(compilation.Query));
+        Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
         Assert.Same(condition, Assert.Single(compilation.AfterTheQuery));
     }
 
@@ -204,10 +276,10 @@ public class RuleQueryCompilerTests
             "/match/allOf/0",
             RuleValue.Of(RuleValueType.String, "heist"));
 
-        var compilation = RuleQueryCompiler.Compile([condition]);
+        var compilation = RuleQueryCompiler.Compile(BothKinds, [condition]);
 
         Assert.True(compilation.IsAccepted);
-        Assert.Empty(QuerySnapshot.Moved(compilation.Query));
+        Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
         Assert.Same(condition, Assert.Single(compilation.AfterTheQuery));
     }
 
@@ -217,7 +289,7 @@ public class RuleQueryCompilerTests
         var first = Condition(RuleField.Name, RuleOperator.EndsWith, "/match/allOf/0", RuleValue.Of(RuleValueType.String, "Part II"));
         var second = Condition(RuleField.Overview, RuleOperator.Contains, "/match/allOf/1", RuleValue.Of(RuleValueType.String, "heist"));
 
-        var compilation = RuleQueryCompiler.Compile([first, second]);
+        var compilation = RuleQueryCompiler.Compile(BothKinds, [first, second]);
 
         Assert.Equal([first, second], compilation.AfterTheQuery);
     }
@@ -244,10 +316,10 @@ public class RuleQueryCompilerTests
 
         foreach (var condition in new[] { last, first })
         {
-            var compilation = RuleQueryCompiler.Compile([condition]);
+            var compilation = RuleQueryCompiler.Compile(BothKinds, [condition]);
 
             Assert.True(compilation.IsAccepted);
-            Assert.Empty(QuerySnapshot.Moved(compilation.Query));
+            Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
             Assert.Same(condition, Assert.Single(compilation.AfterTheQuery));
         }
     }
@@ -259,12 +331,12 @@ public class RuleQueryCompilerTests
     [Fact]
     public void AfterAndBeforeWriteTheInstantTheOperatorMeans()
     {
-        var after = RuleQueryCompiler.Compile(
+        var after = RuleQueryCompiler.Compile(BothKinds, 
         [
             Condition(RuleField.PremiereDate, RuleOperator.After, "/match/allOf/0", RuleValue.Of(RuleValueType.Date, AnInstant))
         ]);
 
-        var before = RuleQueryCompiler.Compile(
+        var before = RuleQueryCompiler.Compile(BothKinds, 
         [
             Condition(RuleField.PremiereDate, RuleOperator.Before, "/match/allOf/0", RuleValue.Of(RuleValueType.Date, AnInstant))
         ]);
@@ -292,10 +364,10 @@ public class RuleQueryCompilerTests
                 RuleValue.Of(RuleValueType.Integer, 1994L),
                 RuleValue.Of(RuleValueType.Integer, year));
 
-            var compilation = RuleQueryCompiler.Compile([condition]);
+            var compilation = RuleQueryCompiler.Compile(BothKinds, [condition]);
 
             Assert.True(compilation.IsAccepted);
-            Assert.Empty(QuerySnapshot.Moved(compilation.Query));
+            Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
             Assert.Same(condition, Assert.Single(compilation.AfterTheQuery));
         }
     }
@@ -307,7 +379,7 @@ public class RuleQueryCompilerTests
     [Fact]
     public void APairHandedBackDoesNotClaimThePropertyItWouldHaveWritten()
     {
-        var compilation = RuleQueryCompiler.Compile(
+        var compilation = RuleQueryCompiler.Compile(BothKinds, 
         [
             Condition(
                 RuleField.ProductionYear,
@@ -322,7 +394,7 @@ public class RuleQueryCompilerTests
         ]);
 
         Assert.True(compilation.IsAccepted);
-        Assert.Equal(["Years"], QuerySnapshot.Moved(compilation.Query));
+        Assert.Equal(AndTheScope("Years"), QuerySnapshot.Moved(compilation.Query));
     }
 
     /// <summary>
@@ -338,16 +410,17 @@ public class RuleQueryCompilerTests
             .Select((group, ordinal) => Condition(group.First(), "/match/allOf/" + ordinal.ToString(CultureInfo.InvariantCulture)))
             .ToArray();
 
-        Assert.True(RuleQueryCompiler.Compile(conditions).IsAccepted);
+        Assert.True(RuleQueryCompiler.Compile(BothKinds, conditions).IsAccepted);
 
         Assert.Equal(
-            QuerySnapshot.Of(RuleQueryCompiler.Compile(conditions).Query),
-            QuerySnapshot.Of(RuleQueryCompiler.Compile(conditions).Query));
+            QuerySnapshot.Of(RuleQueryCompiler.Compile(BothKinds, conditions).Query),
+            QuerySnapshot.Of(RuleQueryCompiler.Compile(BothKinds, conditions).Query));
     }
 
     [Fact]
     public void CompilingNothingAtAllIsRefusedRatherThanIgnored()
     {
-        Assert.Throws<ArgumentNullException>(() => RuleQueryCompiler.Compile(null!));
+        Assert.Throws<ArgumentNullException>(() => RuleQueryCompiler.Compile(BothKinds, null!));
+        Assert.Throws<ArgumentNullException>(() => RuleQueryCompiler.Compile(null!, []));
     }
 }

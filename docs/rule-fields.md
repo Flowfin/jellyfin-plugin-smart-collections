@@ -1,15 +1,22 @@
-# The fields a rule may name
+# The fields a rule may name, and the item kinds it may collect
 
 The field vocabulary is closed. Which fields exist, what type each one holds,
 which operators each one accepts and how each one reaches the library are
 declared in `RuleFieldTable`, and this page is that table written out.
 
-Each section below carries a marker line of the form `## Field: <name>`, a
+Each field section below carries a marker line of the form `## Field: <name>`, a
 `Value type:` line, an `Operators:` line, a `Reaches the library:` line and a
 `Semantics:` line. The names are what a rule document writes, and
 `RuleFieldDocumentTests` holds the page to the table in both directions, so a
 field added without a section reds the suite and a section describing a field
 that does not exist reds it too.
+
+The item kinds are the second closed list on this page, declared in
+`RuleItemKindTable` and written out under `## Item kind: <name>` in the same
+way. They are here rather than on a page of their own because a rule's scope and
+a rule's fields are read together: the scope decides what the query asks for and
+the fields decide what is asked of it, and splitting them puts half of one
+sentence on each of two pages.
 
 ## Why the vocabulary is declared
 
@@ -91,9 +98,56 @@ values it accepts, because the enumeration parser is handed that list, and no
 field in this first vocabulary has one. The column arrives with the first field
 that needs it rather than being carried empty by ten rows that do not.
 
-Which item kinds each field applies to is not here either. Every field below
-applies to both kinds the first version collects, so the absence states nothing
-false, and the column that would carry a narrower answer is `#69`.
+Which item kinds each FIELD applies to is not here either, and it is not the same
+question as the list below. That list says what a RULE may collect; a column
+saying which kinds a field means anything for would be narrower, every field on
+this page applies to both kinds the first version collects, so the absence states
+nothing false, and the column that would carry a narrower answer is `#69`.
+
+## The item kinds a rule may collect
+
+Every rule document carries a `collects` member naming one or more of the kinds
+below. It is required. The two ways of leaving it out are both worse than
+refusing it: defaulting to every kind makes every rule a walk over the whole
+library, and inferring the scope from the fields a rule happens to name makes
+adding one condition silently change the size of the query. Both read well on a
+small library and neither can be explained to somebody whose server got slower.
+
+The order the names are written in means nothing, because a scope is a set. Two
+documents naming one set in two orders compile to the same query, and a name
+written twice is refused rather than folded away: a repeat changes nothing about
+what the rule collects, so it is most often a half-finished edit and is left to
+be repaired.
+
+The accepted list is this plugin's own rather than the server's enumeration. A
+legal set derived from a framework enumeration moves when the framework does,
+cannot be listed back to whoever mistyped a name, and cannot be documented. That
+is the same argument the field vocabulary rests on, one surface along.
+
+A `Selects:` line names the member of the server's own item kind enumeration a
+kind reaches the library through. No member of that enumeration carries an
+explicit value, so what a compiled query asks the server for is the member's
+POSITION in that declaration rather than its name. The two supported lines agree
+on every position today, and `RuleItemKindServerSurfaceTests` holds the whole
+enumeration to a checked-in ordered list rather than to a set, so a line that
+later inserts a member anywhere but at the end reds the suite instead of shipping
+a package that asks for the wrong kind.
+
+Which kinds the first version accepts was decided on 2026-08-24, as question 10
+of `#67`. Widening the list later is one row, one section here and one line of
+that expected list.
+
+## Item kind: movie
+
+Selects: BaseItemKind.Movie
+
+Semantics: A film.
+
+## Item kind: series
+
+Selects: BaseItemKind.Series
+
+Semantics: A series, which is the show rather than any of its seasons or episodes.
 
 ## Field: communityRating
 

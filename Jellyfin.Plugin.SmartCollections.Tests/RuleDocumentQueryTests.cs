@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// order a document wrote its siblings in, and the compiled form does not depend on that order.
 /// </summary>
 /// <remarks>
-/// The four stages are called in the order a document meets them, rather than through a validator,
+/// The five stages are called in the order a document meets them, rather than through a validator,
 /// because none of them is wired into one yet. That is the same route the stages' own suites take,
 /// so this file adds a walk rather than a second way of reading a document.
 ///
@@ -30,6 +30,7 @@ public class RuleDocumentQueryTests
           "schemaVersion": 1,
           "id": "thrillers-of-1994",
           "name": "Thrillers of 1994",
+          "collects": ["movie"],
           "match": {
             "allOf": [
               { "field": "genres", "operator": "contains", "value": "Thriller" },
@@ -45,6 +46,7 @@ public class RuleDocumentQueryTests
           "schemaVersion": 1,
           "id": "thrillers-of-1994",
           "name": "Thrillers of 1994",
+          "collects": ["movie"],
           "match": {
             "allOf": [
               { "field": "tags", "operator": "contains", "value": "keep" },
@@ -64,6 +66,7 @@ public class RuleDocumentQueryTests
           "schemaVersion": 1,
           "id": "thrillers-of-1994",
           "name": "Thrillers of 1994",
+          "collects": ["movie"],
           "match": {
             "allOf": [
               { "field": "tags", "operator": "contains", "value": "keep" },
@@ -77,6 +80,16 @@ public class RuleDocumentQueryTests
           }
         }
         """;
+
+    private static IReadOnlyList<RuleItemKindRow> ReadScope(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var scope = RuleItemScopeReader.Read(document.RootElement);
+
+        Assert.True(scope.IsAccepted, string.Join("; ", scope.Errors.Select(error => error.ToString())));
+
+        return scope.Kinds;
+    }
 
     private static RuleValueRead ReadRule(string json)
     {
@@ -100,7 +113,7 @@ public class RuleDocumentQueryTests
 
     private static InternalItemsQuery Compile(string json)
     {
-        var compilation = RuleQueryCompiler.Compile(ReadRule(json).Conditions);
+        var compilation = RuleQueryCompiler.Compile(ReadScope(json), ReadRule(json).Conditions);
 
         Assert.True(compilation.IsAccepted, string.Join("; ", compilation.Errors.Select(error => error.ToString())));
         Assert.Empty(compilation.AfterTheQuery);
@@ -117,7 +130,7 @@ public class RuleDocumentQueryTests
     {
         Assert.Equal(3, ReadRule(ThreeConditions).Conditions.Count);
         Assert.Equal(
-            ["Genres", "Tags", "Years"],
+            ["Genres", "IncludeItemTypes", "Tags", "Years"],
             QuerySnapshot.Moved(Compile(ThreeConditions)));
     }
 

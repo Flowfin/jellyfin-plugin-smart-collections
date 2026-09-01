@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Jellyfin.Data.Enums;
 using MediaBrowser.Controller.Entities;
 
 namespace Jellyfin.Plugin.SmartCollections.Rules;
@@ -20,18 +21,42 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// tree, and that is a boundary rather than an omission: a server query is a conjunction, so only
 /// conditions that all have to hold can be pushed into it, and which of a rule's conditions those
 /// are is the tree's question rather than this one's.
+///
+/// IT IS ALSO HANDED THE SCOPE, AND THAT ONE IS NOT OPTIONAL. Every query this stage produces is
+/// bounded by the item kinds the rule declares it collects, whether or not a single condition
+/// compiled, so a rule made entirely of conditions the query cannot express still asks the server
+/// for films and series rather than for the library. A compiler that could return an unbounded
+/// query would put that bound in the caller's keeping, which is where a bound is forgotten once.
 /// </remarks>
 public static class RuleQueryCompiler
 {
     /// <summary>
-    /// Compiles conditions that all have to hold into one query.
+    /// Compiles the kinds a rule collects and the conditions that all have to hold into one query.
     /// </summary>
+    /// <param name="scope">The kinds the rule collects, as the scope stage read them.</param>
     /// <param name="conditions">The conditions, with their values already parsed.</param>
     /// <returns>The query, the conditions it does not answer, or the reasons it was refused.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="conditions"/> is <see langword="null"/>.</exception>
-    public static RuleQueryCompilation Compile(IReadOnlyList<RuleConditionValue> conditions)
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="scope"/> or <paramref name="conditions"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException"><paramref name="scope"/> is empty.</exception>
+    public static RuleQueryCompilation Compile(
+        IReadOnlyList<RuleItemKindRow> scope,
+        IReadOnlyList<RuleConditionValue> conditions)
     {
+        ArgumentNullException.ThrowIfNull(scope);
         ArgumentNullException.ThrowIfNull(conditions);
+
+        // An empty scope is refused here rather than compiled into an empty include list, because
+        // the server reads an empty one as no narrowing at all. The scope stage cannot produce
+        // one; this arm is for a caller that built a scope some other way, and it throws rather
+        // than returning a refusal because it is a fault in the caller and not in a document.
+        if (scope.Count == 0)
+        {
+            throw new ArgumentException(
+                "A rule collects at least one item kind, and an empty scope would compile to a query that narrows on none.",
+                nameof(scope));
+        }
 
         var query = new InternalItemsQuery();
         var afterTheQuery = new List<RuleConditionValue>();
@@ -62,9 +87,25 @@ public static class RuleQueryCompiler
             written.Add(row.QueryProperty, condition.Pointer);
         }
 
-        return errors.Count > 0
-            ? RuleQueryCompilation.Refused(errors)
-            : RuleQueryCompilation.Accepted(query, afterTheQuery);
+        if (errors.Count > 0)
+        {
+            return RuleQueryCompilation.Refused(errors);
+        }
+
+        // Written last so that a refused compilation carries a query nobody can mistake for an
+        // answer, which is the property RuleQueryCompilation declares about itself. The list is
+        // built from the scope in the order the table declares, so ExcludeItemTypes is left where
+        // the server's own constructor leaves it: this plugin selects by naming what it collects
+        // and never by naming what it does not.
+        var kinds = new BaseItemKind[scope.Count];
+        for (var index = 0; index < scope.Count; index++)
+        {
+            kinds[index] = scope[index].ServerKind;
+        }
+
+        query.IncludeItemTypes = kinds;
+
+        return RuleQueryCompilation.Accepted(query, afterTheQuery);
     }
 
     /// <summary>

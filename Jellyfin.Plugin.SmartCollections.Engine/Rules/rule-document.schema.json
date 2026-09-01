@@ -4,7 +4,7 @@
     "title": "Smart Collections rule document",
     "description": "One rule document per collection. This file declares the envelope every version of the format carries. The rule inside the envelope is not declared here yet: the field vocabulary, the operator set, the value types and the item scope each arrive with the issue that decides them, and each adds its members to this schema at the same time as it adds its stage to the validator. A document is refused by Jellyfin.Plugin.SmartCollections.Rules.RuleDocumentValidator rather than by a schema processor, so that a refusal can carry a pointer into the document and a message in the words an operator reads. This file is what an editor points at, and a test holds its schemaVersion bounds, its id bounds and its name bounds to the constants that validator declares.",
     "type": "object",
-    "required": ["schemaVersion", "id", "name"],
+    "required": ["schemaVersion", "id", "name", "collects"],
     "properties": {
         "schemaVersion": {
             "description": "The version of this format the document is written in. Refused when absent, because a document without one would be read as whatever shape the installed plugin happens to expect. Refused when higher than the plugin reads, because a newer version may have changed what an existing member means, and reading as far as it parses would apply a rule that means something else.",
@@ -24,6 +24,16 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 255
+        },
+        "collects": {
+            "description": "What kinds of item this rule collects, as an array of one or more of the declared kinds. Refused when absent, because the two ways of leaving it out are both worse than refusing: defaulting to every kind makes every rule a walk over the whole library, and inferring the scope from the fields a rule happens to name makes adding one condition silently change the size of the query. Refused when it is not an array, when it is empty, when a member is not a string, when a member names no declared kind, and when a member repeats one an earlier member already named; a repeat changes nothing about what the rule collects and is left to be repaired rather than folded away, because it is most often a half-finished edit. The accepted list is this plugin's own rather than the server's enumeration: a legal set derived from a framework enumeration moves when the framework does and can be neither documented nor validated against. The order the members are written in means nothing, because a scope is a set: two documents naming one set in two orders compile to the same query. docs/rule-fields.md is where each kind is written down with what it means.",
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "enum": ["movie", "series"]
+            }
         }
     }
 }

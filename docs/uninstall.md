@@ -138,7 +138,7 @@ writes one:
 
 ```
 node -e "const s=require('./Jellyfin.Plugin.SmartCollections.Engine/Rules/rule-document.schema.json');console.log(Object.keys(s.properties).join(', '))"
-schemaVersion, id, name
+schemaVersion, id, name, collects
 git grep -n 'CreateCollectionAsync' -- 'Jellyfin.Plugin.SmartCollections/' 'Jellyfin.Plugin.SmartCollections.Engine/'
 Jellyfin.Plugin.SmartCollections.Engine/Membership/CollectionResolver.cs:68:        return await _ownership.CreateCollectionAsync(
 Jellyfin.Plugin.SmartCollections.Engine/Membership/ICollectionOwnership.cs:71:    Task<Guid> CreateCollectionAsync(
