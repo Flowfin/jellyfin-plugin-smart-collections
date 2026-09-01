@@ -31,6 +31,22 @@ public class RuleFieldDocumentTests
     /// </summary>
     private const string QueryPrefix = "InternalItemsQuery.";
 
+    /// <summary>
+    /// The post-query list, which is the second thing this page is held to. A field reaches the
+    /// library through a query property or it does not, and the ones that do not are what the
+    /// post-query stage exists for, so the page carries them as a list with a reason each rather
+    /// than only as one line inside each field's own section.
+    /// </summary>
+    private static readonly Regex PostQuerySection = new(
+        @"^## Read after the query: (?<name>[A-Za-z]+)
+?
+
+?
+Reason: (?<reason>.+?)
+?$",
+        RegexOptions.Multiline | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(5));
+
     private static readonly Regex Section = new(
         @"^## Field: (?<name>[A-Za-z]+)\r?\n\r?\nValue type: (?<type>.+?)\r?\n\r?\nOperators: (?<operators>.+?)\r?\n\r?\nReaches the library: (?<reach>.+?)\r?\n\r?\nSemantics: (?<semantics>.+?)\r?$",
         RegexOptions.Multiline | RegexOptions.CultureInvariant);
@@ -153,5 +169,52 @@ public class RuleFieldDocumentTests
         Assert.Contains("rule-operators.md", page, StringComparison.Ordinal);
         Assert.Contains("rule-values.md", page, StringComparison.Ordinal);
         Assert.Contains("rule-language.md", page, StringComparison.Ordinal);
+    }
+
+    private static IReadOnlyDictionary<string, string> Listed()
+        => PostQuerySection.Matches(RepositoryFiles.ReadFromRoot(Page))
+            .ToDictionary(
+                section => section.Groups["name"].Value,
+                section => section.Groups["reason"].Value,
+                StringComparer.Ordinal);
+
+    /// <summary>
+    /// Without this the comparison below passes on a page whose list somebody emptied, at the same
+    /// time as a table with no post-query row, and two empty sets agree.
+    /// </summary>
+    [Fact]
+    public void ThePageListsTheFieldsReadAfterTheQuery()
+    {
+        Assert.NotEmpty(Listed());
+        Assert.Contains(RuleFieldTable.Rows, row => row.IsPostQuery);
+    }
+
+    /// <summary>
+    /// The list and the table say the same thing in both directions. A field that moves into the
+    /// post-query stage without a section here reds, and a section for a field the query narrows
+    /// on reds too, which is what makes adding to the stage a visible decision rather than a
+    /// nullable column somebody changed.
+    /// </summary>
+    [Fact]
+    public void TheListIsExactlyTheRowsCarryingNoQueryProperty()
+        => Assert.Equal(
+            RuleFieldTable.Rows
+                .Where(row => row.IsPostQuery)
+                .Select(row => row.Name)
+                .OrderBy(name => name, StringComparer.Ordinal),
+            Listed().Keys.OrderBy(name => name, StringComparer.Ordinal));
+
+    /// <summary>
+    /// Every entry says why the query cannot carry the field. A list of names with no reasons is
+    /// the state this page was in before the list existed, one line per field and no argument.
+    /// </summary>
+    [Fact]
+    public void EveryEntryOnTheListCarriesAReason()
+    {
+        foreach (var (name, reason) in Listed())
+        {
+            Assert.False(string.IsNullOrWhiteSpace(reason), name + " is listed with no reason.");
+            Assert.EndsWith(".", reason, StringComparison.Ordinal);
+        }
     }
 }
