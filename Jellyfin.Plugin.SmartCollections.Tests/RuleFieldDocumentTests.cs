@@ -38,12 +38,7 @@ public class RuleFieldDocumentTests
     /// than only as one line inside each field's own section.
     /// </summary>
     private static readonly Regex PostQuerySection = new(
-        @"^## Read after the query: (?<name>[A-Za-z]+)
-?
-
-?
-Reason: (?<reason>.+?)
-?$",
+        @"^## Read after the query: (?<name>[A-Za-z]+)\r?\n\r?\nReason: (?<reason>.+?)\r?$",
         RegexOptions.Multiline | RegexOptions.CultureInvariant,
         TimeSpan.FromSeconds(5));
 
