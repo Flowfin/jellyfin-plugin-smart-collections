@@ -35,7 +35,7 @@ public class RuleItemKindServerSurfaceTests
 
     private static IReadOnlyList<string> ResolvedPairs()
         => Enum.GetValues<BaseItemKind>()
-            .Select(kind => ((int)kind).ToString(CultureInfo.InvariantCulture) + " " + kind.ToString())
+            .Select(kind => ((int)kind).ToString(CultureInfo.InvariantCulture) + " " + kind)
             .ToArray();
 
     /// <summary>
@@ -75,7 +75,7 @@ public class RuleItemKindServerSurfaceTests
         {
             Assert.Contains(row.ServerKind, declared);
             Assert.Contains(
-                ((int)row.ServerKind).ToString(CultureInfo.InvariantCulture) + " " + row.ServerKind.ToString(),
+                ((int)row.ServerKind).ToString(CultureInfo.InvariantCulture) + " " + row.ServerKind,
                 ExpectedPairs());
         }
     }

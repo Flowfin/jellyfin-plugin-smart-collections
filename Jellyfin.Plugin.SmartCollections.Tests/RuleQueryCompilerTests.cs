@@ -369,6 +369,9 @@ public class RuleQueryCompilerTests
             Assert.True(compilation.IsAccepted);
             Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
             Assert.Same(condition, Assert.Single(compilation.AfterTheQuery));
+            Assert.False(
+                QuerySnapshot.Moved(compilation.Query).Contains("Years"),
+                "The year " + year.ToString(CultureInfo.InvariantCulture) + " was narrowed on.");
         }
     }
 

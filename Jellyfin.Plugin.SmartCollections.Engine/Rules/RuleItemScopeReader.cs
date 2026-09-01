@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.Json;
 
 namespace Jellyfin.Plugin.SmartCollections.Rules;
@@ -94,17 +95,8 @@ public static class RuleItemScopeReader
         // The table's order rather than the document's, which is what makes a scope a set. Built
         // by walking the table so the result cannot carry a kind twice however the document was
         // written.
-        var kinds = new List<RuleItemKindRow>(taken.Count);
-
-        foreach (var row in RuleItemKindTable.Rows)
-        {
-            if (taken.ContainsKey(row.Kind))
-            {
-                kinds.Add(row);
-            }
-        }
-
-        return RuleItemScopeRead.Accepted(kinds);
+        return RuleItemScopeRead.Accepted(
+            RuleItemKindTable.Rows.Where(row => taken.ContainsKey(row.Kind)).ToArray());
     }
 
     private static void ReadKind(
