@@ -1,0 +1,58 @@
+# Every member of the server's own BaseItemKind enumeration, by value and name, in
+# declaration order. Read out of the assembly each supported line resolves rather
+# than out of its source, because a package asks the server for the VALUE and no
+# member of that enumeration declares one explicitly: the value is the member's
+# position, so a line that later inserts a member anywhere but at the end moves
+# every value after it while every name is still present.
+#
+# Taken on 2026-09-01 over the two pins Jellyfin.Plugin.SmartCollections.Engine.csproj
+# declares, with a file-based program that reads the constants out of the metadata:
+#
+#   for v in 10.11.11 12.0.0-rc4; do
+#     tf=net9.0; case $v in 12.*) tf=net10.0;; esac
+#     dotnet run --file kinds.cs ~/.nuget/packages/jellyfin.data/$v/lib/$tf/Jellyfin.Data.dll > out-$v.txt
+#   done
+#   diff out-10.11.11.txt out-12.0.0-rc4.txt && echo "identical in order and value"
+#   identical in order and value
+#
+# RuleItemKindServerSurfaceTests compares this against the enumeration the suite is
+# compiled against, on each target framework, so a move on either line reds the
+# suite rather than shipping a package that asks the server for the wrong kind.
+# A line that adds a member at the end adds one line here and nothing else.
+0 AggregateFolder
+1 Audio
+2 AudioBook
+3 BasePluginFolder
+4 Book
+5 BoxSet
+6 Channel
+7 ChannelFolderItem
+8 CollectionFolder
+9 Episode
+10 Folder
+11 Genre
+12 ManualPlaylistsFolder
+13 Movie
+14 LiveTvChannel
+15 LiveTvProgram
+16 MusicAlbum
+17 MusicArtist
+18 MusicGenre
+19 MusicVideo
+20 Person
+21 Photo
+22 PhotoAlbum
+23 Playlist
+24 PlaylistsFolder
+25 Program
+26 Recording
+27 Season
+28 Series
+29 Studio
+30 Trailer
+31 TvChannel
+32 TvProgram
+33 UserRootFolder
+34 UserView
+35 Video
+36 Year

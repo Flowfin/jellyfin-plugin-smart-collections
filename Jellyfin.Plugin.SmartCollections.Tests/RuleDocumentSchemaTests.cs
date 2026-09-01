@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.SmartCollections.Rules;
@@ -218,5 +219,74 @@ public class RuleDocumentSchemaTests
             + RuleDocumentValidator.NameMember + "\": \"" + new string('a', maxLength) + "\"}");
 
         Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
+    }
+
+    [Fact]
+    public void TheSchemaRequiresTheScopeMemberTheScopeStageRequires()
+    {
+        var required = Schema().GetProperty("required");
+
+        Assert.Contains(
+            required.EnumerateArray(),
+            member => string.Equals(
+                member.GetString(),
+                RuleItemScopeReader.CollectsMember,
+                StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The editor's copy of the accepted kinds and the table's are the same list in the same
+    /// order. This is the second member of the format a schema processor can express in full, so
+    /// it is the second place the two declarations could disagree silently on a document rather
+    /// than on a bound: a kind added to the table and not to the file leaves an editor refusing a
+    /// document the plugin takes.
+    /// </summary>
+    [Fact]
+    public void TheSchemaDeclaresTheSameItemKindsTheTableDeclares()
+    {
+        var member = Schema()
+            .GetProperty("properties")
+            .GetProperty(RuleItemScopeReader.CollectsMember);
+
+        Assert.Equal("array", member.GetProperty("type").GetString());
+        Assert.Equal(1, member.GetProperty("minItems").GetInt32());
+        Assert.True(member.GetProperty("uniqueItems").GetBoolean());
+
+        var items = member.GetProperty("items");
+        Assert.Equal("string", items.GetProperty("type").GetString());
+        Assert.Equal(
+            RuleItemKindTable.Names,
+            items.GetProperty("enum").EnumerateArray().Select(kind => kind.GetString()!).ToArray());
+    }
+
+    /// <summary>
+    /// The crossing the two members above take on a bound, taken here on the values themselves:
+    /// every kind the schema permits is one the scope stage accepts, and a scope the schema
+    /// permits compiles.
+    /// </summary>
+    [Fact]
+    public void EveryKindTheSchemaPermitsIsOneTheScopeStageAccepts()
+    {
+        var permitted = Schema()
+            .GetProperty("properties")
+            .GetProperty(RuleItemScopeReader.CollectsMember)
+            .GetProperty("items")
+            .GetProperty("enum")
+            .EnumerateArray()
+            .Select(kind => kind.GetString())
+            .ToArray();
+
+        Assert.NotEmpty(permitted);
+
+        foreach (var kind in permitted)
+        {
+            using var document = JsonDocument.Parse(
+                "{\"" + RuleItemScopeReader.CollectsMember + "\": [\"" + kind + "\"]}");
+
+            var read = RuleItemScopeReader.Read(document.RootElement);
+
+            Assert.True(read.IsAccepted, "Refused with: " + string.Join(" | ", read.Errors));
+            Assert.Equal(kind, Assert.Single(read.Kinds).Name);
+        }
     }
 }

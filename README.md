@@ -98,7 +98,7 @@ for it to belong, and how the collection is ordered.
     "schemaVersion": 1,
     "id": "nineties-thrillers",
     "name": "Nineties Thrillers",
-    "collects": ["Movie"],
+    "collects": ["movie"],
     "match": {
         "allOf": [
             { "field": "genres", "operator": "contains", "value": "Thriller" },
@@ -132,7 +132,13 @@ Reading it clause by clause:
   business and you should not have to rename a file to rename a collection. Two
   rules may deliberately carry the same name; what tells their collections apart
   is the stamp rather than the title.
-- `collects` names the item kinds the rule gathers.
+- `collects` names the item kinds the rule gathers, and every document carries
+  one. It is refused rather than defaulted, because a rule with no scope reads
+  every item in your library, and refused rather than inferred from the fields
+  the rule names, because that would make adding one condition change the size
+  of the query. The names are a declared list rather than the server's own
+  enumeration; [the field reference](docs/rule-fields.md) is where each one is
+  written down with what it means.
 - `match` is a tree of conditions. `allOf` requires every clause to hold. Which
   composition operators exist and how deeply they may nest is part of the rule
   language rather than something a document decides for itself.

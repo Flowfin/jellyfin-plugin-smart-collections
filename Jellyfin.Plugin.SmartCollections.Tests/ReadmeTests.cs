@@ -77,6 +77,26 @@ public class ReadmeTests
     }
 
     /// <summary>
+    /// The scope in the example is one the scope stage takes. Reading the member and stopping
+    /// there passes on a front page naming a kind the plugin refuses, which is worse than naming
+    /// none: a reader copies the example, meets a refusal, and looks for the fault in their own
+    /// document.
+    /// </summary>
+    [Fact]
+    public void TheExampleDeclaresAScopeTheEngineAccepts()
+    {
+        var match = FirstJsonBlock.Match(RepositoryFiles.ReadFromRoot("README.md"));
+
+        Assert.True(match.Success, "README.md carries no fenced json block.");
+
+        using var document = JsonDocument.Parse(match.Groups["json"].Value);
+        var scope = RuleItemScopeReader.Read(document.RootElement);
+
+        Assert.True(scope.IsAccepted, "Refused with: " + string.Join(" | ", scope.Errors));
+        Assert.NotEmpty(scope.Kinds);
+    }
+
+    /// <summary>
     /// The rule inside the example is written in the vocabulary the engine declares: every group
     /// is one of the composition stage's members, every field and every operator is a row of its
     /// table, and each field's row accepts the operator written beside it.
