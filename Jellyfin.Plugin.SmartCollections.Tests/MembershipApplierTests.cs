@@ -5,6 +5,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.SmartCollections.Membership;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Jellyfin.Plugin.SmartCollections.Tests;
@@ -43,6 +45,7 @@ public class MembershipApplierTests
             [new CollectionRefresh(Rule, Collection, diff)],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.Equal(held.OrderBy(id => id), writer.Held(Collection));
@@ -71,6 +74,7 @@ public class MembershipApplierTests
             [new CollectionRefresh(Rule, Collection, diff)],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.DoesNotContain(writer.Calls, call => call.StartsWith("remove", StringComparison.Ordinal));
@@ -91,6 +95,7 @@ public class MembershipApplierTests
             [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1), Identifier(3)]))],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.Equal(
@@ -125,6 +130,7 @@ public class MembershipApplierTests
             ],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.Contains(arriving, writer.Held(first));
@@ -157,6 +163,7 @@ public class MembershipApplierTests
             [new CollectionRefresh("good-rule", good, diff), new CollectionRefresh("bad-rule", bad, diff)],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         var failed = Assert.Single(outcomes, outcome => !outcome.Succeeded);
@@ -184,6 +191,7 @@ public class MembershipApplierTests
             [new CollectionRefresh("recently-added-films", Collection, MembershipDiff.Between([], [arriving]))],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.Equal("recently-added-films", outcomes[0].RuleId);
@@ -209,6 +217,7 @@ public class MembershipApplierTests
             [new CollectionRefresh("recently-added-films", Collection, MembershipDiff.Between([], [arriving]))],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.False(outcomes[0].Succeeded);
@@ -239,11 +248,13 @@ public class MembershipApplierTests
             [new CollectionRefresh("recently-added-films", before, diff)],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
         var second = await MembershipApplier.ApplyAsync(
             [new CollectionRefresh("recently-added-films", after, diff)],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.NotEqual(first[0].CollectionId, second[0].CollectionId);
@@ -279,6 +290,7 @@ public class MembershipApplierTests
             ],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.Equal(
@@ -305,6 +317,7 @@ public class MembershipApplierTests
             [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([], [stays, vanished]))],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.True(outcomes[0].Succeeded);
@@ -329,6 +342,7 @@ public class MembershipApplierTests
             [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([], [vanished]))],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.Equal(["resolve"], writer.Calls.Select(call => call.Split(' ')[0]));
@@ -353,6 +367,7 @@ public class MembershipApplierTests
             [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([vanished], []))],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.Empty(writer.Held(Collection));
@@ -376,6 +391,7 @@ public class MembershipApplierTests
             [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([Identifier(1)], [Identifier(1)]))],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.Empty(writer.Calls);
@@ -399,6 +415,7 @@ public class MembershipApplierTests
             [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1)]))],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.Equal(["remove"], writer.Calls.Select(call => call.Split(' ')[0]));
@@ -423,6 +440,7 @@ public class MembershipApplierTests
             [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1), arriving]))],
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
 
         Assert.False(outcomes[0].Succeeded);
@@ -450,6 +468,7 @@ public class MembershipApplierTests
                 [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([], [Identifier(3)]))],
                 writer,
                 new CollectionRefreshGate(),
+                NullLogger.Instance,
                 cancelled.Token));
 
         Assert.Empty(writer.Held(Collection));
@@ -483,6 +502,7 @@ public class MembershipApplierTests
                 [new CollectionRefresh("first-rule", first, diff), new CollectionRefresh("second-rule", second, diff)],
                 writer,
                 new CollectionRefreshGate(),
+                NullLogger.Instance,
                 shutdown.Token));
 
         Assert.Empty(writer.Held(first));
@@ -501,14 +521,204 @@ public class MembershipApplierTests
         var writer = new FakeCollectionWriter();
 
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => MembershipApplier.ApplyAsync(null!, writer, new CollectionRefreshGate(), CancellationToken.None));
+            () => MembershipApplier.ApplyAsync(null!, writer, new CollectionRefreshGate(), NullLogger.Instance, CancellationToken.None));
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => MembershipApplier.ApplyAsync([], null!, new CollectionRefreshGate(), CancellationToken.None));
+            () => MembershipApplier.ApplyAsync([], null!, new CollectionRefreshGate(), NullLogger.Instance, CancellationToken.None));
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => MembershipApplier.ApplyAsync([], writer, null!, CancellationToken.None));
+            () => MembershipApplier.ApplyAsync([], writer, null!, NullLogger.Instance, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => MembershipApplier.ApplyAsync([], writer, new CollectionRefreshGate(), null!, CancellationToken.None));
         Assert.Throws<ArgumentNullException>(() => new CollectionRefresh(Rule, Collection, null!));
         Assert.Throws<ArgumentNullException>(
             () => new CollectionRefresh(null!, Collection, MembershipDiff.Between([], [])));
+    }
+
+
+    /// <summary>
+    /// The rule this issue states in its own words: a run that changed nothing does not log at
+    /// information level. Deleting the emptiness test in <c>Report</c> makes this red.
+    /// </summary>
+    /// <remarks>
+    /// The collection already holds what the rule describes, so the diff is empty in both
+    /// directions and neither the add nor the remove is issued. An operator running fifty rules
+    /// against a library that did not move gets fifty of these, which is why the level matters
+    /// more here than the text.
+    /// </remarks>
+    [Fact]
+    public async Task ARefreshThatChangedNothingWritesNoInformationLine()
+    {
+        var held = new[] { Identifier(1), Identifier(2) };
+        var writer = new FakeCollectionWriter();
+        writer.PutInLibrary(held);
+        writer.Seed(Collection, held);
+
+        var logger = new RecordingLogger();
+        var outcomes = await MembershipApplier.ApplyAsync(
+            [new CollectionRefresh(Rule, Collection, MembershipDiff.Between(held, held))],
+            writer,
+            new CollectionRefreshGate(),
+            logger,
+            CancellationToken.None);
+
+        Assert.True(outcomes[0].Succeeded);
+        Assert.Empty(outcomes[0].Added);
+        Assert.Empty(outcomes[0].Removed);
+        Assert.Empty(logger.At(LogLevel.Information));
+        Assert.Single(logger.At(LogLevel.Debug));
+        Assert.Contains(Rule, logger.At(LogLevel.Debug)[0].Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The other direction, so a change that silenced the applier altogether would still be red
+    /// somewhere. A collection whose membership moved is worth one information-level line.
+    /// </summary>
+    [Fact]
+    public async Task ACollectionWhoseMembershipMovedIsOneInformationLine()
+    {
+        var writer = new FakeCollectionWriter();
+        writer.PutInLibrary([Identifier(1), Identifier(3)]);
+        writer.Seed(Collection, [Identifier(1), Identifier(2)]);
+
+        var logger = new RecordingLogger();
+        await MembershipApplier.ApplyAsync(
+            [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([Identifier(1), Identifier(2)], [Identifier(1), Identifier(3)]))],
+            writer,
+            new CollectionRefreshGate(),
+            logger,
+            CancellationToken.None);
+
+        var information = Assert.Single(logger.At(LogLevel.Information));
+        Assert.Contains(Rule, information.Message, StringComparison.Ordinal);
+        Assert.Contains("1 added", information.Message, StringComparison.Ordinal);
+        Assert.Contains("1 removed", information.Message, StringComparison.Ordinal);
+        Assert.Empty(logger.At(LogLevel.Error));
+        Assert.Empty(logger.At(LogLevel.Warning));
+    }
+
+    /// <summary>
+    /// An apply that failed is an error line, and it carries what threw rather than only saying
+    /// that something did.
+    /// </summary>
+    /// <remarks>
+    /// The exception is handed to the logger rather than rendered into the message, because the
+    /// surface reporting it decides how much of it to show and a message that flattened it to a
+    /// sentence cannot get the stack back.
+    /// </remarks>
+    [Fact]
+    public async Task AnApplyThatFailedIsOneErrorLineCarryingWhatThrew()
+    {
+        var writer = new FakeCollectionWriter();
+        writer.PutInLibrary([Identifier(1), Identifier(3)]);
+        writer.Seed(Collection, [Identifier(1)]);
+        writer.ThrowOnTheAddOf(Collection, position: 1);
+
+        var logger = new RecordingLogger();
+        var outcomes = await MembershipApplier.ApplyAsync(
+            [new CollectionRefresh(Rule, Collection, MembershipDiff.Between([Identifier(1)], [Identifier(1), Identifier(3)]))],
+            writer,
+            new CollectionRefreshGate(),
+            logger,
+            CancellationToken.None);
+
+        Assert.False(outcomes[0].Succeeded);
+        var error = Assert.Single(logger.At(LogLevel.Error));
+        Assert.Contains(Rule, error.Message, StringComparison.Ordinal);
+        Assert.Same(outcomes[0].Fault, error.Exception);
+        Assert.Empty(logger.At(LogLevel.Information));
+    }
+
+    /// <summary>
+    /// The clause about grepping for one collection, held over a run whose three collections end
+    /// in the three different states rather than over one of them at a time.
+    /// </summary>
+    [Fact]
+    public async Task EveryLineARefreshWritesNamesTheRuleItIsAbout()
+    {
+        var moved = Identifier(30);
+        var quiet = Identifier(31);
+        var failing = Identifier(32);
+        var arriving = Identifier(9);
+
+        var writer = new FakeCollectionWriter();
+        writer.PutInLibrary([Identifier(1), arriving]);
+        writer.Seed(moved, [Identifier(1)]);
+        writer.Seed(quiet, [Identifier(1)]);
+        writer.Seed(failing, [Identifier(1)]);
+        writer.ThrowOnTheAddOf(failing, position: 1);
+
+        var growing = MembershipDiff.Between([Identifier(1)], [Identifier(1), arriving]);
+        var unchanged = MembershipDiff.Between([Identifier(1)], [Identifier(1)]);
+
+        var logger = new RecordingLogger();
+        await MembershipApplier.ApplyAsync(
+            [
+                new CollectionRefresh("moved-rule", moved, growing),
+                new CollectionRefresh("quiet-rule", quiet, unchanged),
+                new CollectionRefresh("failing-rule", failing, growing)
+            ],
+            writer,
+            new CollectionRefreshGate(),
+            logger,
+            CancellationToken.None);
+
+        Assert.Equal(3, logger.Lines.Count);
+        Assert.Equal(
+            [LogLevel.Information, LogLevel.Debug, LogLevel.Error],
+            logger.Lines.Select(line => line.Level));
+        Assert.Equal(
+            ["moved-rule", "quiet-rule", "failing-rule"],
+            logger.Lines.Select(line => line.Message.Split(' ')[1]));
+    }
+
+    /// <summary>
+    /// Nothing logged carries an item, which is this issue's disclosure rule rather than a
+    /// preference about verbosity.
+    /// </summary>
+    /// <remarks>
+    /// An item identifier resolves to a title and a path on the server it came from, so a line
+    /// carrying one turns a log an administrator pastes into a bug report into a partial listing
+    /// of their library. What the applier writes instead is how many moved. The collection
+    /// identifier is named on purpose and is not an item: it is what an operator opens.
+    /// </remarks>
+    [Fact]
+    public async Task NoLineARefreshWritesNamesAnItemItMoved()
+    {
+        var arriving = Identifier(3);
+        var leaving = Identifier(2);
+        var vanished = Identifier(4);
+
+        var writer = new FakeCollectionWriter();
+        writer.PutInLibrary([Identifier(1), arriving]);
+        writer.Seed(Collection, [Identifier(1), leaving]);
+
+        var logger = new RecordingLogger();
+        await MembershipApplier.ApplyAsync(
+            [
+                new CollectionRefresh(
+                    Rule,
+                    Collection,
+                    MembershipDiff.Between([Identifier(1), leaving], [Identifier(1), arriving, vanished]))
+            ],
+            writer,
+            new CollectionRefreshGate(),
+            logger,
+            CancellationToken.None);
+
+        foreach (var line in logger.Lines)
+        {
+            foreach (var item in new[] { Identifier(1), arriving, leaving, vanished })
+            {
+                Assert.DoesNotContain(
+                    item.ToString("D", CultureInfo.InvariantCulture),
+                    line.Message,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        Assert.Contains(
+            Collection.ToString("D", CultureInfo.InvariantCulture),
+            logger.At(LogLevel.Information)[0].Message,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

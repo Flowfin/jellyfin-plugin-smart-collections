@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.SmartCollections.Membership;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Jellyfin.Plugin.SmartCollections.Tests;
@@ -267,6 +268,7 @@ public class CollectionRefreshHistoryTests
             refreshes,
             writer,
             new CollectionRefreshGate(),
+            NullLogger.Instance,
             CancellationToken.None);
     }
 

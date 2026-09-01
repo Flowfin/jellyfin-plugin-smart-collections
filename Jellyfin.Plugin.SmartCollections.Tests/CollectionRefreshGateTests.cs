@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.SmartCollections.Membership;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Jellyfin.Plugin.SmartCollections.Tests;
@@ -201,6 +202,7 @@ public class CollectionRefreshGateTests
             [new CollectionRefresh("a-rule", collectionId, MembershipDiff.Between([], [Arriving]))],
             writer,
             gate,
+            NullLogger.Instance,
             cancellationToken);
 
     /// <summary>

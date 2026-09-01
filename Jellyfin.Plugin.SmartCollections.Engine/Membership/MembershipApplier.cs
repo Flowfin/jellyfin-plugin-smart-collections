@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.SmartCollections.Membership;
 
@@ -27,6 +28,12 @@ namespace Jellyfin.Plugin.SmartCollections.Membership;
 /// says nothing about the rest, so each is applied inside its own attempt and the fault is
 /// recorded against that collection rather than ending the run.
 ///
+/// What the run says out loud is decided here for the same reason. An operator reads the server
+/// log to find out which collection went wrong, so every line names the rule it is about, and a
+/// refresh that changed nothing writes nothing at information level: a plugin logging a line per
+/// collection per run buries the one line that matters under the collections that were already
+/// right.
+///
 /// Both of those hold within one run and neither of them says anything about a second run
 /// arriving at the same collection. Two runs whose writes interleave both finish and both report
 /// success, and the membership they leave behind is neither of the two their rules describe, so
@@ -47,6 +54,11 @@ public static class MembershipApplier
     /// sharing a gate exclude each other; two runs holding a gate each exclude nothing, which is
     /// why the instance is decided where the plugin's services are registered rather than here.
     /// </param>
+    /// <param name="logger">
+    /// Where the run reports itself. One line per collection, at the level the outcome earns:
+    /// information where the membership moved, error where the apply failed, and debug where the
+    /// collection was already what its rule describes.
+    /// </param>
     /// <param name="cancellationToken">Cancels the run.</param>
     /// <returns>
     /// One outcome per element of <paramref name="refreshes"/>, in the same order, whether it
@@ -61,11 +73,13 @@ public static class MembershipApplier
         IReadOnlyList<CollectionRefresh> refreshes,
         ICollectionMembershipWriter writer,
         CollectionRefreshGate gate,
+        ILogger logger,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(refreshes);
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(gate);
+        ArgumentNullException.ThrowIfNull(logger);
 
         var outcomes = new List<CollectionRefreshOutcome>(refreshes.Count);
         foreach (var refresh in refreshes)
@@ -73,13 +87,79 @@ public static class MembershipApplier
             // Entered per collection rather than once around the loop. A run holding one gate over
             // every collection it touches would make two runs that share a single collection
             // serialise on all of the others as well, which is the cost this design refuses.
-            outcomes.Add(await gate.ApplyExclusivelyAsync(
+            var outcome = await gate.ApplyExclusivelyAsync(
                 refresh.CollectionId,
                 token => ApplyOneAsync(refresh, writer, token),
-                cancellationToken).ConfigureAwait(false));
+                cancellationToken).ConfigureAwait(false);
+
+            outcomes.Add(outcome);
+            Report(logger, outcome);
         }
 
         return outcomes;
+    }
+
+    /// <summary>
+    /// Writes one line about one collection, at the level its outcome earns.
+    /// </summary>
+    /// <remarks>
+    /// Counts and identifiers only. A rule document is text an operator wrote and an item has a
+    /// path on a disk, and neither belongs in a log an administrator may paste into a bug report,
+    /// so what is written here is the rule the outcome is about, the collection it wrote to, and
+    /// how many identifiers moved in each direction.
+    ///
+    /// Called after the gate has been released rather than inside it. The line is about a
+    /// collection that has finished, so holding the gate to write it would make one collection's
+    /// logging wait on another's.
+    ///
+    /// Each branch asks whether its level is enabled before it builds the line. That is the
+    /// analyser's requirement rather than a preference, and it costs nothing here: a run over a
+    /// server logging at warning writes none of these and counts nothing for them.
+    /// </remarks>
+    private static void Report(ILogger logger, CollectionRefreshOutcome outcome)
+    {
+        if (outcome.Fault is not null)
+        {
+            if (logger.IsEnabled(LogLevel.Error))
+            {
+                logger.LogError(
+                    outcome.Fault,
+                    "Rule {RuleId} could not be applied to collection {CollectionId}",
+                    outcome.RuleId,
+                    outcome.CollectionId);
+            }
+
+            return;
+        }
+
+        if (outcome.Added.Count == 0 && outcome.Removed.Count == 0)
+        {
+            // Debug rather than information, and the level is the whole point of this branch. A
+            // collection that is already what its rule describes is the ordinary case on a server
+            // whose library did not move, so a run over fifty rules would write fifty lines an
+            // operator has to read past to find the one that failed.
+            if (logger.IsEnabled(LogLevel.Debug))
+            {
+                logger.LogDebug(
+                    "Rule {RuleId} left collection {CollectionId} unchanged, {DroppedCount} match(es) no longer resolve",
+                    outcome.RuleId,
+                    outcome.CollectionId,
+                    outcome.Dropped.Count);
+            }
+
+            return;
+        }
+
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "Rule {RuleId} changed collection {CollectionId}: {AddedCount} added, {RemovedCount} removed, {DroppedCount} match(es) no longer resolve",
+                outcome.RuleId,
+                outcome.CollectionId,
+                outcome.Added.Count,
+                outcome.Removed.Count,
+                outcome.Dropped.Count);
+        }
     }
 
     private static async Task<CollectionRefreshOutcome> ApplyOneAsync(
