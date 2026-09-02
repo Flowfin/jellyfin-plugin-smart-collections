@@ -176,3 +176,42 @@ rules:
       include:
         - "Jellyfin.Plugin.SmartCollections.Engine/**/*.cs"
         - "tools/opengrep/fixtures/**"
+
+  # The engine answers with values. A web framework type here puts the transport
+  # inside the part of this plugin that is supposed to be reachable from a test
+  # with nothing running: a stage returning an action result can only be exercised
+  # through a request pipeline, and a stage reading a request cannot be handed an
+  # input at all. The host is where a request becomes arguments and a value becomes
+  # a response, which is the same split that kept RuleDocumentStore out of the
+  # engine when #68 moved the rest of Rules/ across.
+  #
+  # This is the second of the two rules #16's own reading names as missing from
+  # its first set, beside the file read that has since landed. It is added before
+  # the endpoints exist rather than after, because the moment a controller is
+  # written is the moment somebody reaches for the nearest project.
+  #
+  # The token list is deliberately narrow. Generic-mode patterns read comments and
+  # string literals as well as code, so a rule matching a bare Route or Authorize
+  # would refuse ordinary English prose about routing or authorisation; every token
+  # below is a type or attribute name nobody writes by accident. The price is that
+  # a web type spelled some other way walks through, which is the floor every
+  # token vocabulary here makes and is worth stating rather than implying.
+  - id: web-framework-type-in-the-engine
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      The engine takes arguments and answers with values. A web framework type
+      here makes a stage reachable only through a request pipeline, so the
+      transport belongs in the host project rather than in the engine.
+    patterns:
+      - pattern-either:
+          - pattern-regex: '\bMicrosoft\.AspNetCore\b'
+          - pattern-regex: '\b(ApiController|ApiControllerAttribute|ControllerBase|RouteAttribute)\b'
+          - pattern-regex: '\bI?ActionResult\b'
+          - pattern-regex: '\bHttp(Get|Post|Put|Delete|Patch|Head)\b'
+          - pattern-regex: '\b(HttpContext|IHttpContextAccessor)\b'
+          - pattern-regex: '\b(FromBody|FromQuery|FromRoute|ProducesResponseType)\b'
+    paths:
+      include:
+        - "Jellyfin.Plugin.SmartCollections.Engine/**/*.cs"
+        - "tools/opengrep/fixtures/**"
