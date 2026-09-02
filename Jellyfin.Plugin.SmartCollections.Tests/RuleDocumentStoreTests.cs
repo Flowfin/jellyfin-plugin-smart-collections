@@ -44,7 +44,7 @@ public sealed class RuleDocumentStoreTests : IDisposable
     [Fact]
     public void AValidDocumentRoundTripsThroughSaveAndLoadUnchangedByteForByte()
     {
-        const string Text = "{\r\n  \"schemaVersion\": 1,\r\n  \"id\": \"christmas\",\r\n  \"name\": \"Christmas\",\r\n  \"somethingLaterVersionsMayAdd\": {\"kept\": true}\r\n}\r\n";
+        const string Text = "{\r\n  \"schemaVersion\": 1,\r\n  \"id\": \"christmas\",\r\n  \"name\": \"Christmas\", \"collects\": [\"movie\"],\r\n  \"somethingLaterVersionsMayAdd\": {\"kept\": true}\r\n}\r\n";
         var written = new byte[] { 0xEF, 0xBB, 0xBF };
         var body = Encoding.UTF8.GetBytes(Text);
         Array.Resize(ref written, written.Length + body.Length);

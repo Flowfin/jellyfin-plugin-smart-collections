@@ -14,10 +14,11 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// becomes a <see cref="RuleDocument"/>, so there is no path on which an unread document reaches
 /// anything that acts on it.
 ///
-/// What it checks today is the envelope: that the text is JSON, that its top level is an object,
+/// What it checks first is the envelope: that the text is JSON, that its top level is an object,
 /// that it declares a schema version this plugin reads, that it declares an id for the rule, and
-/// that it declares a name for the collection the rule owns. The rule inside the envelope is checked by stages that arrive with the vocabulary they check against, each adding its errors
-/// to the same list with its own pointer. That order matters: a document whose version this
+/// that it declares a name for the collection the rule owns. What it checks after that is what the
+/// envelope carries, through the stages that arrive with the vocabulary they check against, each
+/// reporting with its own pointer into the document. That order matters: a document whose version this
 /// plugin cannot read is refused before anything tries to interpret its contents, because reading
 /// as far as it parses would apply a rule that means something else. The id and the name are
 /// checked after the version for the same reason: what either may hold is a property of a format
@@ -27,6 +28,13 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// collection is called. Every message about a document from here on names the rule, and a
 /// document that cannot be identified is one an administrator surface can only report by the file
 /// it came from, which is the coupling the id exists to break.
+///
+/// A DOCUMENT WHOSE RULE IS WRONG IS REFUSED HERE RATHER THAN LOADED. Until the stages were
+/// wired in, this type read the envelope and nothing else, so a document naming a field no table
+/// declares, an operator no operator has or a value that will not parse was accepted, listed as a
+/// loaded rule, and owned a collection that never changed. That is the failure this plugin's own
+/// design is against: a bad document is a visible fault rather than a collection that quietly
+/// stopped updating, and a document that reaches an administrator surface as loaded is invisible.
 ///
 /// Whether an id collides with another document's is not a question about one document and is
 /// not asked here. One document is judged on its own bytes, so this type answers the same way
@@ -116,6 +124,20 @@ public static class RuleDocumentValidator
     public const int MaximumNameLength = 255;
 
     private const string NamePointer = "/" + NameMember;
+
+    /// <summary>
+    /// The member a rule document carries its rule in.
+    /// </summary>
+    /// <remarks>
+    /// The name lives here rather than on the composition stage because that stage is handed an
+    /// element and a pointer and never looks a member up: it reads the shape of a group wherever
+    /// the group is, which is what lets it read a nested one. Which member of a document holds the
+    /// outermost group is this type's business, because this type is the one thing that reads a
+    /// whole document.
+    /// </remarks>
+    public const string MatchMember = "match";
+
+    private const string MatchPointer = "/" + MatchMember;
 
     /// <summary>
     /// The three bytes an editor writes at the start of a file to say it is UTF-8.
@@ -363,8 +385,64 @@ public static class RuleDocumentValidator
                         $"{NameMember} is {name.Length} characters long and the most a name may be is {MaximumNameLength}."));
             }
 
-            return RuleDocumentValidation.Accepted(new RuleDocument(version, id, name, text));
+            var inside = ReadInsideTheEnvelope(root);
+
+            return inside.Count > 0
+                ? RuleDocumentValidation.Refused(inside)
+                : RuleDocumentValidation.Accepted(new RuleDocument(version, id, name, text));
         }
+    }
+
+    /// <summary>
+    /// Reads what the envelope carries: the scope the rule collects over, and the rule itself.
+    /// </summary>
+    /// <remarks>
+    /// The stages are called in the order a document meets them, and the first one that refuses is
+    /// the last one that runs. That is not a choice about how many reasons to collect: each stage
+    /// is handed what the stage before it produced, so a field read over a composition that was
+    /// refused would be a read over a tree nobody built. Inside one stage every reason is still
+    /// collected, which is where a document with two mistakes in one member gets both of them.
+    ///
+    /// <see cref="MatchMember"/> is read only when the document declares it. A document that
+    /// declares none keeps the answer it got before this stage existed, which is accepted, and
+    /// WHETHER THAT IS RIGHT IS NOT DECIDED HERE: refusing it and reading it as a rule that
+    /// collects the whole scope are both defensible, the schema requires neither, and the choice
+    /// belongs with whoever owns the format rather than with the wiring that reaches the stages.
+    /// </remarks>
+    private static IReadOnlyList<RuleValidationError> ReadInsideTheEnvelope(JsonElement root)
+    {
+        var scope = RuleItemScopeReader.Read(root);
+        if (!scope.IsAccepted)
+        {
+            return scope.Errors;
+        }
+
+        if (!root.TryGetProperty(MatchMember, out var declaredMatch))
+        {
+            return [];
+        }
+
+        var composition = RuleCompositionReader.Read(declaredMatch, MatchPointer);
+        if (!composition.IsAccepted)
+        {
+            return composition.Errors;
+        }
+
+        var fields = RuleFieldReader.Read(root, composition.Group!);
+        if (!fields.IsAccepted)
+        {
+            return fields.Errors;
+        }
+
+        var operators = RuleOperatorReader.Read(root, fields.Fields);
+        if (!operators.IsAccepted)
+        {
+            return operators.Errors;
+        }
+
+        var values = RuleValueReader.Read(root, operators.Operators);
+
+        return values.IsAccepted ? [] : values.Errors;
     }
 
     private static RuleDocumentValidation Refuse(string pointer, string message)
