@@ -39,6 +39,83 @@ public class PluginConfigurationTests
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>
+    /// One part of a name written in the casing a property is written in. The refusal below reads
+    /// WORDS rather than substrings, and that is the whole of why it can be narrow enough to
+    /// refuse rather than warn: <c>Normal</c> begins with <c>No</c> and <c>Notification</c> begins
+    /// with <c>Not</c>, so a substring test would refuse two names that say nothing.
+    /// </summary>
+    private static readonly Regex NamePart = new(
+        "[A-Z][a-z0-9]*",
+        RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Words that say a setting turns something off.
+    /// </summary>
+    private static readonly HashSet<string> SwitchingOff = new(StringComparer.Ordinal)
+    {
+        "Bypass",
+        "Disable",
+        "Disabled",
+        "Ignore",
+        "Ignored",
+        "No",
+        "Off",
+        "Skip",
+        "Skipped",
+        "Suppress",
+        "Suppressed",
+        "Unchecked",
+        "Unsafe",
+        "Without",
+    };
+
+    /// <summary>
+    /// The two checks the plan says no setting may switch off: the validation a rule document goes
+    /// through, and the ownership check that stops this plugin writing to a collection it did not
+    /// create.
+    /// </summary>
+    private static readonly HashSet<string> Guarded = new(StringComparer.Ordinal)
+    {
+        "Owned",
+        "Owner",
+        "Ownership",
+        "Validate",
+        "Validated",
+        "Validation",
+        "Validator",
+    };
+
+    /// <summary>
+    /// The names the refusal below is held to before it judges anything, in the shape the
+    /// pull-request hygiene check and the invariant lint already use in this repository: a test
+    /// fires on its own fixtures and passes its near misses, or nothing is judged at all.
+    /// </summary>
+    /// <remarks>
+    /// These carry the whole of the proof today, because the configuration declares no property,
+    /// so the refusal itself runs over an empty set and would pass whatever it said. A setting
+    /// arrives with the surface that reads it, and this is written before that surface so the
+    /// first setting meets it rather than following it.
+    ///
+    /// The near misses are the half that matters. A name mentioning validation or ownership
+    /// without switching either off is an ordinary setting, and refusing one would make this a tax
+    /// on naming rather than a guard.
+    /// </remarks>
+    /// <returns>Each name with whether it has to be refused.</returns>
+    public static TheoryData<string, bool> SettingNames() => new()
+    {
+        { "DisableValidation", true },
+        { "SkipOwnershipCheck", true },
+        { "IgnoreValidationErrors", true },
+        { "UnsafeOwnershipOverride", true },
+        { "MaximumNestingDepth", true },
+        { "ValidationErrorLimit", false },
+        { "OwnershipQueryPageSize", false },
+        { "SkipEmptyCollections", false },
+        { "NotificationOwner", false },
+        { "NormalRefreshInterval", false },
+    };
+
+    /// <summary>
     /// Reads the settings the configuration class actually declares. Declared only, so the
     /// members every plugin configuration inherits are not mistaken for this plugin's settings.
     /// </summary>
@@ -121,5 +198,69 @@ public class PluginConfigurationTests
                 controls.Contains(name),
                 "The setting " + name + " has no control on the settings page, so nobody can set it.");
         }
+    }
+
+    [Theory]
+    [MemberData(nameof(SettingNames))]
+    public void TheNameTestAgreesWithItsFixtures(string name, bool refused)
+        => Assert.Equal(refused, WhySettingIsRefused(name) is not null);
+
+    /// <summary>
+    /// No setting can disable a validation or an ownership check, and there is no option to raise
+    /// the nesting limit. Held over the names the configuration declares.
+    /// </summary>
+    /// <remarks>
+    /// WHAT THIS READS IS A NAME, and the bound is worth knowing before a green run is read as the
+    /// property holding. A property called <c>StrictMode</c> whose <see langword="false"/> value
+    /// switches validation off passes here, and so does one that reaches the same end through its
+    /// value rather than through its name. What it does refuse is the spelling somebody reaches
+    /// for when they want the switch, which is the one that arrives without an argument being had
+    /// about it.
+    ///
+    /// It is vacuous while the configuration declares nothing, for the same reason the pair above
+    /// it is, and the fixtures are where it is shown to bite.
+    /// </remarks>
+    [Fact]
+    public void NoSettingSwitchesOffAValidationOrAnOwnershipCheck()
+    {
+        foreach (var property in DeclaredSettings())
+        {
+            var why = WhySettingIsRefused(property.Name);
+
+            Assert.True(
+                why is null,
+                "The setting " + property.Name + " " + why + ". A setting that lets an operator"
+                + " switch off a safety property does not exist here: no option disables"
+                + " validation, none raises the nesting limit, and none turns off the ownership"
+                + " check that stops this plugin writing to a collection it did not create.");
+        }
+    }
+
+    /// <summary>
+    /// Why a setting of this name is refused, or <see langword="null"/> where it is not.
+    /// </summary>
+    /// <param name="name">The declared property name.</param>
+    /// <returns>The clause of the failure message that says which rule fired.</returns>
+    private static string? WhySettingIsRefused(string name)
+    {
+        var words = NamePart
+            .Matches(name)
+            .Select(part => part.Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        // The nesting limit is refused whatever word sits beside it. What may not exist is an
+        // option to RAISE it, so a setting naming it at all is the thing being refused; requiring
+        // a switching-off word here would let NestingDepthLimit through.
+        if (words.Contains("Nesting"))
+        {
+            return "names the nesting limit, and there is no option to raise it";
+        }
+
+        var off = words.FirstOrDefault(SwitchingOff.Contains);
+        var guarded = words.FirstOrDefault(Guarded.Contains);
+
+        return off is null || guarded is null
+            ? null
+            : "pairs " + off + " with " + guarded + ", which reads as a switch over a check";
     }
 }
