@@ -77,6 +77,28 @@ control, so there is nothing on the page for either value to appear as. A
 setting arrives with the surface that reads it, and the page that would carry
 one is #47.
 
+## Settings that switch a check off do not exist
+
+Three of them by name: nothing disables the validation a rule document goes
+through, nothing raises the nesting limit, and nothing turns off the ownership
+check that stops this plugin writing to a collection it did not create. A server
+whose administrator can switch a safety property off has that property only
+until somebody is in a hurry.
+
+`PluginConfigurationTests.NoSettingSwitchesOffAValidationOrAnOwnershipCheck`
+reads the names the configuration declares and refuses one that pairs a
+switching-off word with validation or ownership, or that names the nesting limit
+at whatever verb. It is vacuous today, because the configuration declares
+nothing; it is here before the first setting rather than after it, and it is
+held to a table of names it has to refuse and near misses it has to pass, so
+what it does is proved without a setting existing.
+
+WHAT IT READS IS A NAME. A property called `StrictMode` whose `false` value
+switches validation off passes it, and so does anything else that reaches the
+switch through a value rather than through a spelling. What it refuses is the
+name somebody reaches for when they want the switch, which is the one that
+arrives without an argument being had about it.
+
 ## What holds this page
 
 `SettingsDocumentTests` reads the table above and the public static fields the
