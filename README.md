@@ -149,10 +149,23 @@ Reading it clause by clause:
   whose contents change between two runs over an unchanged library, so the order
   is defined down to the last tie.
 
-The field table, the operator set and the exact JSON schema are being settled on
-the tracker under the rule language milestone. Until that lands, the document
-above is the shape rather than a contract, and this section is the front page
-rather than the reference. The full reference is planned separately.
+The field table, the operator set, the value forms, the composition groups and
+the item kinds are declared in the engine and each is written out on a page of
+its own: [fields and item kinds](docs/rule-fields.md),
+[operators](docs/rule-operators.md), [value forms](docs/rule-values.md) and
+[composition](docs/rule-composition.md). Every one of those pages is held to its
+own table by the suite in both directions, so a page naming something the engine
+does not declare and something the engine declares with no line on its page both
+red the build.
+
+[Worked documents](docs/rule-examples.md) are those tables assembled. Each one is
+complete, each is handed to the same validator a rules directory scan hands a
+file to, and an example this plugin would refuse reds the suite rather than
+sitting there to be copied.
+
+This section is still the front page rather than the reference, and the document
+above is the one place that shows an `order` and a `limit`. Those two are the
+shape they are planned in and are read by nothing yet.
 
 ## What a rule deliberately cannot say
 

@@ -53,8 +53,13 @@ public class ReadmeTests
     ///
     /// THIS REMARK SAID THE SCHEMA THE EXAMPLE WOULD BE VALIDATED AGAINST DID NOT EXIST YET, and
     /// that a parse was all that was checkable. A schema is in the tree and so are the tables the
-    /// example's own values answer to. What is still absent is a validator that reads a rule, and
-    /// that is a different absence from the one this sentence named.
+    /// example's own values answer to.
+    ///
+    /// IT THEN SAID A VALIDATOR THAT READS A RULE WAS STILL ABSENT, and that absence has closed:
+    /// the stages that read one are wired into <see cref="RuleDocumentValidator"/>, so the
+    /// example is handed to it by
+    /// <see cref="TheExampleIsReadByTheValidatorRatherThanOnlyParsed"/> rather than being read
+    /// against the tables alone.
     /// </summary>
     [Fact]
     public void ReadmeShowsARuleDocumentThatParses()
@@ -74,6 +79,42 @@ public class ReadmeTests
         {
             Assert.True(root.TryGetProperty(required, out _), "The example declares no " + required + ".");
         }
+    }
+
+    /// <summary>
+    /// The front page's example is the one document most people will ever copy, so it is held to
+    /// the type a rules directory scan hands a file to rather than to the tables on their own.
+    /// </summary>
+    /// <remarks>
+    /// The two are not the same reading, and this is the stronger one. Walking the tables asks
+    /// whether every name in the example is declared; the validator asks whether the document is
+    /// one this plugin would load, which covers the members no table decides - the envelope, the
+    /// scope, how many values an operator is written with, and whether each value parses as the
+    /// type its field holds.
+    ///
+    /// It is not the schema either. The schema declares the envelope and tolerates anything
+    /// beside it, so a comparison against it alone is met by an example whose rule names a field
+    /// no table declares.
+    ///
+    /// What it does not ask is whether the example writes a member the engine ignores. The
+    /// example carries an order and a limit, which are the shape those two are planned in and are
+    /// read by nothing yet, and the validator accepts a document carrying members it does not
+    /// read. The worked examples in <c>docs/rule-examples.md</c> are held to the narrower rule
+    /// there, by <c>RuleExampleDocumentTests</c>, and the front page is deliberately outside it.
+    /// </remarks>
+    [Fact]
+    public void TheExampleIsReadByTheValidatorRatherThanOnlyParsed()
+    {
+        var match = FirstJsonBlock.Match(RepositoryFiles.ReadFromRoot("README.md"));
+
+        Assert.True(match.Success, "README.md carries no fenced json block.");
+
+        var read = RuleDocumentValidator.Read(match.Groups["json"].Value);
+
+        Assert.True(
+            read.IsValid,
+            "The front page's example is refused: "
+                + string.Join(" | ", read.Errors.Select(error => error.Pointer + " " + error.Message)));
     }
 
     /// <summary>
