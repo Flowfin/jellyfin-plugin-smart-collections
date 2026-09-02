@@ -1,0 +1,12 @@
+{
+    "schemaVersion": 1,
+    "id": "with-a-rule",
+    "name": "With a rule",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            { "field": "genres", "operator": "contains", "value": "Thriller" },
+            { "field": "productionYear", "operator": "equals", "value": 1994 }
+        ]
+    }
+}

@@ -76,7 +76,7 @@ public class RuleDocumentSchemaTests
         var result = RuleDocumentValidator.Read(
             "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": " + maximum
             + ", \"" + RuleDocumentValidator.IdMember + "\": \"christmas\""
-            + ", \"" + RuleDocumentValidator.NameMember + "\": \"Christmas\"}");
+            + ", \"" + RuleDocumentValidator.NameMember + "\": \"Christmas\", \"" + RuleItemScopeReader.CollectsMember + "\": [\"movie\"]}");
 
         Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
     }
@@ -140,7 +140,7 @@ public class RuleDocumentSchemaTests
         var bySchema = Regex.IsMatch(id, pattern!, RegexOptions.None, TimeSpan.FromSeconds(1));
 
         var byValidator = RuleDocumentValidator
-            .Read("{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\"}")
+            .Read("{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}")
             .IsValid;
 
         Assert.Equal(expected, bySchema);
@@ -163,7 +163,7 @@ public class RuleDocumentSchemaTests
         var result = RuleDocumentValidator.Read(
             "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": 1, \""
             + RuleDocumentValidator.IdMember + "\": \"" + new string('a', maxLength) + "\", \""
-            + RuleDocumentValidator.NameMember + "\": \"Christmas\"}");
+            + RuleDocumentValidator.NameMember + "\": \"Christmas\", \"" + RuleItemScopeReader.CollectsMember + "\": [\"movie\"]}");
 
         Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
     }
@@ -216,7 +216,7 @@ public class RuleDocumentSchemaTests
         var result = RuleDocumentValidator.Read(
             "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": 1, \""
             + RuleDocumentValidator.IdMember + "\": \"christmas\", \""
-            + RuleDocumentValidator.NameMember + "\": \"" + new string('a', maxLength) + "\"}");
+            + RuleDocumentValidator.NameMember + "\": \"" + new string('a', maxLength) + "\", \"" + RuleItemScopeReader.CollectsMember + "\": [\"movie\"]}");
 
         Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
     }

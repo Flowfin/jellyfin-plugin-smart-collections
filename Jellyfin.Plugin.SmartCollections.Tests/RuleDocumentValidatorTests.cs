@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// </summary>
 public class RuleDocumentValidatorTests
 {
-    private const string Minimal = "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Christmas\"}";
+    private const string Minimal = "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}";
 
     [Fact]
     public void AValidDocumentIsAcceptedAndKeptExactlyAsItWasRead()
@@ -22,7 +22,7 @@ public class RuleDocumentValidatorTests
         // Deliberately not the shape a serialiser would emit: extra spacing, a trailing newline
         // and a member no version declares. Keeping the text as read is what lets a member this
         // version does not understand survive a round trip instead of being dropped.
-        const string Text = "{\n    \"schemaVersion\" :  1,\n    \"id\": \"christmas\",\n    \"name\": \"Christmas\",\n    \"somethingLaterVersionsMayAdd\": []\n}\n";
+        const string Text = "{\n    \"schemaVersion\" :  1,\n    \"id\": \"christmas\",\n    \"name\": \"Christmas\", \"collects\": [\"movie\"],\n    \"somethingLaterVersionsMayAdd\": []\n}\n";
 
         var result = RuleDocumentValidator.Read(Text);
 
@@ -179,7 +179,7 @@ public class RuleDocumentValidatorTests
     public void TheLowestVersionIsAccepted()
     {
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": " + RuleDocumentValidator.LowestSchemaVersion + ", \"id\": \"christmas\", \"name\": \"Christmas\"}");
+            "{\"schemaVersion\": " + RuleDocumentValidator.LowestSchemaVersion + ", \"id\": \"christmas\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -407,7 +407,7 @@ public class RuleDocumentValidatorTests
     public void AnIdInsideTheSetIsAccepted(string id)
     {
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\"}");
+            "{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}");
 
         Assert.True(result.IsValid, Because(result));
         Assert.Equal(id, result.Document!.Id, StringComparer.Ordinal);
@@ -443,7 +443,7 @@ public class RuleDocumentValidatorTests
         var atTheBound = new string('a', RuleDocumentValidator.MaximumIdLength);
 
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"" + atTheBound + "\", \"name\": \"Christmas\"}");
+            "{\"schemaVersion\": 1, \"id\": \"" + atTheBound + "\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -557,7 +557,7 @@ public class RuleDocumentValidatorTests
     [InlineData(" ")]
     public void ANameWithWhitespaceAtEitherEndIsRefusedRatherThanTrimmed(string name)
     {
-        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"" + name + "\"}");
+        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"" + name + "\", \"collects\": [\"movie\"]}");
 
         var error = Assert.Single(result.Errors);
         Assert.Equal("/name", error.Pointer);
@@ -573,7 +573,7 @@ public class RuleDocumentValidatorTests
     public void WhitespaceInsideANameIsWhatANameIsMadeOf()
     {
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Nineties Thrillers\"}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Nineties Thrillers\", \"collects\": [\"movie\"]}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -643,7 +643,7 @@ public class RuleDocumentValidatorTests
         var atTheBound = new string('a', RuleDocumentValidator.MaximumNameLength);
 
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"" + atTheBound + "\"}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"" + atTheBound + "\", \"collects\": [\"movie\"]}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -659,9 +659,9 @@ public class RuleDocumentValidatorTests
     public void TwoDocumentsMayCarryTheSameNameAndBothAreAccepted()
     {
         var first = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"christmas-films\", \"name\": \"Christmas\"}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas-films\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}");
         var second = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"christmas-series\", \"name\": \"Christmas\"}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas-series\", \"name\": \"Christmas\", \"collects\": [\"series\"]}");
 
         Assert.True(first.IsValid, Because(first));
         Assert.True(second.IsValid, Because(second));
