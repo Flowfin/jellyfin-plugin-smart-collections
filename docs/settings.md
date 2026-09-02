@@ -89,13 +89,29 @@ fields instead of carrying a list of names, so a fourth value added tomorrow is
 covered by this page's obligation on the day the field appears, without anybody
 remembering to extend a test.
 
-WHAT IT DOES CARRY IS A LIST OF TYPES, and that is the bound worth knowing rather
-than leaving to be discovered. A value declared on a type not in that list
-reaches no row and nothing says so, which is why the list is short and why the
-test names it as the one thing it holds by hand. A field of a kind the test
-cannot write out reds it with a message naming the field, rather than being
-skipped: skipping would take a value out of this page's obligation silently,
-which is the failure the comparison exists against.
+WHAT IT DOES CARRY IS A LIST OF TYPES, and until now that was a hole rather than
+a bound: a value declared on a type outside the list reached no row here and
+nothing said so, so both directions of the comparison stayed green over a value
+nobody had written down. The list is still held by hand and it is no longer
+silent. `EveryDefaultTheShippedAssembliesDeclareIsOnATypeThisTestReads` walks
+the two shipped assemblies for a public static field whose name begins with
+`Default` and reds on one the list does not reach, naming the type and the
+field.
+
+THE BOUND THAT IS LEFT IS THE NAME. That search finds a default by what it is
+called, so a value of this kind called something else is seen by neither the
+search nor the comparison. The trade is worth stating rather than leaving to be
+discovered: a type is invisible in the diff that adds a field to it, and a name
+is in that diff, so the reader of a change is now being asked about something in
+front of them instead of about nothing. The refusal also stops short of deciding
+anything - the same assemblies declare the nesting limit, the identifier length
+and the schema versions, which are rule-language limits with their own pages -
+so a default outside the list reds and whoever added it says which of the two it
+is.
+
+A field of a kind the test cannot write out reds it with a message naming the
+field, rather than being skipped: skipping would take a value out of this page's
+obligation silently, which is the failure the comparison exists against.
 
 ## What is not on this page
 
