@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.SmartCollections.Rules;
@@ -288,5 +289,85 @@ public class RuleDocumentSchemaTests
             Assert.True(read.IsAccepted, "Refused with: " + string.Join(" | ", read.Errors));
             Assert.Equal(kind, Assert.Single(read.Kinds).Name);
         }
+    }
+
+    /// <summary>
+    /// The comparison every other test in this class makes for one member, made over the SET of
+    /// members. Each of those holds a bound or a list the two declarations share; none of them
+    /// asks whether the two declare the same members at all, so a stage that starts reading a new
+    /// member without touching the schema left both the file and its description behind and every
+    /// route stayed green. That is what #234 records happening three times inside one sentence.
+    /// </summary>
+    /// <remarks>
+    /// A member read and not declared is admitted only where the schema's own description names
+    /// it, so the file is where the exemption lives rather than this test. The phrase that has to
+    /// be there says what the exemption is, and it is asserted as well: a description that names
+    /// the member while dropping the phrase would leave a reader unable to tell a member awaiting
+    /// a decision from one somebody forgot.
+    ///
+    /// A member declared and not read has no exemption. An editor refusing a document the plugin
+    /// accepts is the drift in the direction that costs an operator a document they cannot write,
+    /// and there is no reason to declare a member nothing reads.
+    ///
+    /// WHAT THIS CANNOT SEE is a top-level member declared somewhere other than the two types
+    /// below. The readers under them declare members of a CONDITION - a field, an operator, a
+    /// value - which are not members of the document, so reflecting over every reader would
+    /// compare this file against names that never appear at the top level. The two types are
+    /// therefore named by hand and this paragraph is the bound: a document member introduced on a
+    /// third type is outside the comparison until that type is added here.
+    /// </remarks>
+    [Fact]
+    public void TheSchemaDeclaresEveryMemberTheValidatorReadsOrIsNamedAsNotDeclaringIt()
+    {
+        const string Exemption = "read by the validator and deliberately not declared here";
+
+        var schema = Schema();
+        var description = schema.GetProperty("description").GetString() ?? string.Empty;
+
+        var declared = schema.GetProperty("properties")
+            .EnumerateObject()
+            .Select(member => member.Name)
+            .ToArray();
+
+        var read = DocumentMembersTheValidatorReads();
+
+        Assert.NotEmpty(declared);
+        Assert.NotEmpty(read);
+
+        var undeclared = read.Except(declared, StringComparer.Ordinal).ToArray();
+
+        if (undeclared.Length > 0)
+        {
+            Assert.Contains(Exemption, description, StringComparison.Ordinal);
+
+            foreach (var member in undeclared)
+            {
+                Assert.Contains("\"" + member + "\"", description, StringComparison.Ordinal);
+            }
+        }
+
+        Assert.Empty(declared.Except(read, StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// The document members the validator reads, off the constants that declare them rather than
+    /// a list written here, so a member added to either type is compared on the day its constant
+    /// arrives.
+    /// </summary>
+    /// <returns>The member names, sorted.</returns>
+    private static string[] DocumentMembersTheValidatorReads()
+    {
+        var members = new[] { typeof(RuleDocumentValidator), typeof(RuleItemScopeReader) }
+            .SelectMany(type => type.GetFields(BindingFlags.Public | BindingFlags.Static))
+            .Where(field => field.IsLiteral
+                && field.FieldType == typeof(string)
+                && field.Name.EndsWith("Member", StringComparison.Ordinal))
+            .Select(field => (string)field.GetRawConstantValue()!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        Array.Sort(members, StringComparer.Ordinal);
+
+        return members;
     }
 }
