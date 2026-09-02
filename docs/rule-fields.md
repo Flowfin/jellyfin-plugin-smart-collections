@@ -185,11 +185,60 @@ done
 ```
 
 WHAT THAT LEAVES OPEN is `isEmpty` and `isNotEmpty`, which ask exactly the
-question that property answers rather than a question about the text. Whether
-those two pairs belong in the compile table is a question about what the server
-means by `HasOverview` for an item whose description is present and blank, which
-nothing here has measured, so the pairs are not declared and this paragraph is
-what a later reader starts from rather than a claim that they cannot be.
+question that property answers rather than a question about the text. WHAT THE
+SERVER MEANS BY `HasOverview` FOR AN ITEM WHOSE DESCRIPTION IS PRESENT AND BLANK
+IS MEASURED NOW, AND THIS PARAGRAPH SAID NOTHING HERE HAD MEASURED IT. Both
+supported lines translate the property the same way, and a blank description
+answers as no description on both. The two lines hold the translation in
+different files, so the path is read per line rather than the reference alone:
+
+```
+for spec in "v10.11.11 BaseItemRepository.cs" \
+            "v12.0-rc4 BaseItemRepository.TranslateQuery.cs"; do
+  set -- $spec
+  echo "== $1"
+  gh api "repos/jellyfin/jellyfin/contents/Jellyfin.Server.Implementations/Item/$2?ref=$1" \
+    --jq .content | base64 -d | grep -A11 'filter.HasOverview.HasValue' \
+    | grep -oE '\.Where\(e => .*\);'
+done
+== v10.11.11
+.Where(e => e.Overview != null && e.Overview != string.Empty);
+.Where(e => e.Overview == null || e.Overview == string.Empty);
+== v12.0-rc4
+.Where(e => e.Overview != null && e.Overview != string.Empty);
+.Where(e => e.Overview == null || e.Overview == string.Empty);
+```
+
+So the property does not separate an absent description from a blank one, in
+either direction, and the question this paragraph left for a later reader has an
+answer rather than a gap.
+
+WHAT THE ANSWER DOES NOT DO IS DECLARE THE PAIRS, and the reason has moved from a
+reading nobody had taken to a shape this vocabulary holds. The mark that puts a
+field after the query is a column on the FIELD rather than on the pair, so it
+cannot say that two of a field's six operators compile and the other four do not:
+
+```
+git grep -n 'IsPostQuery =>' -- Jellyfin.Plugin.SmartCollections.Engine/Rules/RuleFieldRow.cs
+Jellyfin.Plugin.SmartCollections.Engine/Rules/RuleFieldRow.cs:97:    public bool IsPostQuery => QueryProperty is null;
+```
+
+Both directions of that column are held, so neither half of the change passes on
+its own. A pair compiled over a field the table marks post-query reds one test,
+and a field moved off the mark to carry the pair leaves this page's list, which
+reds another:
+
+```
+git grep -n 'public void NoFieldReadAfterTheQueryHasAPairThatCompiles\|public void TheListIsExactlyTheRowsCarryingNoQueryProperty' -- Jellyfin.Plugin.SmartCollections.Tests/
+Jellyfin.Plugin.SmartCollections.Tests/RuleFieldDocumentTests.cs:194:    public void TheListIsExactlyTheRowsCarryingNoQueryProperty()
+Jellyfin.Plugin.SmartCollections.Tests/RuleQueryTableTests.cs:68:    public void NoFieldReadAfterTheQueryHasAPairThatCompiles()
+```
+
+The pairs are therefore still not declared, and what stands in front of them is
+whether the mark becomes a property of the pair rather than of the field. That
+changes every row of both tables and is a decision about the vocabulary rather
+than an entry in it, so it is not taken here. #31 is where the size of this stage
+is argued.
 
 ## Read after the query: runtime
 
