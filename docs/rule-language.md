@@ -1,8 +1,46 @@
-# What a rule deliberately cannot say
+# The rule language
+
+A rule is a JSON document, one per collection, and every name it may write is
+declared in the engine as a table. This page is the reference. It says what a
+rule is made of, sends the reader to the page each part is written out on, and
+records what the language deliberately refuses. Every page it gathers is held to
+the table it describes by the suite in both directions, and this page is held to
+the directory those pages sit in the same way, so the reference cannot describe a
+language the engine does not declare and cannot leave out a part the tree holds.
+
+## What a rule is made of
+
+Each part of a rule has one page, and each page carries one table:
+
+- [`rule-fields.md`](rule-fields.md) is the fields a rule may name and the item
+  kinds it may collect. Every field appears with its value type, the operators
+  it accepts, whether the query answers it or the stage after the query does,
+  and one sentence of meaning.
+- [`rule-operators.md`](rule-operators.md) is the operators. Every operator
+  appears with the field types it applies to, the value types it takes, how
+  many values it is written with, and one sentence of semantics.
+- [`rule-values.md`](rule-values.md) is the value types and the written form of
+  each one.
+- [`rule-composition.md`](rule-composition.md) is how conditions are combined,
+  how deep that may go, and what a group refuses.
+- [`rule-queries.md`](rule-queries.md) is which field and operator pairs the
+  server's own query answers, what each pair writes, and what is left for the
+  stage after the query.
+- [`rule-examples.md`](rule-examples.md) is worked documents, each one complete
+  and each one handed to the validator a rules directory scan hands a file to.
+
+A name declared in the engine with no line on its page and a line describing a
+name the engine does not declare both red the build, and each page names the
+test class that holds it. This list is held the same way, by
+`RuleLanguageReferenceTests`: a page added beside these with no line here reds
+the suite, a line naming a page that is not in the tree reds it, and a page
+named here that no test holds reds it too.
+
+## What a rule deliberately cannot say
 
 A rule language is defined as much by its refusals as by its vocabulary. This
-file records the refusals, each with its reason, so that a later request to add
-one is argued against a written position rather than against nothing.
+section records the refusals, each with its reason, so that a later request to
+add one is argued against a written position rather than against nothing.
 
 Nothing here is permanent. A refusal can be lifted, and the way to lift one is
 to argue with the reason recorded under it. What is not available is lifting one
@@ -136,9 +174,9 @@ alternatives, a list of pinned identifiers in the document or a pin expressed as
 a tag on the item, each add a second source of membership, and the question
 "why is this item here" stops having one answer.
 
-## What is not in this file
+## What is not a refusal
 
 Which item kinds a rule may collect, and which fields the vocabulary holds, are
 not refusals. They are the declared vocabulary, and they live in the field table
-and its own reference rather than here. A field that is absent from the table is
-absent, not refused, and adding one is a row and a test.
+and on `rule-fields.md` rather than under a heading here. A field that is absent
+from the table is absent, not refused, and adding one is a row and a test.

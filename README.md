@@ -163,9 +163,12 @@ complete, each is handed to the same validator a rules directory scan hands a
 file to, and an example this plugin would refuse reds the suite rather than
 sitting there to be copied.
 
-This section is still the front page rather than the reference, and the document
-above is the one place that shows an `order` and a `limit`. Those two are the
-shape they are planned in and are read by nothing yet.
+This section is the front page rather than the reference. The reference is
+[the rule language](docs/rule-language.md), which gathers those pages and the
+refusals in one place and is held to the pages in the tree by the suite in both
+directions. The document above is the one place that shows an `order` and a
+`limit`; those two are the shape they are planned in and are read by nothing
+yet.
 
 ## What a rule deliberately cannot say
 
