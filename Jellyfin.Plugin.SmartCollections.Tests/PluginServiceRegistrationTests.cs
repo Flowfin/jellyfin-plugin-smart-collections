@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Jellyfin.Plugin.SmartCollections.Library;
 using Jellyfin.Plugin.SmartCollections.Membership;
 using Jellyfin.Plugin.SmartCollections.Rules;
@@ -126,6 +127,35 @@ public class PluginServiceRegistrationTests
         Assert.Equal(ServiceLifetime.Singleton, port.Lifetime);
     }
 
+    /// <summary>
+    /// The registration is the one place the documented defaults reach the object that runs on
+    /// them, so it is the one place a plugin can be wired to intervals its own page does not
+    /// describe.
+    /// </summary>
+    /// <remarks>
+    /// Nothing else in this suite reads them. Every test of the coalescer builds one with
+    /// intervals of its own, because a test using the real thirty seconds would have to wait them
+    /// out, and <c>SettingsDocumentTests</c> compares <c>docs/settings.md</c> against the fields
+    /// the types declare rather than against what is handed over. So a registration passing two
+    /// seconds and five seconds leaves both of those green while every server running this plugin
+    /// coalesces on numbers the page contradicts.
+    ///
+    /// The clock the registration hands over is <c>TimeProvider.System</c>, so neither interval
+    /// can be observed here by driving one without waiting real minutes. What is read instead is
+    /// the state the constructor stored, by name, and the read fails closed: a field that is not
+    /// there is a message naming it rather than an assertion that quietly stops asserting.
+    /// </remarks>
+    [Fact]
+    public void TheCoalescerTheServerResolvesRunsOnTheDocumentedDefaults()
+    {
+        using var provider = Registered();
+
+        var coalescer = provider.GetRequiredService<LibraryChangeCoalescer>();
+
+        Assert.Equal(LibraryChangeCoalescer.DefaultQuietPeriod, IntervalHandedTo(coalescer, "_quietPeriod"));
+        Assert.Equal(LibraryChangeCoalescer.DefaultMaximumWait, IntervalHandedTo(coalescer, "_maximumWait"));
+    }
+
     [Fact]
     public void NothingIsRegisteredWithALifetimeShorterThanThePlugin()
     {
@@ -140,6 +170,28 @@ public class PluginServiceRegistrationTests
     {
         Assert.Throws<ArgumentNullException>(() => new PluginServiceRegistrator().RegisterServices(null!, null!));
         Assert.Throws<ArgumentNullException>(() => PluginServiceRegistrator.RulesDirectory(null!));
+    }
+
+    /// <summary>
+    /// What one interval the coalescer was built with holds, read off the instance the container
+    /// produced.
+    /// </summary>
+    /// <param name="coalescer">The instance the registration built.</param>
+    /// <param name="field">The name of the field the constructor stores that interval in.</param>
+    /// <returns>The interval that field holds.</returns>
+    private static TimeSpan IntervalHandedTo(LibraryChangeCoalescer coalescer, string field)
+    {
+        var found = typeof(LibraryChangeCoalescer)
+            .GetField(field, BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.True(
+            found is not null,
+            $"LibraryChangeCoalescer holds no field called {field}. This test reads the intervals "
+            + "the registration handed over off the built instance, so a renamed field takes the "
+            + "reading away rather than the property, and the new name belongs here.");
+        Assert.Equal(typeof(TimeSpan), found!.FieldType);
+
+        return (TimeSpan)found.GetValue(coalescer)!;
     }
 
     /// <summary>
