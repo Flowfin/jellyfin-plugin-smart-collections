@@ -140,6 +140,24 @@ public static class RuleDocumentValidator
     private const string MatchPointer = "/" + MatchMember;
 
     /// <summary>
+    /// The top-level members this version of the format declares, in the order a document writes
+    /// them.
+    /// </summary>
+    /// <remarks>
+    /// Written from the constants that name them rather than as literals, so a member renamed on
+    /// either type is renamed here in the same edit. The list is the one a refusal shows and the
+    /// one the schema is held against, and there is no third copy.
+    /// </remarks>
+    private static readonly string[] DeclaredMembers =
+    [
+        SchemaVersionMember,
+        IdMember,
+        NameMember,
+        RuleItemScopeReader.CollectsMember,
+        MatchMember
+    ];
+
+    /// <summary>
     /// The three bytes an editor writes at the start of a file to say it is UTF-8.
     /// </summary>
     private static readonly byte[] ByteOrderMark = [0xEF, 0xBB, 0xBF];
@@ -403,14 +421,35 @@ public static class RuleDocumentValidator
     /// refused would be a read over a tree nobody built. Inside one stage every reason is still
     /// collected, which is where a document with two mistakes in one member gets both of them.
     ///
-    /// <see cref="MatchMember"/> is read only when the document declares it. A document that
-    /// declares none keeps the answer it got before this stage existed, which is accepted, and
-    /// WHETHER THAT IS RIGHT IS NOT DECIDED HERE: refusing it and reading it as a rule that
-    /// collects the whole scope are both defensible, the schema requires neither, and the choice
-    /// belongs with whoever owns the format rather than with the wiring that reaches the stages.
+    /// A MEMBER THIS VERSION DOES NOT DECLARE IS REFUSED, decided on #231 on 2026-09-04. It is the
+    /// half of that decision that catches a misspelling: a document writing <c>mach</c> where it
+    /// meant <see cref="MatchMember"/> used to be accepted, and used to be indistinguishable from
+    /// one that meant to carry no rule at all.
+    ///
+    /// REFUSING IT COSTS NO FORWARD COMPATIBILITY, which is what makes it available rather than a
+    /// trade. A document written for a later version of this format declares a later
+    /// <see cref="SchemaVersionMember"/>, and the envelope stage above refuses one higher than this
+    /// plugin reads before any of this runs. So a member nobody here declares, on a document
+    /// claiming this version, is a mistake rather than a member from the future.
+    ///
+    /// THE OTHER HALF OF THAT DECISION IS NOT HERE. A document declaring no
+    /// <see cref="MatchMember"/> at all is still accepted, and it is refused under the same
+    /// decision once every document in the suite, the corpus and the pages carries a rule. #231
+    /// holds that, and this paragraph is what stops a reader taking the refusal above for the
+    /// whole answer.
     /// </remarks>
     private static IReadOnlyList<RuleValidationError> ReadInsideTheEnvelope(JsonElement root)
     {
+        var unknown = FirstUndeclaredMember(root);
+        if (unknown is not null)
+        {
+            return [new RuleValidationError(
+                "/" + unknown,
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"This version declares no member called \"{unknown}\". The members are {string.Join(", ", DeclaredMembers)}. A member this version does not declare is refused rather than carried, because a document written for a later format declares a later {SchemaVersionMember} and is refused above, so a name here that nothing reads is a mistake and most often a misspelling."))];
+        }
+
         var scope = RuleItemScopeReader.Read(root);
         if (!scope.IsAccepted)
         {
@@ -443,6 +482,22 @@ public static class RuleDocumentValidator
         var values = RuleValueReader.Read(root, operators.Operators);
 
         return values.IsAccepted ? [] : values.Errors;
+    }
+
+    // The first member of the document that this version does not declare, or null. The document's
+    // own order rather than the declared order, because the message names what somebody wrote and
+    // the first thing they wrote wrong is the one they are looking at.
+    private static string? FirstUndeclaredMember(JsonElement root)
+    {
+        foreach (var member in root.EnumerateObject())
+        {
+            if (Array.IndexOf(DeclaredMembers, member.Name) < 0)
+            {
+                return member.Name;
+            }
+        }
+
+        return null;
     }
 
     private static RuleDocumentValidation Refuse(string pointer, string message)

@@ -39,12 +39,15 @@ public sealed class RuleDocumentStoreTests : IDisposable
     /// <summary>
     /// A document goes through save and load unchanged byte for byte. The bytes chosen are the
     /// ones a reformatting round trip destroys: a byte order mark, carriage returns, two-space
-    /// indentation and a member no version of this format declares.
+    /// indentation and two members written on one line.
+    ///
+    /// It carried a member no version of this format declares, for the same purpose. That member
+    /// is refused now, decided on #231, so the awkwardness comes from the layout instead.
     /// </summary>
     [Fact]
     public void AValidDocumentRoundTripsThroughSaveAndLoadUnchangedByteForByte()
     {
-        const string Text = "{\r\n  \"schemaVersion\": 1,\r\n  \"id\": \"christmas\",\r\n  \"name\": \"Christmas\", \"collects\": [\"movie\"],\r\n  \"somethingLaterVersionsMayAdd\": {\"kept\": true}\r\n}\r\n";
+        const string Text = "{\r\n  \"schemaVersion\": 1,\r\n  \"id\": \"christmas\",\r\n  \"name\": \"Christmas\", \"collects\": [\"movie\"],\r\n  \"match\": {\"allOf\": [{\"field\": \"name\", \"operator\": \"contains\", \"value\": \"Christmas\"}]}\r\n}\r\n";
         var written = new byte[] { 0xEF, 0xBB, 0xBF };
         var body = Encoding.UTF8.GetBytes(Text);
         Array.Resize(ref written, written.Length + body.Length);

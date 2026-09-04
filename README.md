@@ -105,16 +105,13 @@ for it to belong, and how the collection is ordered.
             { "field": "productionYear", "operator": "greaterThanOrEqual", "value": 1990 },
             { "field": "productionYear", "operator": "lessThanOrEqual", "value": 1999 }
         ]
-    },
-    "order": { "field": "sortName", "direction": "ascending" },
-    "limit": 200
+    }
 }
 ```
 
 Saved into the rule directory, that produces a collection called
 `Nineties Thrillers` holding every film in the library whose genres include
-`Thriller` and whose production year falls in the nineties, ordered by sort
-name, capped at two hundred items.
+`Thriller` and whose production year falls in the nineties.
 
 Reading it clause by clause:
 
@@ -145,9 +142,17 @@ Reading it clause by clause:
 - `field` and `operator` come from a declared table rather than from whatever
   property happens to exist on some class, so an unknown field is a validation
   message naming the legal ones and not an exception at evaluation time.
-- `order` and `limit` go together. A limit without a total order is a collection
-  whose contents change between two runs over an unchanged library, so the order
-  is defined down to the last tie.
+- An order and a limit go together, and neither is a member of this version.
+  A limit without a total order is a collection whose contents change between
+  two runs over an unchanged library, so when they arrive the order is defined
+  down to the last tie.
+
+A member this version does not declare is refused, and the message names the
+member. That is what makes a misspelling visible: a document writing `mach`
+where it meant `match` is told so, instead of being read as a rule that says
+nothing. It costs no room for a later version, because a document written for
+one declares a higher `schemaVersion` and is refused with both numbers in the
+message before any of its members are read.
 
 The field table, the operator set, the value forms, the composition groups and
 the item kinds are declared in the engine and each is written out on a page of
@@ -166,9 +171,10 @@ sitting there to be copied.
 This section is the front page rather than the reference. The reference is
 [the rule language](docs/rule-language.md), which gathers those pages and the
 refusals in one place and is held to the pages in the tree by the suite in both
-directions. The document above is the one place that shows an `order` and a
-`limit`; those two are the shape they are planned in and are read by nothing
-yet.
+directions. The document above showed an `order` and a `limit` until
+2026-09-04, as the shape those two are planned in. They came out when a member
+this version does not declare became a refusal, because an example the plugin
+would refuse is worse than one that stops short.
 
 ## What a rule deliberately cannot say
 

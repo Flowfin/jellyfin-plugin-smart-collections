@@ -350,6 +350,33 @@ public class RuleDocumentSchemaTests
     }
 
     /// <summary>
+    /// The schema closes the object and the validator refuses a member it does not declare, so an
+    /// editor pointed at this file and the plugin reading the document give one answer.
+    /// </summary>
+    /// <remarks>
+    /// The two halves are asserted together on purpose. A schema that closed the object while the
+    /// validator accepted anything would red an editor over a document the plugin takes, and a
+    /// validator that refused while the schema stayed open would take a document an editor said
+    /// was fine. Either way somebody is told two different things about one file, and which of the
+    /// two is louder depends on which tool they happened to open.
+    /// </remarks>
+    [Fact]
+    public void TheSchemaClosesTheObjectAndTheValidatorRefusesAnUndeclaredMember()
+    {
+        var schema = Schema();
+
+        Assert.True(schema.TryGetProperty("additionalProperties", out var additional));
+        Assert.Equal(JsonValueKind.False, additional.ValueKind);
+
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\":1,\"id\":\"christmas\",\"name\":\"Christmas\",\"collects\":[\"movie\"],"
+            + "\"aMemberNoVersionDeclares\":1}");
+
+        Assert.False(result.IsValid);
+        Assert.Equal("/aMemberNoVersionDeclares", Assert.Single(result.Errors).Pointer);
+    }
+
+    /// <summary>
     /// The document members the validator reads, off the constants that declare them rather than
     /// a list written here, so a member added to either type is compared on the day its constant
     /// arrives.
