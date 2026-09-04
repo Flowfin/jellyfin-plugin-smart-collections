@@ -1,0 +1,20 @@
+{
+    "schemaVersion": 1,
+    "id": "tagged-and-not-tagged",
+    "name": "Tagged and not tagged",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "tags",
+                "operator": "contains",
+                "value": "keep"
+            },
+            {
+                "field": "tags",
+                "operator": "notContains",
+                "value": "drop"
+            }
+        ]
+    }
+}

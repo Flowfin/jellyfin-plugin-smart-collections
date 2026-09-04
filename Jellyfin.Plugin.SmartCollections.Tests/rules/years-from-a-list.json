@@ -1,0 +1,15 @@
+{
+    "schemaVersion": 1,
+    "id": "years-from-a-list",
+    "name": "Years from a list",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "productionYear",
+                "operator": "in",
+                "value": [1994, 1995, 1996]
+            }
+        ]
+    }
+}

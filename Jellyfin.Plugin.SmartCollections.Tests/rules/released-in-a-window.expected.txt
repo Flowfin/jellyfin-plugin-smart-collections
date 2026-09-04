@@ -1,0 +1,7 @@
+# A range the query carries as two properties, with the two ends written in two
+# different offsets. Both parse to instants, so the offset a document wrote is not in
+# the answer.
+scope: movie
+query: IncludeItemTypes=[Movie]
+query: MaxPremiereDate=12/31/1999 23:59:59
+query: MinPremiereDate=12/31/1989 22:00:00

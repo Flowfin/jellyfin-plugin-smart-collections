@@ -1,0 +1,15 @@
+{
+    "schemaVersion": 1,
+    "id": "a-name-that-differs-only-by-case",
+    "name": "A name that differs only by case",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "name",
+                "operator": "equals",
+                "value": "amélie"
+            }
+        ]
+    }
+}

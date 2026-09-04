@@ -1,0 +1,8 @@
+# Three conditions on three fields, each of which the query answers. The document the
+# suite's own walk uses, kept here so a change that moves the plainest answer of all
+# moves a file.
+scope: movie
+query: Genres=[Thriller]
+query: IncludeItemTypes=[Movie]
+query: Tags=[keep]
+query: Years=[1994]

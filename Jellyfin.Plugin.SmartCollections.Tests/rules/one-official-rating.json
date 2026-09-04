@@ -1,0 +1,15 @@
+{
+    "schemaVersion": 1,
+    "id": "one-official-rating",
+    "name": "One official rating",
+    "collects": ["series"],
+    "match": {
+        "allOf": [
+            {
+                "field": "officialRating",
+                "operator": "equals",
+                "value": "TV-14"
+            }
+        ]
+    }
+}

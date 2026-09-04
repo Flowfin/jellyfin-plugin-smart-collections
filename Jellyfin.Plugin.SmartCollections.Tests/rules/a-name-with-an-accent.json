@@ -1,0 +1,15 @@
+{
+    "schemaVersion": 1,
+    "id": "a-name-with-an-accent",
+    "name": "A name with an accent",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "name",
+                "operator": "equals",
+                "value": "Amélie"
+            }
+        ]
+    }
+}

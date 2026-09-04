@@ -1,0 +1,15 @@
+{
+    "schemaVersion": 1,
+    "id": "released-in-the-last-thirty-days",
+    "name": "Released in the last thirty days",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "premiereDate",
+                "operator": "withinLast",
+                "value": "P30D"
+            }
+        ]
+    }
+}

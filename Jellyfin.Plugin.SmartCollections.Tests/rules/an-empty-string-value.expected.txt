@@ -1,0 +1,5 @@
+# An empty string is a string. Nothing trims it and nothing refuses it, and this file
+# is where that would become visible if either started.
+scope: movie
+query: IncludeItemTypes=[Movie]
+after the query: /match/allOf/0 name contains [String: ]

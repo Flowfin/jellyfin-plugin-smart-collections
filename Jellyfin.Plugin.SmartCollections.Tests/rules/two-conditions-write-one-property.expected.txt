@@ -1,0 +1,4 @@
+# Two conditions that both write the ceiling on the premiere date. Refused by the
+# compiler rather than by the read, so the message carries its own prefix and a reader
+# can tell which of the two stages produced it.
+refused by the compiler: /match/allOf/1: The condition at "/match/allOf/0" already narrows the query on "premiereDate". Both conditions write MaxPremiereDate, and the query holds one value for it.

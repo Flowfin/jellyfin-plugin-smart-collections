@@ -1,0 +1,6 @@
+# A date written with no offset, which reads as the start of that day at offset zero.
+# What the expected file holds is the instant that reading produced, so a change to it
+# is visible here rather than only in the parser's own suite.
+scope: series
+query: IncludeItemTypes=[Series]
+query: MinDateCreated=06/01/2025 00:00:00

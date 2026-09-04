@@ -158,6 +158,37 @@ Run it with the rest of the suite:
 dotnet test -c Release --filter FullyQualifiedName~SuitePortabilityTests
 ```
 
+## Regenerating the rule corpus
+
+`Jellyfin.Plugin.SmartCollections.Tests/rules/` holds one rule document per
+`.json` file and, beside each one, a `.expected.txt` holding what it compiles
+to. The suite compares the two on every run. That directory's own README says
+what an expected file holds and what it deliberately does not.
+
+Where a change to the engine moves an answer on purpose, rewrite the files
+rather than editing them by hand:
+
+```
+SMART_COLLECTIONS_REWRITE_EXPECTED=1 dotnet test -c Release --filter FullyQualifiedName~RuleCorpusTests
+```
+
+Then read the diff, and run the suite again without the variable.
+
+**A regeneration is always red**, by one test that says the files were rewritten
+rather than compared. That is what stops a route with the variable set from
+reporting a green run over answers it had just replaced, and it is why the
+command above is a thing somebody types rather than a step in a workflow. No
+workflow in this repository sets that variable:
+
+```
+git grep -c SMART_COLLECTIONS_REWRITE_EXPECTED -- .github/
+exit=1
+```
+
+What the rewrite keeps is the leading run of `#` lines in each expected file,
+which is the sentence saying why that document is in the corpus. What it
+replaces is everything below them.
+
 ## What the suite would catch if it broke
 
 Nothing above measures that. Whether a change to the engine would be noticed by

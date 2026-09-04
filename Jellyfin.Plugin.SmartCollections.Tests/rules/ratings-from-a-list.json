@@ -1,0 +1,15 @@
+{
+    "schemaVersion": 1,
+    "id": "ratings-from-a-list",
+    "name": "Ratings from a list",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "officialRating",
+                "operator": "in",
+                "value": ["PG", "PG-13"]
+            }
+        ]
+    }
+}

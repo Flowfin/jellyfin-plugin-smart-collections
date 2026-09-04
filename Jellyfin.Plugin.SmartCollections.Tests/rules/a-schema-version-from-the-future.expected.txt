@@ -1,0 +1,4 @@
+# A version higher than this plugin reads. Refused before a single member below it is
+# looked at, which is what makes refusing an unknown member above cost no forward
+# compatibility.
+refused: /schemaVersion: The document declares schemaVersion 99 and this plugin reads up to schemaVersion 1. It is refused rather than read as far as it parses, because a newer version may have changed what an existing member means.

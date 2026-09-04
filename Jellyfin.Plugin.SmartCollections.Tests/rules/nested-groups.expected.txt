@@ -1,0 +1,9 @@
+# A tree three levels deep holding a disjunction and a negation. The compiler is handed
+# the conditions flat and pushes each one it has a pair for into the query, which is a
+# wider narrowing than the tree states; the compiler's own remarks record that bound
+# and this file is what a change to it would move.
+scope: movie
+query: Genres=[Drama]
+query: IncludeItemTypes=[Movie]
+query: Years=[1999]
+after the query: /match/allOf/1/anyOf/1/noneOf/0 overview isEmpty []

@@ -1,0 +1,20 @@
+{
+    "schemaVersion": 1,
+    "id": "released-in-a-window",
+    "name": "Released in a window",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "premiereDate",
+                "operator": "after",
+                "value": "1990-01-01T00:00:00+02:00"
+            },
+            {
+                "field": "premiereDate",
+                "operator": "before",
+                "value": "2000-01-01T00:00:00Z"
+            }
+        ]
+    }
+}

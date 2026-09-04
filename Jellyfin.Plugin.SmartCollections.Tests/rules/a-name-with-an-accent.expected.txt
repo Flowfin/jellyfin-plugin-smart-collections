@@ -1,0 +1,5 @@
+# A name carrying a combining-capable character, written composed. Nothing here folds
+# or normalises it, and the pair beside this one differs from it only in case.
+scope: movie
+query: IncludeItemTypes=[Movie]
+query: Name=Amélie

@@ -1,0 +1,3 @@
+# A top-level member this version does not declare, which is the half of #231 that
+# landed in #249. The refusal names the member and the five that are legal.
+refused: /pinned: This version declares no member called "pinned". The members are schemaVersion, id, name, collects, match. A member this version does not declare is refused rather than carried, because a document written for a later format declares a later schemaVersion and is refused above, so a name here that nothing reads is a mistake and most often a misspelling.

@@ -1,0 +1,7 @@
+# Two fields the query does not answer at all. The document compiles to a query
+# narrowed by the scope alone, and both conditions are listed as work left for the
+# stage after it.
+scope: movie
+query: IncludeItemTypes=[Movie]
+after the query: /match/allOf/0 overview contains [String: heist]
+after the query: /match/allOf/1 runtime greaterThan [Duration: 01:30:00]
