@@ -143,6 +143,23 @@ public static class RuleFieldTable
         RuleOperator.LessThanOrEqual
     ];
 
+    /// <summary>
+    /// The item kinds a field that means something for everything a rule may collect names.
+    /// </summary>
+    /// <remarks>
+    /// Every field in the first vocabulary is a member of the server's own base item type, so
+    /// there is nothing here that is true of a film and false of a series. The column exists
+    /// anyway, because the alternative to declaring it is inferring it, and a field added later
+    /// that means nothing for one kind would then be a silent acceptance rather than a row
+    /// somebody had to write. Naming the constant rather than repeating the pair on ten rows is
+    /// what makes a row that DOES narrow visible in the diff that adds it.
+    /// </remarks>
+    private static readonly RuleItemKind[] EveryKind =
+    [
+        RuleItemKind.Movie,
+        RuleItemKind.Series
+    ];
+
     private static readonly RuleFieldRow[] Table =
     [
         new(
@@ -150,6 +167,7 @@ public static class RuleFieldTable
             "communityRating",
             RuleValueType.Decimal,
             Ordering,
+            EveryKind,
             "MinCommunityRating",
             "The rating the community gives the item, out of ten."),
         new(
@@ -157,6 +175,7 @@ public static class RuleFieldTable
             "dateAdded",
             RuleValueType.Date,
             Instant,
+            EveryKind,
             "MinDateCreated",
             "When the server first saw the item."),
         new(
@@ -164,6 +183,7 @@ public static class RuleFieldTable
             "genres",
             RuleValueType.String,
             Membership,
+            EveryKind,
             "Genres",
             "The genres the item carries."),
         new(
@@ -171,6 +191,7 @@ public static class RuleFieldTable
             "name",
             RuleValueType.String,
             Title,
+            EveryKind,
             "Name",
             "The title the library holds for the item."),
         new(
@@ -178,6 +199,7 @@ public static class RuleFieldTable
             "officialRating",
             RuleValueType.String,
             OptionalText,
+            EveryKind,
             "OfficialRatings",
             "The age classification the item carries."),
         new(
@@ -185,6 +207,7 @@ public static class RuleFieldTable
             "overview",
             RuleValueType.String,
             FreeText,
+            EveryKind,
             null,
             "The description the library holds for the item."),
         new(
@@ -192,6 +215,7 @@ public static class RuleFieldTable
             "premiereDate",
             RuleValueType.Date,
             Instant,
+            EveryKind,
             "MinPremiereDate",
             "When the item was first released."),
         new(
@@ -199,6 +223,7 @@ public static class RuleFieldTable
             "productionYear",
             RuleValueType.Integer,
             Counted,
+            EveryKind,
             "Years",
             "The year the item was produced."),
         new(
@@ -206,6 +231,7 @@ public static class RuleFieldTable
             "runtime",
             RuleValueType.Duration,
             Ordering,
+            EveryKind,
             null,
             "How long the item runs for."),
         new(
@@ -213,6 +239,7 @@ public static class RuleFieldTable
             "tags",
             RuleValueType.String,
             Membership,
+            EveryKind,
             "Tags",
             "The tags the item carries.")
     ];
@@ -396,6 +423,102 @@ public static class RuleFieldTable
             string.Create(
                 CultureInfo.InvariantCulture,
                 $"The field \"{field.Name}\" does not accept the operator \"{RuleOperatorTable.Of(@operator).Name}\". It accepts {OperatorNames(field)}."));
+    }
+
+    /// <summary>
+    /// Whether a field means anything for at least one of the kinds a rule collects.
+    /// </summary>
+    /// <param name="field">The field the condition names.</param>
+    /// <param name="scope">The kinds the rule collects, as the scope stage read them.</param>
+    /// <returns>
+    /// <see langword="true"/> where at least one declared kind is one the field applies to.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="field"/> or <paramref name="scope"/> is <see langword="null"/>.
+    /// </exception>
+    /// <remarks>
+    /// AT LEAST ONE RATHER THAN ALL OF THEM, and the choice is the one a rule collecting two kinds
+    /// makes readable. A rule over films and series carrying a condition on a field that means
+    /// something for a film and nothing for a series is a rule that narrows the films and leaves
+    /// the series alone, which is what the document says and is a thing somebody writes on
+    /// purpose. Requiring every declared kind would refuse it, and the repair would be two rules
+    /// where the operator wrote one.
+    /// </remarks>
+    public static bool AppliesToAnyOf(RuleFieldRow field, IReadOnlyList<RuleItemKindRow> scope)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        ArgumentNullException.ThrowIfNull(scope);
+
+        foreach (var kind in scope)
+        {
+            if (field.AppliesTo(kind.Kind))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The refusal for a condition on a field that means nothing for any kind the rule collects.
+    /// </summary>
+    /// <param name="field">The field the condition names.</param>
+    /// <param name="scope">The kinds the rule collects, as the scope stage read them.</param>
+    /// <param name="pointer">Where the condition is, as a JSON Pointer.</param>
+    /// <returns>The refusal, naming the field and the scope.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="field"/> or <paramref name="scope"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="field"/> applies to a kind in <paramref name="scope"/>.
+    /// </exception>
+    /// <remarks>
+    /// BOTH NAMES ARE IN THE MESSAGE, which is #69's own wording and is the point of the refusal
+    /// rather than a nicety. A rule that collects series and asks about something only a film has
+    /// is wrong in one of two ways - the scope is wrong or the condition is - and only whoever
+    /// wrote it knows which, so the message hands them the pair rather than choosing.
+    ///
+    /// The kinds the field DOES apply to are named as well, because a message saying only what a
+    /// document may not write leaves the reader to find the vocabulary page for the half they
+    /// need.
+    ///
+    /// It throws for a field that does apply, by the pattern
+    /// <see cref="RefuseOperator"/> already sets: a refusal built for something that is not
+    /// refused is a caller fault and reads as an answer.
+    /// </remarks>
+    public static RuleValidationError RefuseOutsideScope(
+        RuleFieldRow field,
+        IReadOnlyList<RuleItemKindRow> scope,
+        string pointer)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        ArgumentNullException.ThrowIfNull(scope);
+
+        if (AppliesToAnyOf(field, scope))
+        {
+            throw new ArgumentException(
+                "This field applies to a kind this rule collects, so there is nothing to refuse. Ask AppliesToAnyOf before building a refusal.",
+                nameof(scope));
+        }
+
+        var collected = new string[scope.Count];
+        for (var index = 0; index < scope.Count; index++)
+        {
+            collected[index] = scope[index].Name;
+        }
+
+        var applies = new string[field.Kinds.Count];
+        for (var index = 0; index < field.Kinds.Count; index++)
+        {
+            applies[index] = RuleItemKindTable.Of(field.Kinds[index]).Name;
+        }
+
+        return new RuleValidationError(
+            pointer,
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"The field \"{field.Name}\" means nothing for anything this rule collects. The rule collects {string.Join(", ", collected)}, and \"{field.Name}\" applies to {string.Join(", ", applies)}."));
     }
 
     private static Dictionary<string, RuleFieldRow> BuildIndex()

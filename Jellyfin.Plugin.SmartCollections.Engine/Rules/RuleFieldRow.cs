@@ -6,8 +6,9 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// One field, as the table declares it.
 /// </summary>
 /// <remarks>
-/// Five things and no more: which field this is, what a document writes to name it, the type it
-/// holds, the operators it accepts, and how it reaches the library.
+/// Six things and no more: which field this is, what a document writes to name it, the type it
+/// holds, the operators it accepts, which item kinds it means anything for, and how it reaches
+/// the library.
 ///
 /// The written name is declared rather than derived from the member, for the reason
 /// <see cref="RuleOperatorRow"/> gives about its own: deriving it would make the wire format a
@@ -36,6 +37,7 @@ public sealed class RuleFieldRow
         string name,
         RuleValueType valueType,
         IReadOnlyList<RuleOperator> operators,
+        IReadOnlyList<RuleItemKind> kinds,
         string? queryProperty,
         string semantics)
     {
@@ -43,6 +45,7 @@ public sealed class RuleFieldRow
         Name = name;
         ValueType = valueType;
         Operators = operators;
+        Kinds = kinds;
         QueryProperty = queryProperty;
         Semantics = semantics;
     }
@@ -80,6 +83,29 @@ public sealed class RuleFieldRow
     public IReadOnlyList<RuleOperator> Operators { get; }
 
     /// <summary>
+    /// Gets the item kinds this field means anything for, in the order the kind table declares
+    /// them.
+    /// </summary>
+    /// <remarks>
+    /// A FIELD IS NARROWED TO THE KINDS IT MEANS, decided on #69 on 2026-09-04. The alternative
+    /// was to widen the kinds a rule may collect until some field means nothing for one of them,
+    /// and it was refused because it changes what a rule collects in order to give a refusal
+    /// something to bite on.
+    ///
+    /// Every field declared today names both kinds, so no document anybody can write reaches the
+    /// refusal that reads this column. That is a fact about the vocabulary rather than about the
+    /// guard, and it is why the proof that the guard bites is a row the suite builds rather than a
+    /// document: <c>RuleFieldScopeTests</c> is where that is stated beside the test rather than
+    /// left for a reader to notice.
+    ///
+    /// The column is on the FIELD rather than on the field and operator pair, which is the
+    /// narrower question it answers: whether the thing the field is about exists for an item of
+    /// that kind at all. Whether a particular comparison over it can be pushed into the query is
+    /// a different column with a different subject.
+    /// </remarks>
+    public IReadOnlyList<RuleItemKind> Kinds { get; }
+
+    /// <summary>
     /// Gets the property on the server's item query that the field reaches the library through,
     /// or <see langword="null"/> where the field is read after the query has returned.
     /// </summary>
@@ -95,4 +121,22 @@ public sealed class RuleFieldRow
     /// it.
     /// </summary>
     public bool IsPostQuery => QueryProperty is null;
+
+    /// <summary>
+    /// Whether this field means anything for an item of the given kind.
+    /// </summary>
+    /// <param name="kind">The kind.</param>
+    /// <returns><see langword="true"/> where the field applies to it.</returns>
+    public bool AppliesTo(RuleItemKind kind)
+    {
+        foreach (var declared in Kinds)
+        {
+            if (declared == kind)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

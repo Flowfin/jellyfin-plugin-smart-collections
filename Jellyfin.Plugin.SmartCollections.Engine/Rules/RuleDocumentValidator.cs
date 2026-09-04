@@ -467,7 +467,7 @@ public static class RuleDocumentValidator
             return composition.Errors;
         }
 
-        var fields = RuleFieldReader.Read(root, composition.Group!);
+        var fields = RuleFieldReader.Read(root, composition.Group!, scope.Kinds);
         if (!fields.IsAccepted)
         {
             return fields.Errors;

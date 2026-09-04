@@ -14,9 +14,11 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// <c>docs/rule-fields.md</c>, and the suite refuses one that has neither. That is what makes the
 /// vocabulary closed in practice rather than in a sentence.
 ///
-/// Which item kinds each field applies to is a column this enumeration's table does not carry
-/// yet. Every field declared here applies to both kinds the first version collects, so the
-/// absence states nothing false; the column and the refusal that reads it are #69.
+/// Which item kinds each field applies to is a column the table carries, landed under #69. Every
+/// field declared here applies to both kinds the first version collects, so the column narrows
+/// nothing today and the refusal that reads it fires on no document anybody can write. That is a
+/// fact about this vocabulary rather than about the guard, and it is where a field that means
+/// nothing for one kind would be declared rather than inferred.
 /// </remarks>
 public enum RuleField
 {
