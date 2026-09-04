@@ -1,0 +1,4 @@
+# One value where the document above writes a list, on the other item kind.
+scope: series
+query: IncludeItemTypes=[Series]
+query: OfficialRatings=[TV-14]

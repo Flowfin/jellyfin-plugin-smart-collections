@@ -1,0 +1,20 @@
+{
+    "schemaVersion": 1,
+    "id": "two-conditions-write-one-property",
+    "name": "Two conditions write one property",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "premiereDate",
+                "operator": "withinLast",
+                "value": "P2W"
+            },
+            {
+                "field": "premiereDate",
+                "operator": "before",
+                "value": "2026-01-01T00:00:00Z"
+            }
+        ]
+    }
+}

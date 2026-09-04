@@ -1,0 +1,16 @@
+{
+    "schemaVersion": 1,
+    "id": "a-member-this-version-does-not-declare",
+    "name": "A member this version does not declare",
+    "collects": ["movie"],
+    "pinned": ["a-film"],
+    "match": {
+        "allOf": [
+            {
+                "field": "genres",
+                "operator": "contains",
+                "value": "Drama"
+            }
+        ]
+    }
+}

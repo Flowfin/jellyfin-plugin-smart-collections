@@ -1,0 +1,6 @@
+# Two conditions on one field that write two different properties, which is why they
+# are both compiled rather than refused as a collision.
+scope: movie
+query: ExcludeTags=[drop]
+query: IncludeItemTypes=[Movie]
+query: Tags=[keep]

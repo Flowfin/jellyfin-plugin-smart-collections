@@ -1,0 +1,7 @@
+# The two operators that carry no value. Neither has a pair in the query table, so
+# both are left after the query, and the document still narrows on the kinds it
+# collects.
+scope: movie, series
+query: IncludeItemTypes=[Movie, Series]
+after the query: /match/allOf/0 genres isEmpty []
+after the query: /match/allOf/1 tags isNotEmpty []

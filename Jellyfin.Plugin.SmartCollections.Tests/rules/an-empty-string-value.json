@@ -1,0 +1,15 @@
+{
+    "schemaVersion": 1,
+    "id": "an-empty-string-value",
+    "name": "An empty string value",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "name",
+                "operator": "contains",
+                "value": ""
+            }
+        ]
+    }
+}

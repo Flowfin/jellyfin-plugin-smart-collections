@@ -1,0 +1,15 @@
+{
+    "schemaVersion": 1,
+    "id": "added-since-a-date",
+    "name": "Added since a date",
+    "collects": ["series"],
+    "match": {
+        "allOf": [
+            {
+                "field": "dateAdded",
+                "operator": "after",
+                "value": "2025-06-01"
+            }
+        ]
+    }
+}

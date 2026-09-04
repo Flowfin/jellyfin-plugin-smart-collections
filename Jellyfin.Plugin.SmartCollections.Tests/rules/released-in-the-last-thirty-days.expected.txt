@@ -1,0 +1,7 @@
+# The one pair that reads the instant the evaluation was given. Both ends of the span
+# are in the expected file, so a change to how the span is closed moves this file and
+# not only a unit test.
+scope: movie
+query: IncludeItemTypes=[Movie]
+query: MaxPremiereDate=01/15/2026 00:00:00
+query: MinPremiereDate=12/16/2025 00:00:00

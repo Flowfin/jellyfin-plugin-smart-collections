@@ -1,0 +1,3 @@
+# A field name no row holds. The refusal lists every field a document may name, and
+# that list is the thing a change to the vocabulary moves here.
+refused: /match/allOf/0/field: There is no field called "studio". The fields are communityRating, dateAdded, genres, name, officialRating, overview, premiereDate, productionYear, runtime, tags.

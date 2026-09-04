@@ -1,0 +1,15 @@
+{
+    "schemaVersion": 1,
+    "id": "a-field-this-version-does-not-declare",
+    "name": "A field this version does not declare",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "studio",
+                "operator": "equals",
+                "value": "Studio Ghibli"
+            }
+        ]
+    }
+}

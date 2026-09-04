@@ -1,0 +1,20 @@
+{
+    "schemaVersion": 1,
+    "id": "read-only-after-the-query",
+    "name": "Read only after the query",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "overview",
+                "operator": "contains",
+                "value": "heist"
+            },
+            {
+                "field": "runtime",
+                "operator": "greaterThan",
+                "value": "PT1H30M"
+            }
+        ]
+    }
+}

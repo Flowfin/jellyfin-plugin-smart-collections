@@ -1,0 +1,18 @@
+{
+    "schemaVersion": 1,
+    "id": "an-empty-field-and-a-filled-one",
+    "name": "An empty field and a filled one",
+    "collects": ["movie", "series"],
+    "match": {
+        "allOf": [
+            {
+                "field": "genres",
+                "operator": "isEmpty"
+            },
+            {
+                "field": "tags",
+                "operator": "isNotEmpty"
+            }
+        ]
+    }
+}

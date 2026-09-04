@@ -1,0 +1,5 @@
+# Three years in one condition, which the query carries as an array. The order the
+# document wrote them in is the order in the answer.
+scope: movie
+query: IncludeItemTypes=[Movie]
+query: Years=[1994, 1995, 1996]

@@ -1,0 +1,15 @@
+{
+    "schemaVersion": 99,
+    "id": "a-schema-version-from-the-future",
+    "name": "A schema version from the future",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "genres",
+                "operator": "contains",
+                "value": "Drama"
+            }
+        ]
+    }
+}

@@ -1,0 +1,5 @@
+# The document above with the name lowercased. The two expected files differ, which is
+# what says the comparison the plugin sends to the server is not case-folded on the way.
+scope: movie
+query: IncludeItemTypes=[Movie]
+query: Name=amélie

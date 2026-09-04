@@ -1,0 +1,32 @@
+{
+    "schemaVersion": 1,
+    "id": "nested-groups",
+    "name": "Nested groups",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "genres",
+                "operator": "contains",
+                "value": "Drama"
+            },
+            {
+                "anyOf": [
+                    {
+                        "field": "productionYear",
+                        "operator": "equals",
+                        "value": 1999
+                    },
+                    {
+                        "noneOf": [
+                            {
+                                "field": "overview",
+                                "operator": "isEmpty"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

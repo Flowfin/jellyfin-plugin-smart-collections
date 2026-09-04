@@ -1,0 +1,6 @@
+# A decimal and a date in one document, over both item kinds. The rating pair is the
+# only one that writes MinCommunityRating and the only place a decimal reaches a query.
+scope: movie, series
+query: IncludeItemTypes=[Movie, Series]
+query: MinCommunityRating=7.5
+query: MinPremiereDate=01/01/2020 00:00:00

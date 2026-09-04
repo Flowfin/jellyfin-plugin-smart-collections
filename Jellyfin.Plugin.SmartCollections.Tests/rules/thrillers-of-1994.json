@@ -1,0 +1,25 @@
+{
+    "schemaVersion": 1,
+    "id": "thrillers-of-1994",
+    "name": "Thrillers of 1994",
+    "collects": ["movie"],
+    "match": {
+        "allOf": [
+            {
+                "field": "genres",
+                "operator": "contains",
+                "value": "Thriller"
+            },
+            {
+                "field": "productionYear",
+                "operator": "equals",
+                "value": 1994
+            },
+            {
+                "field": "tags",
+                "operator": "contains",
+                "value": "keep"
+            }
+        ]
+    }
+}

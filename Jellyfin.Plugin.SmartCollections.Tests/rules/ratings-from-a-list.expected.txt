@@ -1,0 +1,5 @@
+# A list value, written as a JSON array. The list and the single value below it write
+# one query property from two different pairs.
+scope: movie
+query: IncludeItemTypes=[Movie]
+query: OfficialRatings=[PG, PG-13]

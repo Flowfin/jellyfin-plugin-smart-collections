@@ -1,0 +1,20 @@
+{
+    "schemaVersion": 1,
+    "id": "well-rated-and-recent",
+    "name": "Well rated and recent",
+    "collects": ["movie", "series"],
+    "match": {
+        "allOf": [
+            {
+                "field": "communityRating",
+                "operator": "greaterThanOrEqual",
+                "value": 7.5
+            },
+            {
+                "field": "premiereDate",
+                "operator": "after",
+                "value": "2020-01-01T00:00:00Z"
+            }
+        ]
+    }
+}
