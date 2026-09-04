@@ -11,6 +11,12 @@ still being written.
 
 ### Added
 
+- The compiler takes the instant an evaluation runs at as an argument, so the
+  engine reads no clock and two relative conditions in one rule end their spans
+  at one instant. `premiereDate withinLast` compiles to the floor and the
+  ceiling the server's query carries for a premiere date; `dateAdded withinLast`
+  is handed back, because the query carries no ceiling for the date the server
+  first saw an item and a floor alone would select more than the rule says.
 - The pull request hygiene check refuses a closing keyword under a negation next
   to an issue reference, in the body and in every commit message. GitHub reads
   the pair rather than the sentence, so a change explaining that it leaves an

@@ -24,6 +24,13 @@ public class RuleQueryDocumentTests
     /// </summary>
     private const string QueryPrefix = "InternalItemsQuery.";
 
+    /// <summary>
+    /// What a `Writes:` line reads for a row, which is every property the row writes with the
+    /// prefix on each, joined the way the page's own header says.
+    /// </summary>
+    private static string Writes(RuleQueryRow row)
+        => string.Join(" and ", row.QueryProperties.Select(property => QueryPrefix + property));
+
     private static readonly Regex Section = new(
         @"^## Pair: (?<field>[A-Za-z]+) (?<operator>[A-Za-z]+)\r?\n\r?\nWrites: (?<writes>.+?)\r?\n\r?\nSemantics: (?<semantics>.+?)\r?$",
         RegexOptions.Multiline | RegexOptions.CultureInvariant);
@@ -62,14 +69,26 @@ public class RuleQueryDocumentTests
     }
 
     [Fact]
-    public void EverySectionNamesThePropertyTheTableWrites()
+    public void EverySectionNamesThePropertiesTheTableWrites()
     {
         var documented = Documented();
 
         foreach (var row in RuleQueryTable.Rows)
         {
-            Assert.Equal(QueryPrefix + row.QueryProperty, documented[Written(row)].Writes);
+            Assert.Equal(Writes(row), documented[Written(row)].Writes);
         }
+    }
+
+    /// <summary>
+    /// Without this the join above could pass on a page and a table that both name one property
+    /// per pair, and the header's sentence about two would describe nothing.
+    /// </summary>
+    [Fact]
+    public void AtLeastOnePairWritesTwoPropertiesAndThePageJoinsThem()
+    {
+        var pair = RuleQueryTable.Rows.Single(row => row.QueryProperties.Count == 2);
+
+        Assert.Contains(" and ", Documented()[Written(pair)].Writes, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -104,6 +123,14 @@ public class RuleQueryDocumentTests
             StringComparison.Ordinal);
         Assert.Contains(
             "Two conditions writing one property are refused",
+            document,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "`dateAdded withinLast` is handed back like any other pair with no row",
+            document,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "That instant is an argument to the compiler",
             document,
             StringComparison.Ordinal);
     }

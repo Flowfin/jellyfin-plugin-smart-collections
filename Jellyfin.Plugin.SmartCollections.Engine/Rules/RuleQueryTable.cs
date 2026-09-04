@@ -27,6 +27,24 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// server compares its own cleaned form of a name, a genre and a tag, so <c>name equals</c> is the
 /// server's equality over titles and not a byte comparison. Which comparison this plugin names
 /// everywhere is a question of its own and is not answered by a row being here.
+///
+/// ONE ROW READS THE INSTANT THE EVALUATION WAS GIVEN, and it is the only operator whose value is
+/// a length of time rather than an instant. <c>withinLast</c> names a span that ends at that
+/// instant, so the floor it writes is the instant less the span and the ceiling is the instant
+/// itself. The server carries both bounds for a premiere date and only the floor for the date it
+/// first saw an item, read off the query type at both lines this plugin ships for:
+///
+/// <code>
+/// for ref in v10.11.11 v12.0-rc4; do
+///   gh api "repos/jellyfin/jellyfin/contents/MediaBrowser.Controller/Entities/InternalItemsQuery.cs?ref=$ref" \
+///     --jq .content | base64 -d | grep -oE 'public DateTime\? (Min|Max)(DateCreated|PremiereDate)'
+/// done
+/// </code>
+///
+/// So <c>premiereDate withinLast</c> is a row and <c>dateAdded withinLast</c> is not: a floor
+/// alone would ask the server for everything from the start of the span onward, which is a
+/// superset of what the sentence says, and a narrowing that means something else is the one
+/// thing this table may not write. That pair is handed back like any other pair with no row.
 /// </remarks>
 public static class RuleQueryTable
 {
@@ -101,6 +119,19 @@ public static class RuleQueryTable
             "The item was first released before the value.",
             (query, values) => Before(Instant(values[0]), instant => query.MaxPremiereDate = instant)),
         new(
+            RuleField.PremiereDate,
+            RuleOperator.WithinLast,
+            ["MinPremiereDate", "MaxPremiereDate"],
+            "The item was first released inside the span that ends at the instant the evaluation was given.",
+            (query, values, evaluatedAt) => WithinLast(
+                evaluatedAt,
+                Span(values[0]),
+                (floor, ceiling) =>
+                {
+                    query.MinPremiereDate = floor;
+                    query.MaxPremiereDate = ceiling;
+                })),
+        new(
             RuleField.ProductionYear,
             RuleOperator.Equals,
             "Years",
@@ -174,6 +205,8 @@ public static class RuleQueryTable
 
     private static DateTimeOffset Instant(RuleValue value) => (DateTimeOffset)value.Value;
 
+    private static TimeSpan Span(RuleValue value) => (TimeSpan)value.Value;
+
     private static string[] Text(IReadOnlyList<RuleValue> values)
     {
         var text = new string[values.Count];
@@ -220,6 +253,34 @@ public static class RuleQueryTable
         }
 
         write(instant.AddTicks(-1));
+        return true;
+    }
+
+    /// <summary>
+    /// Writes the two bounds of a span that ends at the instant the evaluation was given.
+    /// </summary>
+    /// <remarks>
+    /// Both bounds are inclusive, which is what the properties compare with and what the
+    /// operator's own sentence means by inside. No tick offset is owed here: the sentence is not a
+    /// strict one, so the server's at-or-after and at-or-before are the translation rather than an
+    /// approximation of it.
+    ///
+    /// A span longer than the time between the first instant a date can name and the evaluation's
+    /// own is the one document these properties cannot carry, because the floor it asks for is
+    /// before any instant the query can hold. It is handed on rather than clamped, for the reason
+    /// every false answer in this table gives: a floor quietly moved is a rule that means
+    /// something else. The comparison is on ticks rather than on the subtraction, because the
+    /// subtraction throws at exactly the point this arm exists to answer.
+    /// </remarks>
+    private static bool WithinLast(DateTimeOffset evaluatedAt, TimeSpan span, Action<DateTime, DateTime> write)
+    {
+        if (evaluatedAt.UtcTicks < span.Ticks)
+        {
+            return false;
+        }
+
+        var ceiling = evaluatedAt.UtcDateTime;
+        write(ceiling - span, ceiling);
         return true;
     }
 

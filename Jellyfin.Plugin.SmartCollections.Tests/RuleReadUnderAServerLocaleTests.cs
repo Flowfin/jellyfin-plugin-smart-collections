@@ -140,7 +140,7 @@ public class RuleReadUnderAServerLocaleTests
             return (false, Rendered(values.Errors), QuerySnapshot.Of(new InternalItemsQuery()));
         }
 
-        var compilation = RuleQueryCompiler.Compile(scope.Kinds, values.Conditions);
+        var compilation = RuleQueryCompiler.Compile(scope.Kinds, values.Conditions, DateTimeOffset.UnixEpoch);
 
         return (
             compilation.IsAccepted,
@@ -178,7 +178,7 @@ public class RuleReadUnderAServerLocaleTests
         var operators = RuleOperatorReader.Read(root, fields.Fields);
         var values = RuleValueReader.Read(root, operators.Operators);
 
-        return RuleQueryCompiler.Compile(scope.Kinds, values.Conditions).Query;
+        return RuleQueryCompiler.Compile(scope.Kinds, values.Conditions, DateTimeOffset.UnixEpoch).Query;
     }
 
     /// <summary>

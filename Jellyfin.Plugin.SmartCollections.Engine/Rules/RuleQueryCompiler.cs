@@ -27,6 +27,15 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// compiled, so a rule made entirely of conditions the query cannot express still asks the server
 /// for films and series rather than for the library. A compiler that could return an unbounded
 /// query would put that bound in the caller's keeping, which is where a bound is forgotten once.
+///
+/// AND IT IS HANDED THE INSTANT THE EVALUATION WAS GIVEN, once, as an argument. A rule saying
+/// "released in the last thirty days" reads a clock somewhere, and where it reads one decides
+/// whether the rule answers the same way twice. Here the instant is an input: the caller resolves
+/// it once per evaluation and passes that one value in, every pair that needs it is handed the
+/// same one, and the engine itself reads no clock, which <c>ambient-clock-in-the-engine</c>
+/// refuses rather than trusts. Two relative conditions in one rule therefore see one instant,
+/// because there is one parameter for them to see, and a rule compiled twice at one instant is
+/// one query.
 /// </remarks>
 public static class RuleQueryCompiler
 {
@@ -35,6 +44,12 @@ public static class RuleQueryCompiler
     /// </summary>
     /// <param name="scope">The kinds the rule collects, as the scope stage read them.</param>
     /// <param name="conditions">The conditions, with their values already parsed.</param>
+    /// <param name="evaluatedAt">
+    /// The instant the evaluation was given. Every span a condition declares ends here, and the
+    /// value is recorded with the evaluation's result by whatever runs one, so a report about a
+    /// collection can be reproduced at the instant it was made rather than at the instant it is
+    /// read.
+    /// </param>
     /// <returns>The query, the conditions it does not answer, or the reasons it was refused.</returns>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="scope"/> or <paramref name="conditions"/> is <see langword="null"/>.
@@ -42,7 +57,8 @@ public static class RuleQueryCompiler
     /// <exception cref="ArgumentException"><paramref name="scope"/> is empty.</exception>
     public static RuleQueryCompilation Compile(
         IReadOnlyList<RuleItemKindRow> scope,
-        IReadOnlyList<RuleConditionValue> conditions)
+        IReadOnlyList<RuleConditionValue> conditions,
+        DateTimeOffset evaluatedAt)
     {
         ArgumentNullException.ThrowIfNull(scope);
         ArgumentNullException.ThrowIfNull(conditions);
@@ -72,19 +88,25 @@ public static class RuleQueryCompiler
                 continue;
             }
 
-            if (written.TryGetValue(row.QueryProperty, out var first))
+            // Every property the row would write is checked before any is written, so a row
+            // writing two never claims one and is refused on the other.
+            var taken = FirstTaken(row, written);
+            if (taken is not null)
             {
-                errors.Add(Refuse(condition, row, first));
+                errors.Add(Refuse(condition, row, taken, written[taken]));
                 continue;
             }
 
-            if (!row.TryWrite(query, condition.Values))
+            if (!row.TryWrite(query, condition.Values, evaluatedAt))
             {
                 afterTheQuery.Add(condition);
                 continue;
             }
 
-            written.Add(row.QueryProperty, condition.Pointer);
+            foreach (var property in row.QueryProperties)
+            {
+                written.Add(property, condition.Pointer);
+            }
         }
 
         if (errors.Count > 0)
@@ -109,10 +131,30 @@ public static class RuleQueryCompiler
     }
 
     /// <summary>
+    /// Finds the first property a row would write that another condition already wrote.
+    /// </summary>
+    /// <param name="row">The row about to write.</param>
+    /// <param name="written">The properties written so far, keyed on their name.</param>
+    /// <returns>The property, or <see langword="null"/> where every one the row names is free.</returns>
+    private static string? FirstTaken(RuleQueryRow row, Dictionary<string, string> written)
+    {
+        foreach (var property in row.QueryProperties)
+        {
+            if (written.ContainsKey(property))
+            {
+                return property;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Refuses a second condition that would write a property another condition already wrote.
     /// </summary>
     /// <param name="condition">The second condition.</param>
     /// <param name="row">The row it compiles through.</param>
+    /// <param name="property">The property both conditions write.</param>
     /// <param name="first">Where the condition that already wrote the property sits.</param>
     /// <returns>The refusal.</returns>
     /// <remarks>
@@ -126,16 +168,18 @@ public static class RuleQueryCompiler
     ///
     /// The refusal is per PROPERTY rather than per field, because the property is where the
     /// replacement would happen. Two conditions on <c>tags</c> written as <c>contains</c> and
-    /// <c>notContains</c> write two different properties and are both compiled.
+    /// <c>notContains</c> write two different properties and are both compiled, and
+    /// <c>premiereDate withinLast</c> beside <c>premiereDate before</c> is refused on the ceiling
+    /// they share rather than on the field.
     /// </remarks>
-    private static RuleValidationError Refuse(RuleConditionValue condition, RuleQueryRow row, string first)
+    private static RuleValidationError Refuse(RuleConditionValue condition, RuleQueryRow row, string property, string first)
     {
         var field = RuleFieldTable.Of(row.Field).Name;
 
         return new RuleValidationError(
             condition.Pointer,
             "The condition at \"" + first + "\" already narrows the query on \"" + field
-            + "\". Both conditions write " + row.QueryProperty
+            + "\". Both conditions write " + property
             + ", and the query holds one value for it.");
     }
 }

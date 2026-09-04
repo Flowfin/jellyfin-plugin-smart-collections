@@ -74,13 +74,30 @@ public class RuleQueryTableTests
     }
 
     [Fact]
-    public void EveryRowWritesAPropertyTheServerQueryCarries()
+    public void EveryRowWritesPropertiesTheServerQueryCarries()
     {
         foreach (var row in RuleQueryTable.Rows)
         {
-            Assert.True(
-                typeof(InternalItemsQuery).GetProperty(row.QueryProperty) is not null,
-                row.QueryProperty + " is not on the server query the suite is compiled against.");
+            Assert.NotEmpty(row.QueryProperties);
+            foreach (var property in row.QueryProperties)
+            {
+                Assert.True(
+                    typeof(InternalItemsQuery).GetProperty(property) is not null,
+                    property + " is not on the server query the suite is compiled against.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// A row naming one property twice would claim it twice and refuse itself, which nothing
+    /// could write a document to reach.
+    /// </summary>
+    [Fact]
+    public void NoRowNamesOnePropertyTwice()
+    {
+        foreach (var row in RuleQueryTable.Rows)
+        {
+            Assert.Equal(row.QueryProperties.Distinct(StringComparer.Ordinal), row.QueryProperties);
         }
     }
 
@@ -93,8 +110,9 @@ public class RuleQueryTableTests
     public void NoPropertyIsWrittenByTwoDifferentFields()
     {
         var owners = RuleQueryTable.Rows
-            .GroupBy(row => row.QueryProperty, StringComparer.Ordinal)
-            .Select(group => new { group.Key, Fields = group.Select(row => row.Field).Distinct().ToArray() })
+            .SelectMany(row => row.QueryProperties.Select(property => (Property: property, row.Field)))
+            .GroupBy(entry => entry.Property, StringComparer.Ordinal)
+            .Select(group => new { group.Key, Fields = group.Select(entry => entry.Field).Distinct().ToArray() })
             .Where(entry => entry.Fields.Length > 1)
             .Select(entry => entry.Key)
             .ToArray();
@@ -114,7 +132,7 @@ public class RuleQueryTableTests
         var row = RuleQueryTable.Find(RuleField.Name, RuleOperator.Equals);
 
         Assert.NotNull(row);
-        Assert.Equal("Name", row!.QueryProperty);
+        Assert.Equal(["Name"], row!.QueryProperties);
     }
 
     [Fact]
@@ -123,7 +141,7 @@ public class RuleQueryTableTests
         var row = RuleQueryTable.Find(RuleField.Name, RuleOperator.Equals)!;
 
         Assert.Throws<ArgumentNullException>(
-            () => row.TryWrite(null!, [RuleValue.Of(RuleValueType.String, "Heat")]));
-        Assert.Throws<ArgumentNullException>(() => row.TryWrite(new InternalItemsQuery(), null!));
+            () => row.TryWrite(null!, [RuleValue.Of(RuleValueType.String, "Heat")], DateTimeOffset.UnixEpoch));
+        Assert.Throws<ArgumentNullException>(() => row.TryWrite(new InternalItemsQuery(), null!, DateTimeOffset.UnixEpoch));
     }
 }

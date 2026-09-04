@@ -7,8 +7,9 @@ out.
 
 Each section below carries a marker line of the form `## Pair: <field>
 <operator>`, a `Writes:` line naming the property on `InternalItemsQuery` the
-pair narrows, and a `Semantics:` line saying what the query is asked once the
-pair has written to it. `RuleQueryDocumentTests` holds the page to the table in
+pair narrows, or both properties joined by `and` where a pair writes two, and a
+`Semantics:` line saying what the query is asked once the pair has written to
+it. `RuleQueryDocumentTests` holds the page to the table in
 both directions, so a pair compiled without a section reds the suite and a
 section describing a pair that is not compiled reds it too.
 
@@ -71,6 +72,34 @@ rather than by anything after it.
 The last tick a date can name has no room for the offset, and neither has the
 first. A document naming either is accepted by this plugin and cannot be carried
 by these properties, so that condition is handed back rather than narrowed.
+
+## One pair reads the instant the evaluation was given
+
+`withinLast` is the one operator whose value is a length of time rather than an
+instant, so the span it names has to end somewhere, and where it ends is the
+instant the compiler is handed. That instant is an argument to the compiler
+rather than a clock it reads: whatever runs an evaluation resolves it once and
+passes that one value in, so two relative conditions in one rule see one
+instant, and the same rule compiled twice at one instant is one query. The
+engine reads no clock, and `ambient-clock-in-the-engine` in the invariant lint
+refuses one arriving.
+
+The pair writes both bounds of the span. The floor is the instant less the span
+and the ceiling is the instant itself, both inclusive, because the operator's
+sentence is not a strict one and the properties compare with at-or-after and
+at-or-before. So no tick offset is owed here, unlike the two strict operators
+above.
+
+A span longer than the time between the first instant a date can name and the
+evaluation's own is the one document these properties cannot carry, because the
+floor it asks for is before any instant the query can hold. That condition is
+handed back rather than clamped, for the reason every hand-back on this page
+gives.
+
+The pair claims both properties it writes, so `premiereDate withinLast` beside
+`premiereDate before` is refused on the ceiling the two share, and beside
+`premiereDate after` on the floor, the same way two conditions writing one
+property are refused below.
 
 ## One range the query cannot carry
 
@@ -143,6 +172,12 @@ Writes: InternalItemsQuery.MaxPremiereDate
 
 Semantics: The item was first released before the value.
 
+## Pair: premiereDate withinLast
+
+Writes: InternalItemsQuery.MinPremiereDate and InternalItemsQuery.MaxPremiereDate
+
+Semantics: The item was first released inside the span that ends at the instant the evaluation was given.
+
 ## Pair: productionYear equals
 
 Writes: InternalItemsQuery.Years
@@ -174,9 +209,33 @@ and not this one's. A server query is a conjunction, so only conditions that all
 have to hold can be pushed into it, and the compiler here is handed a flat list
 rather than the tree.
 
-`withinLast` is absent from every field's rows although the query carries the
-properties two of its fields name. It is the one operator whose value is a
-length of time rather than an instant, so compiling it needs the instant the
-evaluation was given, and the clock a rule reads is injected rather than
-ambient. Until that instant is something the compiler is handed, a `withinLast`
-condition is handed back like any other pair with no row.
+`dateAdded withinLast` has no row although the query carries the floor that
+field names, and it is the one pair on the other side of this boundary for a
+reason that is the server's rather than this plugin's. The span ends at the
+instant the evaluation was given, so writing it exactly takes a floor and a
+ceiling, and the query carries a ceiling for a premiere date and none for the
+date the server first saw an item. Read off the query type at both lines this
+plugin ships for:
+
+```
+for ref in v10.11.11 v12.0-rc4; do
+  gh api "repos/jellyfin/jellyfin/contents/MediaBrowser.Controller/Entities/InternalItemsQuery.cs?ref=$ref" \
+    --jq .content | base64 -d | grep -oE 'public DateTime\? (Min|Max)(DateCreated|PremiereDate)'
+done
+public DateTime? MinPremiereDate
+public DateTime? MaxPremiereDate
+public DateTime? MinDateCreated
+public DateTime? MinPremiereDate
+public DateTime? MaxPremiereDate
+public DateTime? MinDateCreated
+```
+
+A floor alone would ask the server for everything from the start of the span
+onward, which is a superset of what the sentence says, and a narrowing that
+means something else is the one thing this page may not describe. So
+`dateAdded withinLast` is handed back like any other pair with no row, and it
+stays handed back until the server carries a ceiling for that date or until the
+stage that answers what is handed back exists to finish it. `RuleQueryCompilerTests`
+holds the hand-back to that reading rather than to this sentence: the test
+asserts the query type carries no `MaxDateCreated`, so the day a server line
+adds one the suite says the pair can compile.
