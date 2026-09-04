@@ -26,7 +26,7 @@ public class RuleValueReaderTests
 
         Assert.True(composition.IsAccepted, string.Join("; ", composition.Errors.Select(error => error.ToString())));
 
-        var fields = RuleFieldReader.Read(root, composition.Group!);
+        var fields = RuleFieldReader.Read(root, composition.Group!, RuleItemKindTable.Rows);
 
         Assert.True(fields.IsAccepted, string.Join("; ", fields.Errors.Select(error => error.ToString())));
 
@@ -333,7 +333,7 @@ public class RuleValueReaderTests
 
         var root = read.RootElement;
         var composition = RuleCompositionReader.Read(root.GetProperty("match"), "/match");
-        var fields = RuleFieldReader.Read(root, composition.Group!);
+        var fields = RuleFieldReader.Read(root, composition.Group!, RuleItemKindTable.Rows);
         var operators = RuleOperatorReader.Read(root, fields.Fields);
 
         var thrown = Assert.Throws<ArgumentException>(

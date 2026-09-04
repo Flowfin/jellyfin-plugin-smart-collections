@@ -17,10 +17,10 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// The comparisons here are ordinal. A kind name is a wire token rather than a word in a
 /// language, so a server's locale cannot decide whether a document names one.
 ///
-/// WHICH KINDS A FIELD APPLIES TO IS NOT THIS TABLE. This one says what a RULE may collect; a
-/// column saying which kinds a FIELD means anything for belongs on the field table, and every
-/// field in the first vocabulary applies to both rows here. <see cref="RuleField"/> records that
-/// absence and names the issue that owns it.
+/// WHICH KINDS A FIELD APPLIES TO IS NOT THIS TABLE. This one says what a RULE may collect; which
+/// kinds a FIELD means anything for is a column on the field table, landed under #69, and every
+/// field in the first vocabulary applies to both rows here. <see cref="RuleFieldRow.Kinds"/> is
+/// that column and <see cref="RuleFieldTable.RefuseOutsideScope"/> is what reads it.
 /// </remarks>
 public static class RuleItemKindTable
 {

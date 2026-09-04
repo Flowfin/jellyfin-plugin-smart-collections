@@ -190,7 +190,7 @@ internal static class RuleCorpus
         }
 
         var composition = RuleCompositionReader.Read(match, "/match");
-        var fields = RuleFieldReader.Read(root, composition.Group!);
+        var fields = RuleFieldReader.Read(root, composition.Group!, RuleItemScopeReader.Read(root).Kinds);
         var operators = RuleOperatorReader.Read(root, fields.Fields);
 
         return RuleValueReader.Read(root, operators.Operators).Conditions;

@@ -22,7 +22,7 @@ public class RuleOperatorReaderTests
 
         Assert.True(composition.IsAccepted, string.Join("; ", composition.Errors.Select(error => error.ToString())));
 
-        var fields = RuleFieldReader.Read(root, composition.Group!);
+        var fields = RuleFieldReader.Read(root, composition.Group!, RuleItemKindTable.Rows);
 
         Assert.True(fields.IsAccepted, string.Join("; ", fields.Errors.Select(error => error.ToString())));
 

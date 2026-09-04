@@ -21,7 +21,7 @@ public class RuleFieldReaderTests
 
         Assert.True(composition.IsAccepted, string.Join("; ", composition.Errors.Select(error => error.ToString())));
 
-        return RuleFieldReader.Read(root, composition.Group!);
+        return RuleFieldReader.Read(root, composition.Group!, RuleItemKindTable.Rows);
     }
 
     private static string Rule(string conditions)
@@ -155,7 +155,7 @@ public class RuleFieldReaderTests
     {
         using var document = JsonDocument.Parse("{}");
 
-        Assert.Throws<ArgumentNullException>(() => RuleFieldReader.Read(document.RootElement, null!));
+        Assert.Throws<ArgumentNullException>(() => RuleFieldReader.Read(document.RootElement, null!, RuleItemKindTable.Rows));
     }
 
     /// <summary>
@@ -170,7 +170,7 @@ public class RuleFieldReaderTests
 
         var composition = RuleCompositionReader.Read(read.RootElement.GetProperty("match"), "/match");
 
-        Assert.Throws<ArgumentException>(() => RuleFieldReader.Read(other.RootElement, composition.Group!));
+        Assert.Throws<ArgumentException>(() => RuleFieldReader.Read(other.RootElement, composition.Group!, RuleItemKindTable.Rows));
     }
 
     [Theory]

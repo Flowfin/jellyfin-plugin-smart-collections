@@ -5,11 +5,11 @@ which operators each one accepts and how each one reaches the library are
 declared in `RuleFieldTable`, and this page is that table written out.
 
 Each field section below carries a marker line of the form `## Field: <name>`, a
-`Value type:` line, an `Operators:` line, a `Reaches the library:` line and a
-`Semantics:` line. The names are what a rule document writes, and
-`RuleFieldDocumentTests` holds the page to the table in both directions, so a
-field added without a section reds the suite and a section describing a field
-that does not exist reds it too.
+`Value type:` line, an `Operators:` line, a `Kinds:` line, a
+`Reaches the library:` line and a `Semantics:` line. The names are what a rule
+document writes, and `RuleFieldDocumentTests` holds the page to the table in both
+directions, so a field added without a section reds the suite and a section
+describing a field that does not exist reds it too.
 
 The item kinds are the second closed list on this page, declared in
 `RuleItemKindTable` and written out under `## Item kind: <name>` in the same
@@ -17,6 +17,26 @@ way. They are here rather than on a page of their own because a rule's scope and
 a rule's fields are read together: the scope decides what the query asks for and
 the fields decide what is asked of it, and splitting them puts half of one
 sentence on each of two pages.
+
+## What a `Kinds` line means
+
+The item kinds the field means anything for. A condition on a field that means
+nothing for any kind the rule collects is refused when the document is read,
+with a message naming the field, what the rule collects and what the field
+applies to, so whoever wrote it can see which of the two is wrong.
+
+Every field on this page names both kinds, so no document you can write today
+reaches that refusal. The column is declared rather than inferred anyway: a
+field added later that means nothing for one kind would otherwise be a silent
+acceptance instead of a line somebody had to write, and a rule collecting films
+and series would ask the server a question about half of what it collects with
+nothing saying so.
+
+**The refusal is per rule and not per kind.** A rule over films and series with
+a condition on a field that means something for a film and nothing for a series
+is accepted: it narrows the films and leaves the series alone, which is what the
+document says. What is refused is a condition that means nothing for anything
+the rule collects at all.
 
 ## Why the vocabulary is declared
 
@@ -98,11 +118,11 @@ values it accepts, because the enumeration parser is handed that list, and no
 field in this first vocabulary has one. The column arrives with the first field
 that needs it rather than being carried empty by ten rows that do not.
 
-Which item kinds each FIELD applies to is not here either, and it is not the same
-question as the list below. That list says what a RULE may collect; a column
-saying which kinds a field means anything for would be narrower, every field on
-this page applies to both kinds the first version collects, so the absence states
-nothing false, and the column that would carry a narrower answer is `#69`.
+Which item kinds each FIELD applies to IS here, on the `Kinds:` line of every
+section, and it is not the same question as the list below. That list says what a
+RULE may collect; the `Kinds:` line says which kinds a field means anything for,
+which is the narrower answer. Every field on this page names both kinds today, so
+the column narrows nothing yet and refuses nothing yet.
 
 ## The item kinds a rule may collect
 
@@ -258,6 +278,8 @@ Value type: Decimal
 
 Operators: greaterThan, greaterThanOrEqual, lessThan, lessThanOrEqual
 
+Kinds: movie, series
+
 Reaches the library: InternalItemsQuery.MinCommunityRating
 
 Semantics: The rating the community gives the item, out of ten.
@@ -267,6 +289,8 @@ Semantics: The rating the community gives the item, out of ten.
 Value type: Date
 
 Operators: before, after, withinLast
+
+Kinds: movie, series
 
 Reaches the library: InternalItemsQuery.MinDateCreated
 
@@ -278,6 +302,8 @@ Value type: String
 
 Operators: contains, notContains, isEmpty, isNotEmpty
 
+Kinds: movie, series
+
 Reaches the library: InternalItemsQuery.Genres
 
 Semantics: The genres the item carries.
@@ -287,6 +313,8 @@ Semantics: The genres the item carries.
 Value type: String
 
 Operators: equals, notEquals, contains, notContains, startsWith, endsWith, in, notIn
+
+Kinds: movie, series
 
 Reaches the library: InternalItemsQuery.Name
 
@@ -298,6 +326,8 @@ Value type: String
 
 Operators: equals, notEquals, in, notIn, isEmpty, isNotEmpty
 
+Kinds: movie, series
+
 Reaches the library: InternalItemsQuery.OfficialRatings
 
 Semantics: The age classification the item carries.
@@ -307,6 +337,8 @@ Semantics: The age classification the item carries.
 Value type: String
 
 Operators: contains, notContains, startsWith, endsWith, isEmpty, isNotEmpty
+
+Kinds: movie, series
 
 Reaches the library: after the query
 
@@ -318,6 +350,8 @@ Value type: Date
 
 Operators: before, after, withinLast
 
+Kinds: movie, series
+
 Reaches the library: InternalItemsQuery.MinPremiereDate
 
 Semantics: When the item was first released.
@@ -327,6 +361,8 @@ Semantics: When the item was first released.
 Value type: Integer
 
 Operators: equals, notEquals, in, notIn, greaterThan, greaterThanOrEqual, lessThan, lessThanOrEqual
+
+Kinds: movie, series
 
 Reaches the library: InternalItemsQuery.Years
 
@@ -338,6 +374,8 @@ Value type: Duration
 
 Operators: greaterThan, greaterThanOrEqual, lessThan, lessThanOrEqual
 
+Kinds: movie, series
+
 Reaches the library: after the query
 
 Semantics: How long the item runs for.
@@ -347,6 +385,8 @@ Semantics: How long the item runs for.
 Value type: String
 
 Operators: contains, notContains, isEmpty, isNotEmpty
+
+Kinds: movie, series
 
 Reaches the library: InternalItemsQuery.Tags
 

@@ -100,7 +100,7 @@ public class RuleDocumentQueryTests
         var composition = RuleCompositionReader.Read(root.GetProperty("match"), "/match");
         Assert.True(composition.IsAccepted, string.Join("; ", composition.Errors.Select(error => error.ToString())));
 
-        var fields = RuleFieldReader.Read(root, composition.Group!);
+        var fields = RuleFieldReader.Read(root, composition.Group!, ReadScope(json));
         Assert.True(fields.IsAccepted, string.Join("; ", fields.Errors.Select(error => error.ToString())));
 
         var operators = RuleOperatorReader.Read(root, fields.Fields);

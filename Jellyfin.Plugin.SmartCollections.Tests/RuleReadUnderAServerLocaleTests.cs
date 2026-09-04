@@ -122,7 +122,7 @@ public class RuleReadUnderAServerLocaleTests
             return (false, Rendered(composition.Errors), QuerySnapshot.Of(new InternalItemsQuery()));
         }
 
-        var fields = RuleFieldReader.Read(root, composition.Group!);
+        var fields = RuleFieldReader.Read(root, composition.Group!, RuleItemKindTable.Rows);
         if (!fields.IsAccepted)
         {
             return (false, Rendered(fields.Errors), QuerySnapshot.Of(new InternalItemsQuery()));
@@ -174,7 +174,7 @@ public class RuleReadUnderAServerLocaleTests
 
         var scope = RuleItemScopeReader.Read(root);
         var composition = RuleCompositionReader.Read(root.GetProperty("match"), "/match");
-        var fields = RuleFieldReader.Read(root, composition.Group!);
+        var fields = RuleFieldReader.Read(root, composition.Group!, RuleItemKindTable.Rows);
         var operators = RuleOperatorReader.Read(root, fields.Fields);
         var values = RuleValueReader.Read(root, operators.Operators);
 

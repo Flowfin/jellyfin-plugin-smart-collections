@@ -19,6 +19,12 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// walking the document itself. A condition is a place in the document, and the tree is what says
 /// where those places are; re-deciding here which members of a rule are conditions would give one
 /// document two answers.
+///
+/// IT IS ALSO HANDED THE SCOPE, AND THAT ONE IS NOT OPTIONAL, for the reason
+/// <see cref="RuleQueryCompiler"/> gives about its own. A field that means nothing for anything
+/// the rule collects is a mistake this stage can name before a query runs, and it can name it
+/// only if it knows what the rule collects. An overload without the scope would make the check
+/// something a caller remembers, which is where a check is forgotten once.
 /// </remarks>
 public static class RuleFieldReader
 {
@@ -32,20 +38,61 @@ public static class RuleFieldReader
     /// </summary>
     /// <param name="document">The document the composition was read from.</param>
     /// <param name="group">The outermost group of the composition.</param>
+    /// <param name="scope">The kinds the rule collects, as the scope stage read them.</param>
     /// <returns>One row per condition, or every reason the read was refused.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="group"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="group"/> or <paramref name="scope"/> is <see langword="null"/>.
+    /// </exception>
     /// <exception cref="ArgumentException">
     /// A condition pointer in <paramref name="group"/> refers to nothing in
     /// <paramref name="document"/>, which means the tree and the document are not the same read.
     /// </exception>
-    public static RuleFieldRead Read(JsonElement document, RuleConditionGroup group)
+    public static RuleFieldRead Read(
+        JsonElement document,
+        RuleConditionGroup group,
+        IReadOnlyList<RuleItemKindRow> scope)
+        => Read(document, group, scope, RuleFieldTable.Find);
+
+    /// <summary>
+    /// The same read, against a vocabulary the caller supplies.
+    /// </summary>
+    /// <param name="document">The document the composition was read from.</param>
+    /// <param name="group">The outermost group of the composition.</param>
+    /// <param name="scope">The kinds the rule collects, as the scope stage read them.</param>
+    /// <param name="vocabulary">Resolves a name a document wrote to a field row, or to nothing.</param>
+    /// <returns>One row per condition, or every reason the read was refused.</returns>
+    /// <remarks>
+    /// INTERNAL, AND IT EXISTS FOR ONE REASON WORTH WRITING DOWN. Every field this version
+    /// declares applies to every item kind a rule may collect, so the arm below that refuses a
+    /// field meaning nothing for anything the rule collects cannot be reached through the real
+    /// vocabulary at all - not by a document anybody can write, and not by one nobody would. A
+    /// guard with no proof that it bites is refused here by name, and this seam is what a fixture
+    /// vocabulary reaches it through.
+    ///
+    /// It is not a hook and it is not configuration. Nothing outside this assembly and the suite
+    /// can call it, the public read above binds the vocabulary to the table, and no route a
+    /// document takes chooses one. On the day a declared field is narrowed to fewer kinds, the arm
+    /// becomes reachable through the public read and this overload stops being the only way in;
+    /// it is not removed then, because the fixture is still the cheaper proof.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="group"/>, <paramref name="scope"/> or <paramref name="vocabulary"/> is
+    /// <see langword="null"/>.
+    /// </exception>
+    internal static RuleFieldRead Read(
+        JsonElement document,
+        RuleConditionGroup group,
+        IReadOnlyList<RuleItemKindRow> scope,
+        Func<string, RuleFieldRow?> vocabulary)
     {
         ArgumentNullException.ThrowIfNull(group);
+        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentNullException.ThrowIfNull(vocabulary);
 
         var fields = new List<RuleConditionField>();
         var errors = new List<RuleValidationError>();
 
-        ReadGroup(document, group, fields, errors);
+        ReadGroup(document, group, scope, vocabulary, fields, errors);
 
         return errors.Count > 0 ? RuleFieldRead.Refused(errors) : RuleFieldRead.Accepted(fields);
     }
@@ -115,6 +162,8 @@ public static class RuleFieldReader
     private static void ReadGroup(
         JsonElement document,
         RuleConditionGroup group,
+        IReadOnlyList<RuleItemKindRow> scope,
+        Func<string, RuleFieldRow?> vocabulary,
         List<RuleConditionField> fields,
         List<RuleValidationError> errors)
     {
@@ -123,18 +172,20 @@ public static class RuleFieldReader
         // this order is declared rather than inherited.
         foreach (var pointer in group.ConditionPointers)
         {
-            ReadCondition(document, pointer, fields, errors);
+            ReadCondition(document, pointer, scope, vocabulary, fields, errors);
         }
 
         foreach (var child in group.Groups)
         {
-            ReadGroup(document, child, fields, errors);
+            ReadGroup(document, child, scope, vocabulary, fields, errors);
         }
     }
 
     private static void ReadCondition(
         JsonElement document,
         string pointer,
+        IReadOnlyList<RuleItemKindRow> scope,
+        Func<string, RuleFieldRow?> vocabulary,
         List<RuleConditionField> fields,
         List<RuleValidationError> errors)
     {
@@ -167,11 +218,20 @@ public static class RuleFieldReader
         }
 
         var name = field.GetString()!;
-        var row = RuleFieldTable.Find(name);
+        var row = vocabulary(name);
 
         if (row is null)
         {
             errors.Add(RuleFieldTable.RefuseUnknownField(name, at));
+            return;
+        }
+
+        // Read after the name resolves, because a field the vocabulary does not hold at all is a
+        // different repair from one that exists and means nothing here, and telling somebody
+        // about a scope for a field that does not exist would answer the wrong question.
+        if (!RuleFieldTable.AppliesToAnyOf(row, scope))
+        {
+            errors.Add(RuleFieldTable.RefuseOutsideScope(row, scope, at));
             return;
         }
 

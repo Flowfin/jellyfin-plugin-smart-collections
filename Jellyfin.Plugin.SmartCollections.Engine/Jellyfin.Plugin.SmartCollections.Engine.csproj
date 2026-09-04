@@ -28,6 +28,25 @@
     <JellyfinSdkVersionNet10 Condition="'$(JellyfinSdkVersionNet10)' == ''">12.0.0-rc4</JellyfinSdkVersionNet10>
   </PropertyGroup>
 
+  <!-- The suite may build a field row. RuleFieldRow's constructor is internal because the table is
+       the authority for which fields exist, and that stays true: nothing outside this assembly can
+       add a field to the vocabulary a document is read against.
+
+       What the suite needs it for is the opposite of adding one. Every field this version declares
+       applies to both item kinds a rule may collect, so the refusal for a condition on a field
+       that means nothing for anything the rule collects cannot fire on a document anybody can
+       write. A guard with no proof that it bites is refused here by name, and the proof is a
+       FIXTURE row that applies to one kind - a row that exists for the length of one test and
+       never reaches the table. RuleFieldScopeTests is where that is argued beside the test.
+
+       The alternative was to widen the constructor, which would let any caller invent a field, or
+       to widen the kinds a rule collects until some declared field means nothing for one of them,
+       which changes what a rule collects in order to give a refusal something to bite on. Both
+       were refused on issue 69. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Jellyfin.Plugin.SmartCollections.Tests" />
+  </ItemGroup>
+
   <!-- A compiled rule is an InternalItemsQuery, which is why the engine references the server SDK
        and why that is not a leak. The runtime assets stay out for the same reason as in the host:
        the server supplies them at load time. -->

@@ -43,10 +43,10 @@ public class RuleFieldDocumentTests
         TimeSpan.FromSeconds(5));
 
     private static readonly Regex Section = new(
-        @"^## Field: (?<name>[A-Za-z]+)\r?\n\r?\nValue type: (?<type>.+?)\r?\n\r?\nOperators: (?<operators>.+?)\r?\n\r?\nReaches the library: (?<reach>.+?)\r?\n\r?\nSemantics: (?<semantics>.+?)\r?$",
+        @"^## Field: (?<name>[A-Za-z]+)\r?\n\r?\nValue type: (?<type>.+?)\r?\n\r?\nOperators: (?<operators>.+?)\r?\n\r?\nKinds: (?<kinds>.+?)\r?\n\r?\nReaches the library: (?<reach>.+?)\r?\n\r?\nSemantics: (?<semantics>.+?)\r?$",
         RegexOptions.Multiline | RegexOptions.CultureInvariant);
 
-    private sealed record DocumentedField(string Type, string Operators, string Reach, string Semantics);
+    private sealed record DocumentedField(string Type, string Operators, string Kinds, string Reach, string Semantics);
 
     private static IReadOnlyDictionary<string, DocumentedField> Documented()
         => Section.Matches(RepositoryFiles.ReadFromRoot(Page))
@@ -55,12 +55,16 @@ public class RuleFieldDocumentTests
                 section => new DocumentedField(
                     section.Groups["type"].Value,
                     section.Groups["operators"].Value,
+                    section.Groups["kinds"].Value,
                     section.Groups["reach"].Value,
                     section.Groups["semantics"].Value),
                 StringComparer.Ordinal);
 
     private static string WrittenOperators(RuleFieldRow row)
         => string.Join(", ", row.Operators.Select(@operator => RuleOperatorTable.Of(@operator).Name));
+
+    private static string WrittenKinds(RuleFieldRow row)
+        => string.Join(", ", row.Kinds.Select(kind => RuleItemKindTable.Of(kind).Name));
 
     private static string WrittenReach(RuleFieldRow row)
         => row.QueryProperty is null ? AfterTheQuery : QueryPrefix + row.QueryProperty;
@@ -103,6 +107,41 @@ public class RuleFieldDocumentTests
         foreach (var row in RuleFieldTable.Rows)
         {
             Assert.Equal(WrittenOperators(row), documented[row.Name].Operators);
+        }
+    }
+
+    /// <summary>
+    /// The kinds column, in the order the table declares them. A page saying a field applies to
+    /// both kinds while the row narrows it to one would send an operator to write a rule the read
+    /// refuses, with the page in their hand saying it should have been accepted.
+    /// </summary>
+    [Fact]
+    public void EverySectionCarriesTheKindsTheTableDeclaresInTheOrderItDeclaresThem()
+    {
+        var documented = Documented();
+
+        foreach (var row in RuleFieldTable.Rows)
+        {
+            Assert.Equal(WrittenKinds(row), documented[row.Name].Kinds);
+        }
+    }
+
+    /// <summary>
+    /// The page says no document anybody can write reaches the refusal that reads the kinds
+    /// column. That sentence is a statement about the vocabulary, so it goes stale on the day a
+    /// field is narrowed and this is what says so.
+    /// </summary>
+    [Fact]
+    public void ThePageSaysNoWritableDocumentReachesTheScopeRefusalAndThatIsStillTrue()
+    {
+        Assert.Contains(
+            "Every field on this page names both kinds",
+            RepositoryFiles.ReadFromRoot(Page),
+            StringComparison.Ordinal);
+
+        foreach (var row in RuleFieldTable.Rows)
+        {
+            Assert.Equal(RuleItemKindTable.Rows.Count, row.Kinds.Count);
         }
     }
 
