@@ -9,6 +9,14 @@ still being written.
 
 ## [Unreleased]
 
+### Fixed
+
+- The shipped package is built against `Jellyfin.Controller` and `Jellyfin.Model`
+  `10.11.0`, the floor `build.yaml` promises as `targetAbi`, instead of `10.11.11`,
+  so the assembly binds at the version a `10.11.0` server carries and an install
+  at the floor loads it. The suite runs at the same pin
+  ([#105](https://github.com/Flowfin/jellyfin-plugin-smart-collections/issues/105)).
+
 ### Added
 
 - The compiler takes the instant an evaluation runs at as an argument, so the

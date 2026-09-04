@@ -24,7 +24,7 @@
        properties rather than one, for the reason the host project file gives: restore resolves
        every target framework whatever -f says. -->
   <PropertyGroup>
-    <JellyfinSdkVersionNet9 Condition="'$(JellyfinSdkVersionNet9)' == ''">10.11.11</JellyfinSdkVersionNet9>
+    <JellyfinSdkVersionNet9 Condition="'$(JellyfinSdkVersionNet9)' == ''">10.11.0</JellyfinSdkVersionNet9>
     <JellyfinSdkVersionNet10 Condition="'$(JellyfinSdkVersionNet10)' == ''">12.0.0-rc4</JellyfinSdkVersionNet10>
   </PropertyGroup>
 
