@@ -300,7 +300,7 @@ public static class RuleFieldTable
             pointer,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"There is no field called \"{name}\". The fields are {string.Join(", ", Names)}."));
+                $"There is no field called \"{name}\". The fields are {string.Join(", ", Names)}.{RuleRefusalTable.Note(name)}"));
     }
 
     /// <summary>
@@ -360,7 +360,7 @@ public static class RuleFieldTable
             pointer,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"There is no operator called \"{name}\". The operators for a \"{field.Name}\" field are {OperatorNames(field)}."));
+                $"There is no operator called \"{name}\". The operators for a \"{field.Name}\" field are {OperatorNames(field)}.{RuleRefusalTable.Note(name)}"));
     }
 
     /// <summary>

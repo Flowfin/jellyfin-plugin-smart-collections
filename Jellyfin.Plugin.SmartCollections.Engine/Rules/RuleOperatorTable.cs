@@ -289,7 +289,7 @@ public static class RuleOperatorTable
             pointer,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"There is no operator called \"{name}\". The operators are {string.Join(", ", Names)}."));
+                $"There is no operator called \"{name}\". The operators are {string.Join(", ", Names)}.{RuleRefusalTable.Note(name)}"));
     }
 
     /// <summary>

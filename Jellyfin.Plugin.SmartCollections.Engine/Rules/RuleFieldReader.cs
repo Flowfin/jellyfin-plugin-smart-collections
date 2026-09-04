@@ -148,7 +148,8 @@ public static class RuleFieldReader
             errors.Add(new RuleValidationError(
                 pointer,
                 "This condition names no field. A condition carries a \"" + FieldMember
-                + "\" member, and the fields are " + string.Join(", ", RuleFieldTable.Names) + "."));
+                + "\" member, and the fields are " + string.Join(", ", RuleFieldTable.Names) + "."
+                + RefusedMemberNote(condition)));
             return;
         }
 
@@ -175,5 +176,33 @@ public static class RuleFieldReader
         }
 
         fields.Add(new RuleConditionField(pointer, row));
+    }
+
+    /// <summary>
+    /// The refusal note for the first member of a condition that names a refused construct.
+    /// </summary>
+    /// <param name="condition">The condition as the document wrote it.</param>
+    /// <returns>The note, or the empty string where no member names one.</returns>
+    /// <remarks>
+    /// A condition carrying no <c>field</c> member is refused whatever else it holds, and the
+    /// message above lists the fields that exist. Where the member somebody wrote instead is a
+    /// construct this plugin refuses rather than one it has not got round to, the two are
+    /// different answers, and this is where the difference is said. The members are read in the
+    /// order the document wrote them, so a condition reaching for two refusals names the first
+    /// one written rather than whichever the table happens to hold first.
+    /// </remarks>
+    private static string RefusedMemberNote(JsonElement condition)
+    {
+        foreach (var member in condition.EnumerateObject())
+        {
+            var note = RuleRefusalTable.Note(member.Name);
+
+            if (note.Length > 0)
+            {
+                return note;
+            }
+        }
+
+        return string.Empty;
     }
 }
