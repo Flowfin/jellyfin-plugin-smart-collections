@@ -23,10 +23,20 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// <see cref="QuerySnapshot"/>. Of the two bounds it names, the one this file has to answer for is
 /// the second: the compile table writes no property that has no getter, which is asserted below
 /// rather than assumed.
+///
+/// Every compilation here is given <see cref="AnInstant"/> as the instant the evaluation was
+/// given, and the tests about that argument are the ones that compile at two instants and
+/// compare. The rest pass it because the compiler takes it, not because they read it.
 /// </remarks>
 public class RuleQueryCompilerTests
 {
     private static readonly DateTimeOffset AnInstant = new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    /// <summary>
+    /// The span every duration sample carries, short enough that it fits before
+    /// <see cref="AnInstant"/> and long enough that a tick offset could not be mistaken for it.
+    /// </summary>
+    private static readonly TimeSpan ThirtyDays = TimeSpan.FromDays(30);
 
     /// <summary>
     /// The scope every compilation below is made against. A rule always declares one, so there is
@@ -72,6 +82,7 @@ public class RuleQueryCompilerTests
             RuleValueType.Integer => RuleValue.Of(type, 1994L + ordinal),
             RuleValueType.Decimal => RuleValue.Of(type, 8.1m),
             RuleValueType.Date => RuleValue.Of(type, AnInstant),
+            RuleValueType.Duration => RuleValue.Of(type, ThirtyDays),
             _ => throw new InvalidOperationException(
                 "No sample value is written for " + type + ", which a compiled pair now takes.")
         };
@@ -95,26 +106,26 @@ public class RuleQueryCompilerTests
         var snapshot = QuerySnapshot.Of(new InternalItemsQuery());
 
         Assert.NotEmpty(snapshot);
-        foreach (var row in RuleQueryTable.Rows)
+        foreach (var property in RuleQueryTable.Rows.SelectMany(row => row.QueryProperties))
         {
-            Assert.True(snapshot.ContainsKey(row.QueryProperty), row.QueryProperty + " is not read.");
+            Assert.True(snapshot.ContainsKey(property), property + " is not read.");
         }
     }
 
     /// <summary>
     /// The done condition this test carries: a test per row asserting the compiled query sets
-    /// exactly the expected property and leaves every other property at its default.
+    /// exactly the expected properties and leaves every other property at its default.
     /// </summary>
     [Fact]
-    public void EveryPairSetsExactlyThePropertyItNamesAndLeavesEveryOtherAtItsDefault()
+    public void EveryPairSetsExactlyThePropertiesItNamesAndLeavesEveryOtherAtItsDefault()
     {
         foreach (var row in RuleQueryTable.Rows)
         {
-            var compilation = RuleQueryCompiler.Compile(BothKinds, [Condition(row, "/match/allOf/0")]);
+            var compilation = RuleQueryCompiler.Compile(BothKinds, [Condition(row, "/match/allOf/0")], AnInstant);
 
             Assert.True(compilation.IsAccepted);
             Assert.Empty(compilation.AfterTheQuery);
-            Assert.Equal(AndTheScope(row.QueryProperty), QuerySnapshot.Moved(compilation.Query));
+            Assert.Equal(AndTheScope([.. row.QueryProperties]), QuerySnapshot.Moved(compilation.Query));
         }
     }
 
@@ -126,7 +137,7 @@ public class RuleQueryCompilerTests
     [Fact]
     public void NoConditionsCompileToAQueryNarrowedByTheScopeAndNothingElse()
     {
-        var compilation = RuleQueryCompiler.Compile(BothKinds, []);
+        var compilation = RuleQueryCompiler.Compile(BothKinds, [], AnInstant);
 
         Assert.True(compilation.IsAccepted);
         Assert.Empty(compilation.AfterTheQuery);
@@ -143,7 +154,7 @@ public class RuleQueryCompilerTests
     {
         foreach (var scope in new[] { BothKinds, new[] { RuleItemKindTable.Of(RuleItemKind.Series) } })
         {
-            var compilation = RuleQueryCompiler.Compile(scope, []);
+            var compilation = RuleQueryCompiler.Compile(scope, [], AnInstant);
 
             Assert.True(compilation.IsAccepted);
             Assert.Equal(
@@ -160,7 +171,7 @@ public class RuleQueryCompilerTests
     [Fact]
     public void TheScopeIsWrittenInTheTablesOrder()
     {
-        var compilation = RuleQueryCompiler.Compile(BothKinds, []);
+        var compilation = RuleQueryCompiler.Compile(BothKinds, [], AnInstant);
 
         Assert.Equal(
             RuleItemKindTable.Rows.Select(row => row.ServerKind),
@@ -174,7 +185,7 @@ public class RuleQueryCompilerTests
     /// </summary>
     [Fact]
     public void AnEmptyScopeIsRefusedRatherThanCompiledToAnUnboundedQuery()
-        => Assert.Throws<ArgumentException>(() => RuleQueryCompiler.Compile([], []));
+        => Assert.Throws<ArgumentException>(() => RuleQueryCompiler.Compile([], [], AnInstant));
 
     [Fact]
     public void ConditionsOverDifferentPropertiesAreAllWritten()
@@ -183,7 +194,7 @@ public class RuleQueryCompilerTests
         [
             Condition(RuleField.Genres, RuleOperator.Contains, "/match/allOf/0", RuleValue.Of(RuleValueType.String, "Thriller")),
             Condition(RuleField.ProductionYear, RuleOperator.Equals, "/match/allOf/1", RuleValue.Of(RuleValueType.Integer, 1994L))
-        ]);
+        ], AnInstant);
 
         Assert.True(compilation.IsAccepted);
         Assert.Equal(AndTheScope("Genres", "Years"), QuerySnapshot.Moved(compilation.Query));
@@ -200,7 +211,7 @@ public class RuleQueryCompilerTests
         [
             Condition(RuleField.Tags, RuleOperator.Contains, "/match/allOf/0", RuleValue.Of(RuleValueType.String, "keep")),
             Condition(RuleField.Tags, RuleOperator.NotContains, "/match/allOf/1", RuleValue.Of(RuleValueType.String, "drop"))
-        ]);
+        ], AnInstant);
 
         Assert.True(compilation.IsAccepted);
         Assert.Equal(AndTheScope("ExcludeTags", "Tags"), QuerySnapshot.Moved(compilation.Query));
@@ -217,7 +228,7 @@ public class RuleQueryCompilerTests
         [
             Condition(RuleField.ProductionYear, RuleOperator.Equals, "/match/allOf/0", RuleValue.Of(RuleValueType.Integer, 1994L)),
             Condition(RuleField.ProductionYear, RuleOperator.In, "/match/allOf/1", RuleValue.Of(RuleValueType.Integer, 1995L))
-        ]);
+        ], AnInstant);
 
         Assert.False(compilation.IsAccepted);
         var error = Assert.Single(compilation.Errors);
@@ -240,7 +251,7 @@ public class RuleQueryCompilerTests
         [
             Condition(RuleField.Tags, RuleOperator.Contains, "/match/allOf/0", RuleValue.Of(RuleValueType.String, "keep")),
             Condition(RuleField.Tags, RuleOperator.Contains, "/match/allOf/1", RuleValue.Of(RuleValueType.String, "also"))
-        ]);
+        ], AnInstant);
 
         Assert.False(compilation.IsAccepted);
         Assert.Empty(compilation.AfterTheQuery);
@@ -256,7 +267,7 @@ public class RuleQueryCompilerTests
             "/match/allOf/0",
             RuleValue.Of(RuleValueType.String, "Part II"));
 
-        var compilation = RuleQueryCompiler.Compile(BothKinds, [condition]);
+        var compilation = RuleQueryCompiler.Compile(BothKinds, [condition], AnInstant);
 
         Assert.True(compilation.IsAccepted);
         Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
@@ -276,7 +287,7 @@ public class RuleQueryCompilerTests
             "/match/allOf/0",
             RuleValue.Of(RuleValueType.String, "heist"));
 
-        var compilation = RuleQueryCompiler.Compile(BothKinds, [condition]);
+        var compilation = RuleQueryCompiler.Compile(BothKinds, [condition], AnInstant);
 
         Assert.True(compilation.IsAccepted);
         Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
@@ -289,7 +300,7 @@ public class RuleQueryCompilerTests
         var first = Condition(RuleField.Name, RuleOperator.EndsWith, "/match/allOf/0", RuleValue.Of(RuleValueType.String, "Part II"));
         var second = Condition(RuleField.Overview, RuleOperator.Contains, "/match/allOf/1", RuleValue.Of(RuleValueType.String, "heist"));
 
-        var compilation = RuleQueryCompiler.Compile(BothKinds, [first, second]);
+        var compilation = RuleQueryCompiler.Compile(BothKinds, [first, second], AnInstant);
 
         Assert.Equal([first, second], compilation.AfterTheQuery);
     }
@@ -316,7 +327,7 @@ public class RuleQueryCompilerTests
 
         foreach (var condition in new[] { last, first })
         {
-            var compilation = RuleQueryCompiler.Compile(BothKinds, [condition]);
+            var compilation = RuleQueryCompiler.Compile(BothKinds, [condition], AnInstant);
 
             Assert.True(compilation.IsAccepted);
             Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
@@ -334,12 +345,12 @@ public class RuleQueryCompilerTests
         var after = RuleQueryCompiler.Compile(BothKinds, 
         [
             Condition(RuleField.PremiereDate, RuleOperator.After, "/match/allOf/0", RuleValue.Of(RuleValueType.Date, AnInstant))
-        ]);
+        ], AnInstant);
 
         var before = RuleQueryCompiler.Compile(BothKinds, 
         [
             Condition(RuleField.PremiereDate, RuleOperator.Before, "/match/allOf/0", RuleValue.Of(RuleValueType.Date, AnInstant))
-        ]);
+        ], AnInstant);
 
         Assert.Equal(AnInstant.UtcDateTime.AddTicks(1), after.Query.MinPremiereDate);
         Assert.Equal(AnInstant.UtcDateTime.AddTicks(-1), before.Query.MaxPremiereDate);
@@ -364,7 +375,7 @@ public class RuleQueryCompilerTests
                 RuleValue.Of(RuleValueType.Integer, 1994L),
                 RuleValue.Of(RuleValueType.Integer, year));
 
-            var compilation = RuleQueryCompiler.Compile(BothKinds, [condition]);
+            var compilation = RuleQueryCompiler.Compile(BothKinds, [condition], AnInstant);
 
             Assert.True(compilation.IsAccepted);
             Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
@@ -394,7 +405,7 @@ public class RuleQueryCompilerTests
                 RuleOperator.Equals,
                 "/match/allOf/1",
                 RuleValue.Of(RuleValueType.Integer, 1994L))
-        ]);
+        ], AnInstant);
 
         Assert.True(compilation.IsAccepted);
         Assert.Equal(AndTheScope("Years"), QuerySnapshot.Moved(compilation.Query));
@@ -402,28 +413,195 @@ public class RuleQueryCompilerTests
 
     /// <summary>
     /// One condition per property the table writes, which is every pair the table declares with
-    /// the pairs that share a property taken once. Taking them all would be refused rather than
-    /// compiled, and two refusals agree without either having narrowed anything.
+    /// the pairs that share a property taken once: a row is taken where none of the properties it
+    /// writes has been taken already. Taking them all would be refused rather than compiled, and
+    /// two refusals agree without either having narrowed anything.
     /// </summary>
     [Fact]
     public void CompilingTheSameConditionsTwiceProducesTheSameQuery()
     {
-        var conditions = RuleQueryTable.Rows
-            .GroupBy(row => row.QueryProperty, StringComparer.Ordinal)
-            .Select((group, ordinal) => Condition(group.First(), "/match/allOf/" + ordinal.ToString(CultureInfo.InvariantCulture)))
+        var conditions = OneRowPerProperty()
+            .Select((row, ordinal) => Condition(row, "/match/allOf/" + ordinal.ToString(CultureInfo.InvariantCulture)))
             .ToArray();
 
-        Assert.True(RuleQueryCompiler.Compile(BothKinds, conditions).IsAccepted);
+        Assert.True(RuleQueryCompiler.Compile(BothKinds, conditions, AnInstant).IsAccepted);
 
         Assert.Equal(
-            QuerySnapshot.Of(RuleQueryCompiler.Compile(BothKinds, conditions).Query),
-            QuerySnapshot.Of(RuleQueryCompiler.Compile(BothKinds, conditions).Query));
+            QuerySnapshot.Of(RuleQueryCompiler.Compile(BothKinds, conditions, AnInstant).Query),
+            QuerySnapshot.Of(RuleQueryCompiler.Compile(BothKinds, conditions, AnInstant).Query));
     }
 
     [Fact]
     public void CompilingNothingAtAllIsRefusedRatherThanIgnored()
     {
-        Assert.Throws<ArgumentNullException>(() => RuleQueryCompiler.Compile(BothKinds, null!));
-        Assert.Throws<ArgumentNullException>(() => RuleQueryCompiler.Compile(null!, []));
+        Assert.Throws<ArgumentNullException>(() => RuleQueryCompiler.Compile(BothKinds, null!, AnInstant));
+        Assert.Throws<ArgumentNullException>(() => RuleQueryCompiler.Compile(null!, [], AnInstant));
+    }
+
+    /// <summary>
+    /// The done condition this test carries, at the compiler: the span a relative condition
+    /// declares ends at the instant the evaluation was given, so the query carries the instant
+    /// less the span as its floor and the instant as its ceiling, and nothing else moves.
+    /// </summary>
+    [Fact]
+    public void WithinLastWritesTheFloorAndTheCeilingFromTheInstantItWasGiven()
+    {
+        var compilation = RuleQueryCompiler.Compile(
+            BothKinds,
+            [Condition(RuleField.PremiereDate, RuleOperator.WithinLast, "/match/allOf/0", RuleValue.Of(RuleValueType.Duration, ThirtyDays))],
+            AnInstant);
+
+        Assert.True(compilation.IsAccepted);
+        Assert.Empty(compilation.AfterTheQuery);
+        Assert.Equal(AndTheScope("MaxPremiereDate", "MinPremiereDate"), QuerySnapshot.Moved(compilation.Query));
+        Assert.Equal(AnInstant.UtcDateTime - ThirtyDays, compilation.Query.MinPremiereDate);
+        Assert.Equal(AnInstant.UtcDateTime, compilation.Query.MaxPremiereDate);
+    }
+
+    /// <summary>
+    /// The instant is read from the argument and from nowhere else. Compiled twice at one instant
+    /// the queries agree, and compiled at a second instant the bounds move by exactly the
+    /// difference, which a compiler reading a clock of its own could not do.
+    /// </summary>
+    [Fact]
+    public void TheInstantIsReadFromTheArgumentAndNotFromAClock()
+    {
+        var condition = Condition(RuleField.PremiereDate, RuleOperator.WithinLast, "/match/allOf/0", RuleValue.Of(RuleValueType.Duration, ThirtyDays));
+        var later = AnInstant.AddDays(7);
+
+        var first = RuleQueryCompiler.Compile(BothKinds, [condition], AnInstant);
+        var again = RuleQueryCompiler.Compile(BothKinds, [condition], AnInstant);
+        var moved = RuleQueryCompiler.Compile(BothKinds, [condition], later);
+
+        Assert.Equal(QuerySnapshot.Of(first.Query), QuerySnapshot.Of(again.Query));
+        Assert.Equal(later.UtcDateTime - ThirtyDays, moved.Query.MinPremiereDate);
+        Assert.Equal(later.UtcDateTime, moved.Query.MaxPremiereDate);
+        Assert.NotEqual(first.Query.MinPremiereDate, moved.Query.MinPremiereDate);
+    }
+
+    /// <summary>
+    /// The instant is given in whatever offset the caller holds it in and the query holds
+    /// universal time, so two spellings of one instant compile to one query.
+    /// </summary>
+    [Fact]
+    public void TheInstantIsWrittenInUniversalTimeWhateverOffsetItArrivedIn()
+    {
+        var condition = Condition(RuleField.PremiereDate, RuleOperator.WithinLast, "/match/allOf/0", RuleValue.Of(RuleValueType.Duration, ThirtyDays));
+        var inRiyadh = AnInstant.ToOffset(TimeSpan.FromHours(3));
+
+        Assert.NotEqual(AnInstant.Offset, inRiyadh.Offset);
+        Assert.Equal(
+            QuerySnapshot.Of(RuleQueryCompiler.Compile(BothKinds, [condition], AnInstant).Query),
+            QuerySnapshot.Of(RuleQueryCompiler.Compile(BothKinds, [condition], inRiyadh).Query));
+    }
+
+    /// <summary>
+    /// A span reaching back past the first instant a date can name asks for a floor the query
+    /// cannot hold, and it is the third document these properties cannot carry, beside the two
+    /// boundary instants and the year outside the query's range.
+    /// </summary>
+    [Fact]
+    public void ASpanReachingBeforeTheFirstInstantIsHandedBackRatherThanClamped()
+    {
+        var condition = Condition(RuleField.PremiereDate, RuleOperator.WithinLast, "/match/allOf/0", RuleValue.Of(RuleValueType.Duration, TimeSpan.FromDays(2)));
+        var soonAfterTheFirst = DateTimeOffset.MinValue.AddDays(1);
+
+        var compilation = RuleQueryCompiler.Compile(BothKinds, [condition], soonAfterTheFirst);
+
+        Assert.True(compilation.IsAccepted);
+        Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
+        Assert.Same(condition, Assert.Single(compilation.AfterTheQuery));
+    }
+
+    /// <summary>
+    /// The one instant a span may reach back to exactly is the first, so the bound above is a
+    /// less-than and not an at-most, and a fixture that could not tell the two apart would prove
+    /// nothing about which was written.
+    /// </summary>
+    [Fact]
+    public void ASpanReachingBackExactlyToTheFirstInstantIsWritten()
+    {
+        var condition = Condition(RuleField.PremiereDate, RuleOperator.WithinLast, "/match/allOf/0", RuleValue.Of(RuleValueType.Duration, TimeSpan.FromDays(1)));
+        var oneDayAfterTheFirst = DateTimeOffset.MinValue.AddDays(1);
+
+        var compilation = RuleQueryCompiler.Compile(BothKinds, [condition], oneDayAfterTheFirst);
+
+        Assert.True(compilation.IsAccepted);
+        Assert.Empty(compilation.AfterTheQuery);
+        Assert.Equal(DateTime.MinValue, compilation.Query.MinPremiereDate);
+    }
+
+    /// <summary>
+    /// The pair claims both properties it writes, so a condition on either bound beside it is
+    /// refused on the property the two share rather than compiled over it. Both orders are taken,
+    /// because the refusal points at the second condition whichever it is.
+    /// </summary>
+    [Fact]
+    public void WithinLastClaimsBothPropertiesItWrites()
+    {
+        var within = Condition(RuleField.PremiereDate, RuleOperator.WithinLast, "/match/allOf/0", RuleValue.Of(RuleValueType.Duration, ThirtyDays));
+        var before = Condition(RuleField.PremiereDate, RuleOperator.Before, "/match/allOf/1", RuleValue.Of(RuleValueType.Date, AnInstant));
+        var after = Condition(RuleField.PremiereDate, RuleOperator.After, "/match/allOf/1", RuleValue.Of(RuleValueType.Date, AnInstant));
+
+        foreach (var (other, property) in new[] { (before, "MaxPremiereDate"), (after, "MinPremiereDate") })
+        {
+            var compilation = RuleQueryCompiler.Compile(BothKinds, [within, other], AnInstant);
+
+            Assert.False(compilation.IsAccepted);
+            var error = Assert.Single(compilation.Errors);
+            Assert.Equal("/match/allOf/1", error.Pointer);
+            Assert.Equal(
+                "The condition at \"/match/allOf/0\" already narrows the query on \"premiereDate\". "
+                + "Both conditions write " + property + ", and the query holds one value for it.",
+                error.Message);
+        }
+
+        var reversed = RuleQueryCompiler.Compile(BothKinds, [before, within with { Pointer = "/match/allOf/1" }], AnInstant);
+
+        Assert.False(reversed.IsAccepted);
+        Assert.Equal("/match/allOf/1", Assert.Single(reversed.Errors).Pointer);
+        Assert.Empty(QuerySnapshot.Moved(reversed.Query));
+    }
+
+    /// <summary>
+    /// The pair over the date the server first saw an item is handed back, and the reason is the
+    /// server's rather than this plugin's: the query carries no ceiling for that date, so a floor
+    /// alone would ask for a superset of what the sentence says. The test asserts the absence it
+    /// rests on, so a server line that adds the ceiling reds this rather than leaving the pair
+    /// handed back for a reason that has gone.
+    /// </summary>
+    [Fact]
+    public void WithinLastOnDateAddedIsHandedBackBecauseTheQueryCarriesNoCeiling()
+    {
+        Assert.NotNull(typeof(InternalItemsQuery).GetProperty("MinDateCreated"));
+        Assert.Null(typeof(InternalItemsQuery).GetProperty("MaxDateCreated"));
+
+        var condition = Condition(RuleField.DateAdded, RuleOperator.WithinLast, "/match/allOf/0", RuleValue.Of(RuleValueType.Duration, ThirtyDays));
+
+        var compilation = RuleQueryCompiler.Compile(BothKinds, [condition], AnInstant);
+
+        Assert.True(compilation.IsAccepted);
+        Assert.Equal([ScopeProperty], QuerySnapshot.Moved(compilation.Query));
+        Assert.Same(condition, Assert.Single(compilation.AfterTheQuery));
+    }
+
+    /// <summary>
+    /// A row is taken where none of the properties it writes has been taken already, walking the
+    /// table in its own order, so the set compiles rather than refusing itself.
+    /// </summary>
+    private static IEnumerable<RuleQueryRow> OneRowPerProperty()
+    {
+        var taken = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var row in RuleQueryTable.Rows)
+        {
+            if (row.QueryProperties.Any(taken.Contains))
+            {
+                continue;
+            }
+
+            taken.UnionWith(row.QueryProperties);
+            yield return row;
+        }
     }
 }

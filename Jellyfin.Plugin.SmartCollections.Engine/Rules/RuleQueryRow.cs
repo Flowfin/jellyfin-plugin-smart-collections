@@ -21,10 +21,20 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// unexecuted code in a tree whose coverage is read on every run, or a fixture that has to corrupt
 /// the table to reach it. A row that carries its own write has no such arm: the pair with no write
 /// is the pair with no row.
+///
+/// A row names every property it writes, and most name one. A pair whose sentence is a span
+/// between two instants writes the floor and the ceiling the server carries for that field, and
+/// the compiler claims both, so a second condition writing either of them is refused the way a
+/// second condition writing a single property is.
+///
+/// Every write is handed the instant the evaluation was given, whether or not it reads it. The
+/// one that does is the pair whose value is a length of time rather than an instant: the span it
+/// declares ends at that instant, and there is no other instant for it to end at, because the
+/// engine reads no clock and <c>ambient-clock-in-the-engine</c> refuses one arriving.
 /// </remarks>
 public sealed class RuleQueryRow
 {
-    private readonly Func<InternalItemsQuery, IReadOnlyList<RuleValue>, bool> _write;
+    private readonly Func<InternalItemsQuery, IReadOnlyList<RuleValue>, DateTimeOffset, bool> _write;
 
     internal RuleQueryRow(
         RuleField field,
@@ -32,10 +42,20 @@ public sealed class RuleQueryRow
         string queryProperty,
         string semantics,
         Func<InternalItemsQuery, IReadOnlyList<RuleValue>, bool> write)
+        : this(field, @operator, [queryProperty], semantics, (query, values, _) => write(query, values))
+    {
+    }
+
+    internal RuleQueryRow(
+        RuleField field,
+        RuleOperator @operator,
+        string[] queryProperties,
+        string semantics,
+        Func<InternalItemsQuery, IReadOnlyList<RuleValue>, DateTimeOffset, bool> write)
     {
         Field = field;
         Operator = @operator;
-        QueryProperty = queryProperty;
+        QueryProperties = queryProperties;
         Semantics = semantics;
         _write = write;
     }
@@ -51,7 +71,8 @@ public sealed class RuleQueryRow
     public RuleOperator Operator { get; }
 
     /// <summary>
-    /// Gets the name of the property on the server's item query that this pair writes.
+    /// Gets the names of the properties on the server's item query that this pair writes, in the
+    /// order the row writes them.
     /// </summary>
     /// <remarks>
     /// Two rows may name one property, and that is the case the compiler decides rather than the
@@ -59,8 +80,13 @@ public sealed class RuleQueryRow
     /// write the same property, and a document writing either of them is ordinary. What is
     /// refused is one document writing both, because the query holds one value for that property
     /// and the second write would replace the first without saying so.
+    ///
+    /// A row naming two properties is the same case twice over: <c>premiereDate withinLast</c>
+    /// writes the floor <c>premiereDate after</c> writes and the ceiling <c>premiereDate before</c>
+    /// writes, so a document carrying it beside either of those is refused on the property they
+    /// share.
     /// </remarks>
-    public string QueryProperty { get; }
+    public IReadOnlyList<string> QueryProperties { get; }
 
     /// <summary>
     /// Gets, in one sentence, what the query is asked once this row has written to it.
@@ -68,29 +94,36 @@ public sealed class RuleQueryRow
     public string Semantics { get; }
 
     /// <summary>
-    /// Writes this pair's narrowing onto a query, where the values can be carried by the property
-    /// the row names.
+    /// Writes this pair's narrowing onto a query, where the values can be carried by the
+    /// properties the row names.
     /// </summary>
     /// <param name="query">The query to narrow.</param>
     /// <param name="values">The values the condition wrote, already parsed.</param>
+    /// <param name="evaluatedAt">
+    /// The instant the evaluation was given. A pair whose value is a span ends the span here; every
+    /// other pair is handed it and leaves it unread.
+    /// </param>
     /// <returns>
     /// <see langword="true"/> where the narrowing was written, and <see langword="false"/> where
-    /// this pair's property cannot carry these particular values.
+    /// this pair's properties cannot carry these particular values at this instant.
     /// </returns>
     /// <remarks>
     /// The false answer is about the VALUES and never about the pair. A production year outside
-    /// the range the query's own year array holds, and an instant with no room for the tick that
-    /// turns an at-or-after comparison into an after one, are both documents this plugin accepts
-    /// and this property cannot express. The compiler hands such a condition on rather than
-    /// dropping it, because a narrowing that is quietly not applied is a rule that means something
-    /// else.
+    /// the range the query's own year array holds, an instant with no room for the tick that
+    /// turns an at-or-after comparison into an after one, and a span that reaches back past the
+    /// first instant a date can name are all documents this plugin accepts and these properties
+    /// cannot express. The compiler hands such a condition on rather than dropping it, because a
+    /// narrowing that is quietly not applied is a rule that means something else.
+    ///
+    /// A row that answers false has written nothing. A row writing two properties decides before
+    /// it writes either, so a query never carries half of a pair.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="query"/> or <paramref name="values"/> is <see langword="null"/>.</exception>
-    public bool TryWrite(InternalItemsQuery query, IReadOnlyList<RuleValue> values)
+    public bool TryWrite(InternalItemsQuery query, IReadOnlyList<RuleValue> values, DateTimeOffset evaluatedAt)
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(values);
 
-        return _write(query, values);
+        return _write(query, values, evaluatedAt);
     }
 }

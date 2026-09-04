@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -113,7 +114,7 @@ public class RuleDocumentQueryTests
 
     private static InternalItemsQuery Compile(string json)
     {
-        var compilation = RuleQueryCompiler.Compile(ReadScope(json), ReadRule(json).Conditions);
+        var compilation = RuleQueryCompiler.Compile(ReadScope(json), ReadRule(json).Conditions, DateTimeOffset.UnixEpoch);
 
         Assert.True(compilation.IsAccepted, string.Join("; ", compilation.Errors.Select(error => error.ToString())));
         Assert.Empty(compilation.AfterTheQuery);
