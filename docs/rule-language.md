@@ -180,3 +180,36 @@ Which item kinds a rule may collect, and which fields the vocabulary holds, are
 not refusals. They are the declared vocabulary, and they live in the field table
 and on `rule-fields.md` rather than under a heading here. A field that is absent
 from the table is absent, not refused, and adding one is a row and a test.
+
+## What a document that reaches for one of these is told
+
+A refusal that is only argued on this page is invisible to the person it is
+about. Somebody who writes `isPlayed` into a condition meets a message listing
+the fields that exist, and reads it as an omission rather than as a decision, so
+the position recorded above never reaches them.
+
+The validator names the refusal. `RuleRefusalTable` in the engine holds, per
+refusal, the names a document writes that reach for it, and the refusal message
+carries a sentence saying what was run into and pointing back at the heading
+here. The sentence is added to the message rather than replacing it, because
+somebody repairing a document needs the list they are choosing from as well as
+the thing they ran into.
+
+ABSENT AND REFUSED STAY DIFFERENT ANSWERS. A field this vocabulary does not hold
+is absent, and adding one is a row and a test; nothing about a name being absent
+makes the message say a refusal was met. `RuleRefusalMessageTests` holds both
+directions, and the second was watched failing with one name moved into a
+refusal row.
+
+TWO BOUNDS, AND BOTH ARE THE KIND THAT STAY WRITTEN DOWN.
+
+The name list is a floor rather than a set. A refused construct written under a
+spelling that table does not hold is refused exactly as before, as an unknown
+field or an unknown operator, with no refusal named. The document is refused
+either way; what is lost is the explanation.
+
+Six of the seven refusals above have a name a document can write. The wall clock
+as an implicit input has none, because relative dates are allowed and what is
+refused is reading the clock during a match, which is the engine's behaviour
+rather than anything a document asks for. What holds that one is the compiler
+taking the instant it evaluates against as an argument.
