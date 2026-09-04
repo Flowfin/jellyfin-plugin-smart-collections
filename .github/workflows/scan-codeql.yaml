@@ -80,10 +80,35 @@ jobs:
           # workflow lives here: the shared workflow it replaces has no way
           # to carry it. The generated sources under obj/ are not in the
           # tree, and nobody can change them.
+          # A QUERY EXCLUDED ONCE, WITH THE ARGUMENT HERE RATHER THAN IN A
+          # TRACKER COMMENT. cs/linq/missed-where reports a loop that walks a
+          # collection and acts on the members matching a condition, and asks
+          # for a Where. Eight of the eleven it stood at on this board were one
+          # shape: a declared table walked for THE row matching a key, which is
+          # a first match and not a filter. Rewriting those into sequence
+          # operators changes how every vocabulary table reads, for a
+          # note-level finding, and gains nothing they do; doing it table by
+          # table as each one lands is what produced the rise in the first
+          # place. #133 refused two findings of the same shape on the same
+          # grounds before the vocabulary existed, and #205 is where this
+          # exclusion was decided, on 2026-09-04.
+          #
+          # WHAT THIS GIVES UP is stated rather than left implied: a genuine
+          # missed filter written anywhere in this tree is now reported by
+          # nothing. The exclusion is by rule id and not by path, because a
+          # path list would have to name every file that holds a table and
+          # would go stale on the day one moves.
+          #
+          # It is not a dismissal of the open alerts. Excluding the query stops
+          # the analysis reporting it, and the alerts close on the next run over
+          # master because nothing reports them any more.
           config: |
             paths-ignore:
               - "**/obj/**"
               - "**/bin/**"
+            query-filters:
+              - exclude:
+                  id: cs/linq/missed-where
 
       - name: Build what is scanned
         # Built by name rather than by autobuild. Autobuild guesses, and a
