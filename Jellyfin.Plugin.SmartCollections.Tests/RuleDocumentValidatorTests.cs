@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 /// </summary>
 public class RuleDocumentValidatorTests
 {
-    private const string Minimal = "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}";
+    private const string Minimal = "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Christmas\", \"collects\": [\"movie\"], \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}";
 
     [Fact]
     public void AValidDocumentIsAcceptedAndKeptExactlyAsItWasRead()
@@ -26,7 +26,7 @@ public class RuleDocumentValidatorTests
         // It carried a member no version declares, for the same purpose. That member is refused
         // now, decided on #231, so the awkwardness this test needs comes from the layout rather
         // than from an extra name.
-        const string Text = "{\n    \"schemaVersion\" :  1,\n    \"id\": \"christmas\",\n    \"name\": \"Christmas\", \"collects\": [\"movie\"]\n}\n";
+        const string Text = "{\n    \"schemaVersion\" :  1,\n    \"id\": \"christmas\",\n    \"name\": \"Christmas\", \"collects\": [\"movie\"],\n    \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}\n}\n";
 
         var result = RuleDocumentValidator.Read(Text);
 
@@ -243,7 +243,7 @@ public class RuleDocumentValidatorTests
     public void TheLowestVersionIsAccepted()
     {
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": " + RuleDocumentValidator.LowestSchemaVersion + ", \"id\": \"christmas\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}");
+            "{\"schemaVersion\": " + RuleDocumentValidator.LowestSchemaVersion + ", \"id\": \"christmas\", \"name\": \"Christmas\", \"collects\": [\"movie\"], \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -471,7 +471,7 @@ public class RuleDocumentValidatorTests
     public void AnIdInsideTheSetIsAccepted(string id)
     {
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}");
+            "{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\", \"collects\": [\"movie\"], \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}");
 
         Assert.True(result.IsValid, Because(result));
         Assert.Equal(id, result.Document!.Id, StringComparer.Ordinal);
@@ -507,7 +507,7 @@ public class RuleDocumentValidatorTests
         var atTheBound = new string('a', RuleDocumentValidator.MaximumIdLength);
 
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"" + atTheBound + "\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}");
+            "{\"schemaVersion\": 1, \"id\": \"" + atTheBound + "\", \"name\": \"Christmas\", \"collects\": [\"movie\"], \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -621,7 +621,7 @@ public class RuleDocumentValidatorTests
     [InlineData(" ")]
     public void ANameWithWhitespaceAtEitherEndIsRefusedRatherThanTrimmed(string name)
     {
-        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"" + name + "\", \"collects\": [\"movie\"]}");
+        var result = RuleDocumentValidator.Read("{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"" + name + "\", \"collects\": [\"movie\"], \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}");
 
         var error = Assert.Single(result.Errors);
         Assert.Equal("/name", error.Pointer);
@@ -637,7 +637,7 @@ public class RuleDocumentValidatorTests
     public void WhitespaceInsideANameIsWhatANameIsMadeOf()
     {
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Nineties Thrillers\", \"collects\": [\"movie\"]}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Nineties Thrillers\", \"collects\": [\"movie\"], \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -707,7 +707,7 @@ public class RuleDocumentValidatorTests
         var atTheBound = new string('a', RuleDocumentValidator.MaximumNameLength);
 
         var result = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"" + atTheBound + "\", \"collects\": [\"movie\"]}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"" + atTheBound + "\", \"collects\": [\"movie\"], \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}");
 
         Assert.True(result.IsValid, Because(result));
     }
@@ -723,9 +723,9 @@ public class RuleDocumentValidatorTests
     public void TwoDocumentsMayCarryTheSameNameAndBothAreAccepted()
     {
         var first = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"christmas-films\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas-films\", \"name\": \"Christmas\", \"collects\": [\"movie\"], \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}");
         var second = RuleDocumentValidator.Read(
-            "{\"schemaVersion\": 1, \"id\": \"christmas-series\", \"name\": \"Christmas\", \"collects\": [\"series\"]}");
+            "{\"schemaVersion\": 1, \"id\": \"christmas-series\", \"name\": \"Christmas\", \"collects\": [\"series\"], \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}");
 
         Assert.True(first.IsValid, Because(first));
         Assert.True(second.IsValid, Because(second));

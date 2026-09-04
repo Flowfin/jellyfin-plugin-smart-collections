@@ -233,9 +233,31 @@ meant to carry no rule at all.
 pointed at that file and the plugin reading the document say one thing.
 `RuleDocumentSchemaTests` asserts the two together rather than either alone.
 
-THE OTHER HALF OF THAT DECISION IS NOT IN THE TREE YET. #231 also decided that a
-document declaring no `match` is refused. It is still accepted, because every
-document in the suite, in the fuzz corpus and on these pages would have to carry
-a rule first, and that is a wider change than this one. #231 stays open for it,
-and this paragraph is what stops a reader taking the refusal above for the whole
-answer.
+## A document that declares no rule
+
+A document declaring no `match` is refused, with the member named. That is the
+other half of the same decision, taken on the same day and landed after it,
+because every document in the suite and on these pages had to carry a rule first.
+
+Three readings were on the table and two were decided against.
+
+**Reading it as a rule that collects the whole declared scope** is the one with
+the expensive failure. An operator who typed `mach` would get a collection
+holding every film in their library rather than a message, and nothing would say
+so.
+
+**Leaving it accepted** makes a document that collects nothing anybody can name,
+and leaves it indistinguishable from that misspelling, which is the pair the
+question was raised on.
+
+**Refusing it** costs the shape where a document is written in stages and saved
+half-finished. That cost is real and is the one paid: a document is a whole rule
+or it is refused, and an editor saving a draft saves it somewhere this plugin
+does not read.
+
+`rule-document.schema.json` requires the member for the same answer, so an editor
+pointed at that file and the plugin reading the document agree.
+
+THE FUZZ CORPUS IS UNTOUCHED AND THAT IS NOT AN OVERSIGHT. What that corpus
+asserts of a seed is that the validator answers rather than throws, which a
+refusal satisfies exactly as an acceptance did.

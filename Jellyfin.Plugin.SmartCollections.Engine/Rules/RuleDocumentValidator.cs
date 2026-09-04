@@ -432,11 +432,19 @@ public static class RuleDocumentValidator
     /// plugin reads before any of this runs. So a member nobody here declares, on a document
     /// claiming this version, is a mistake rather than a member from the future.
     ///
-    /// THE OTHER HALF OF THAT DECISION IS NOT HERE. A document declaring no
-    /// <see cref="MatchMember"/> at all is still accepted, and it is refused under the same
-    /// decision once every document in the suite, the corpus and the pages carries a rule. #231
-    /// holds that, and this paragraph is what stops a reader taking the refusal above for the
-    /// whole answer.
+    /// THE OTHER HALF OF THAT DECISION IS HERE TOO, AND IT IS THE HALF THAT COST THE MOST. A
+    /// document declaring no <see cref="MatchMember"/> is refused. It used to be accepted, and it
+    /// was then the same answer as a document whose member was misspelled, which is the pair #231
+    /// opened on. The two readings it was decided against were reading it as a rule that collects
+    /// the whole declared scope, which turns a typo into a collection of everything somebody owns,
+    /// and leaving it accepted, which leaves a document that collects nothing anybody can name.
+    ///
+    /// WHAT IT COST WAS THE SUITE RATHER THAN THE CODE. Almost every document written to exercise
+    /// an envelope refusal was an envelope with no rule in it, so requiring one meant a rule on
+    /// each of them, and that is why this half landed after the other one rather than beside it.
+    /// The fuzzing corpus is the exception and is untouched: what that corpus asserts of a seed is
+    /// that the validator answers rather than throws, which a refusal satisfies as readily as an
+    /// acceptance.
     /// </remarks>
     private static IReadOnlyList<RuleValidationError> ReadInsideTheEnvelope(JsonElement root)
     {
@@ -458,7 +466,11 @@ public static class RuleDocumentValidator
 
         if (!root.TryGetProperty(MatchMember, out var declaredMatch))
         {
-            return [];
+            return [new RuleValidationError(
+                MatchPointer,
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"The document declares no {MatchMember}. Every rule document carries one as an object at its top level, and it is the rule: the conditions an item has to meet to be collected. A document without one is refused rather than read as a rule that collects everything it declares a scope for, because that reading turns a misspelled member name into a collection holding the whole of that scope, and refused rather than accepted, because a document that collects nothing is not a thing anybody writes on purpose."))];
         }
 
         var composition = RuleCompositionReader.Read(declaredMatch, MatchPointer);

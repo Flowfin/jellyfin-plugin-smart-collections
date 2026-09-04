@@ -77,7 +77,8 @@ public class RuleDocumentSchemaTests
         var result = RuleDocumentValidator.Read(
             "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": " + maximum
             + ", \"" + RuleDocumentValidator.IdMember + "\": \"christmas\""
-            + ", \"" + RuleDocumentValidator.NameMember + "\": \"Christmas\", \"" + RuleItemScopeReader.CollectsMember + "\": [\"movie\"]}");
+            + ", \"" + RuleDocumentValidator.NameMember + "\": \"Christmas\", \"" + RuleItemScopeReader.CollectsMember + "\": [\"movie\"], \""
+            + RuleDocumentValidator.MatchMember + "\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}");
 
         Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
     }
@@ -141,7 +142,7 @@ public class RuleDocumentSchemaTests
         var bySchema = Regex.IsMatch(id, pattern!, RegexOptions.None, TimeSpan.FromSeconds(1));
 
         var byValidator = RuleDocumentValidator
-            .Read("{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}")
+            .Read("{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\", \"collects\": [\"movie\"], \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}")
             .IsValid;
 
         Assert.Equal(expected, bySchema);
@@ -164,7 +165,8 @@ public class RuleDocumentSchemaTests
         var result = RuleDocumentValidator.Read(
             "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": 1, \""
             + RuleDocumentValidator.IdMember + "\": \"" + new string('a', maxLength) + "\", \""
-            + RuleDocumentValidator.NameMember + "\": \"Christmas\", \"" + RuleItemScopeReader.CollectsMember + "\": [\"movie\"]}");
+            + RuleDocumentValidator.NameMember + "\": \"Christmas\", \"" + RuleItemScopeReader.CollectsMember + "\": [\"movie\"], \""
+            + RuleDocumentValidator.MatchMember + "\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}");
 
         Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
     }
@@ -217,7 +219,8 @@ public class RuleDocumentSchemaTests
         var result = RuleDocumentValidator.Read(
             "{\"" + RuleDocumentValidator.SchemaVersionMember + "\": 1, \""
             + RuleDocumentValidator.IdMember + "\": \"christmas\", \""
-            + RuleDocumentValidator.NameMember + "\": \"" + new string('a', maxLength) + "\", \"" + RuleItemScopeReader.CollectsMember + "\": [\"movie\"]}");
+            + RuleDocumentValidator.NameMember + "\": \"" + new string('a', maxLength) + "\", \"" + RuleItemScopeReader.CollectsMember + "\": [\"movie\"], \""
+            + RuleDocumentValidator.MatchMember + "\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}");
 
         Assert.True(result.IsValid, "Refused with: " + string.Join(" | ", result.Errors));
     }
@@ -233,6 +236,29 @@ public class RuleDocumentSchemaTests
                 member.GetString(),
                 RuleItemScopeReader.CollectsMember,
                 StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The rule member, required by the validator since #231 and required here for the same
+    /// answer. A schema that stopped requiring it would let an editor tell somebody their document
+    /// is complete while the plugin refuses it.
+    /// </summary>
+    [Fact]
+    public void TheSchemaRequiresTheRuleMemberTheValidatorRequires()
+    {
+        var required = Schema().GetProperty("required");
+
+        Assert.Contains(
+            required.EnumerateArray(),
+            member => string.Equals(
+                member.GetString(),
+                RuleDocumentValidator.MatchMember,
+                StringComparison.Ordinal));
+
+        Assert.False(
+            RuleDocumentValidator.Read(
+                "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}").IsValid,
+            "The validator accepted a document the schema requires a member of.");
     }
 
     /// <summary>
