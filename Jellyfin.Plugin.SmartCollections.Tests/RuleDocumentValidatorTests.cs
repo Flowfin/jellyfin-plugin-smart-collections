@@ -19,10 +19,14 @@ public class RuleDocumentValidatorTests
     [Fact]
     public void AValidDocumentIsAcceptedAndKeptExactlyAsItWasRead()
     {
-        // Deliberately not the shape a serialiser would emit: extra spacing, a trailing newline
-        // and a member no version declares. Keeping the text as read is what lets a member this
-        // version does not understand survive a round trip instead of being dropped.
-        const string Text = "{\n    \"schemaVersion\" :  1,\n    \"id\": \"christmas\",\n    \"name\": \"Christmas\", \"collects\": [\"movie\"],\n    \"somethingLaterVersionsMayAdd\": []\n}\n";
+        // Deliberately not the shape a serialiser would emit: extra spacing, two members on one
+        // line and a trailing newline. Keeping the text as read is what lets a document survive a
+        // round trip as the person who wrote it wrote it rather than as a serialiser would.
+        //
+        // It carried a member no version declares, for the same purpose. That member is refused
+        // now, decided on #231, so the awkwardness this test needs comes from the layout rather
+        // than from an extra name.
+        const string Text = "{\n    \"schemaVersion\" :  1,\n    \"id\": \"christmas\",\n    \"name\": \"Christmas\", \"collects\": [\"movie\"]\n}\n";
 
         var result = RuleDocumentValidator.Read(Text);
 
@@ -30,6 +34,66 @@ public class RuleDocumentValidatorTests
         Assert.Empty(result.Errors);
         Assert.Equal(1, result.Document!.SchemaVersion);
         Assert.Equal(Text, result.Document.Text, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// A member this version does not declare is refused, decided on #231 on 2026-09-04.
+    /// </summary>
+    /// <remarks>
+    /// It was accepted until then, which is what made a misspelled member name invisible: a
+    /// document writing anything at all beside the members this version reads was taken as one
+    /// that meant to, and the person who wrote it was told nothing.
+    ///
+    /// The message names what was written rather than only what is legal, because a misspelling
+    /// is repaired by seeing the two side by side.
+    /// </remarks>
+    /// <param name="member">A member name no part of this version reads.</param>
+    [Theory]
+    [InlineData("somethingLaterVersionsMayAdd")]
+    [InlineData("mach")]
+    [InlineData("Match")]
+    [InlineData("order")]
+    [InlineData("pinned")]
+    public void AMemberThisVersionDoesNotDeclareIsRefusedAndTheMessageNamesIt(string member)
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\":1,\"id\":\"christmas\",\"name\":\"Christmas\",\"collects\":[\"movie\"],\""
+            + member + "\":[]}");
+
+        var error = Assert.Single(result.Errors);
+
+        Assert.Equal("/" + member, error.Pointer);
+        Assert.Contains("\"" + member + "\"", error.Message, StringComparison.Ordinal);
+        Assert.Contains("The members are ", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The near miss. A document writing every member this version declares and nothing else is
+    /// accepted, so the refusal above cannot be passing by refusing everything.
+    /// </summary>
+    [Fact]
+    public void EveryMemberThisVersionDeclaresIsAccepted()
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\":1,\"id\":\"christmas\",\"name\":\"Christmas\",\"collects\":[\"movie\"],"
+            + "\"match\":{\"allOf\":[{\"field\":\"name\",\"operator\":\"contains\",\"value\":\"Christmas\"}]}}");
+
+        Assert.True(result.IsValid, Because(result));
+    }
+
+    /// <summary>
+    /// A document carrying two members this version does not declare is refused for the first one
+    /// it wrote rather than for whichever a reading order reaches first. The person repairing it
+    /// is looking at their own document rather than at the plugin's member list.
+    /// </summary>
+    [Fact]
+    public void TheMemberNamedIsTheFirstOneTheDocumentWrote()
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\":1,\"id\":\"christmas\",\"name\":\"Christmas\",\"collects\":[\"movie\"],"
+            + "\"limit\":200,\"order\":{}}");
+
+        Assert.Equal("/limit", Assert.Single(result.Errors).Pointer);
     }
 
     [Fact]

@@ -213,3 +213,29 @@ as an implicit input has none, because relative dates are allowed and what is
 refused is reading the clock during a match, which is the engine's behaviour
 rather than anything a document asks for. What holds that one is the compiler
 taking the instant it evaluates against as an argument.
+
+## A member this version does not declare
+
+A rule document may write `schemaVersion`, `id`, `name`, `collects` and `match`,
+and nothing else. A member outside that list is refused, and the refusal names
+the member the document wrote as well as the five it may have written.
+
+This was the question #231 held, and it was decided on 2026-09-04. What it costs
+is nothing that was worth keeping. A document written for a later version of this
+format declares a later `schemaVersion`, and the envelope stage refuses one
+higher than this plugin reads before it looks at a single member, so a name
+nothing here declares, on a document claiming this version, is a mistake. What it
+buys is the case that has no other detection: `mach` written where `match` was
+meant used to be accepted in silence, indistinguishable from a document that
+meant to carry no rule at all.
+
+`rule-document.schema.json` closes the object for the same answer, so an editor
+pointed at that file and the plugin reading the document say one thing.
+`RuleDocumentSchemaTests` asserts the two together rather than either alone.
+
+THE OTHER HALF OF THAT DECISION IS NOT IN THE TREE YET. #231 also decided that a
+document declaring no `match` is refused. It is still accepted, because every
+document in the suite, in the fuzz corpus and on these pages would have to carry
+a rule first, and that is a wider change than this one. #231 stays open for it,
+and this paragraph is what stops a reader taking the refusal above for the whole
+answer.
