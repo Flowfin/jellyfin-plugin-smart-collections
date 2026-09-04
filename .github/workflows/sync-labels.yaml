@@ -26,17 +26,44 @@ name: "🏷️ Sync labels"
 #   gh api repos/jellyfin/jellyfin-meta-plugins/contents/.github/plugin-repo-labels.yaml \
 #     --jq .content | base64 -d | grep -A5 '^- name: ci$'
 #
-# What the next scheduled run does is therefore predictable rather than open,
-# and it is a PREDICTION rather than something watched: `feature` now exists
-# here under its own name and lists `feature` among its aliases, so it meets the
-# same condition as the five. A run removes every label this tracker carries
-# except `documentation`, `question` and `dependencies`.
+# THE PREDICTION THAT STOOD HERE WAS REFUTED BY THE NEXT SCHEDULED RUN, AND THE
+# SENTENCES BELOW ARE WHAT WAS WATCHED IN ITS PLACE. It said that `feature` now
+# exists here under its own name, lists `feature` among its aliases, and so
+# meets the same condition as the five, and that a run therefore removes every
+# label this tracker carries except `documentation`, `question` and
+# `dependencies`. The run happened on schedule on 2026-09-01, reported success,
+# and removed one label. Its changelog reports no `[changed]` and no `[merge]`
+# for any label, where the run above reports eleven and five:
 #
-# Neither branch #17 opens with is available against that. The labels are
-# already aligned with the central file, and the shared workflow below pins the
-# action but not the config and passes `delete-other-labels: true` with no input
-# to turn it off. What is left is a choice about how this board relates to a
-# convention it shares with its siblings, and it is open on #17.
+#   gh run view 33470031421 --repo Flowfin/jellyfin-plugin-smart-collections --log \
+#     | sed 's/\r$//' | grep -oE '\[(changed|merge|added)\]' | sort | uniq -c
+#
+# So the self-alias condition is not sufficient for a deletion in the direction
+# the prediction used it, and WHAT SEPARATES THE TWO RUNS IS NOT ESTABLISHED
+# HERE. The five were re-created by hand after the first run with the central
+# colour and description, so the second met them identical to their entries and
+# edited nothing; that is a candidate rather than a measurement, and it rests on
+# one run in each state.
+#
+# WHAT THE SECOND RUN DID DELETE IS THE PLAIN MECHANISM THIS FILE OPENS ON,
+# rather than the merge behaviour above. `blocked-on-dependency` was created on
+# this tracker at 00:23 on 2026-09-01 and applied to fifteen open issues, the
+# central file has never declared the name, and the run four hours later deleted
+# it and stripped it from all fifteen. The name was re-created and re-applied
+# from 2026-09-03, and fifteen open issues carry it again, so the next scheduled
+# run meets it under exactly the condition that removed it:
+#
+#   gh api --paginate repos/Flowfin/jellyfin-plugin-smart-collections/issues/events?per_page=100 \
+#     --jq '.[] | select(.label.name=="blocked-on-dependency") | .created_at + " " + .event'
+#   gh api repos/jellyfin/jellyfin-meta-plugins/contents/.github/plugin-repo-labels.yaml \
+#     --jq .content | base64 -d | grep -c '^- name: blocked-on-dependency$'
+#
+# Neither branch #17 opens with is available against that. The names this
+# tracker carries beyond the central file are one rather than three, and the
+# shared workflow below pins the action but not the config and passes
+# `delete-other-labels: true` with no input to turn it off. What is left is a
+# choice about how this board relates to a convention it shares with its
+# siblings, and it is open on #17.
 
 on:
   schedule:
