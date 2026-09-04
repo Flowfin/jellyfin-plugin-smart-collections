@@ -136,9 +136,12 @@ Reading it clause by clause:
   of the query. The names are a declared list rather than the server's own
   enumeration; [the field reference](docs/rule-fields.md) is where each one is
   written down with what it means.
-- `match` is a tree of conditions. `allOf` requires every clause to hold. Which
-  composition operators exist and how deeply they may nest is part of the rule
-  language rather than something a document decides for itself.
+- `match` is a tree of conditions and is required. `allOf` requires every clause
+  to hold. Which composition operators exist and how deeply they may nest is part
+  of the rule language rather than something a document decides for itself. A
+  document with no `match` is refused rather than read as a rule that collects
+  everything it declares a scope for, because that reading turns a misspelled
+  member name into a collection holding your whole library.
 - `field` and `operator` come from a declared table rather than from whatever
   property happens to exist on some class, so an unknown field is a validation
   message naming the legal ones and not an exception at evaluation time.

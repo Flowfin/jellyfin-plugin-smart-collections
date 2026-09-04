@@ -168,22 +168,59 @@ public class RuleDocumentRuleReadTests
     }
 
     /// <summary>
-    /// WHAT THIS WIRING DELIBERATELY DOES NOT DECIDE. A document declaring a scope and no rule is
-    /// accepted, which is the answer it got before the stages were wired in. Refusing it and
-    /// reading it as a rule that collects the whole declared scope are both defensible, the schema
-    /// requires the member neither way, and no issue on this tracker takes the question, so the
-    /// behaviour is held where it was rather than moved by a change that is about something else.
-    /// This test exists so that whoever takes that decision meets a named assertion rather than a
-    /// silence.
+    /// THE QUESTION THIS WIRING LEFT OPEN IS DECIDED. A document declaring a scope and no rule is
+    /// REFUSED, decided on #231 on 2026-09-04. It used to be accepted, and the test that stood
+    /// here said so and said the question was open; the assertion it asks whoever takes the
+    /// decision to move is this one, moved.
+    ///
+    /// The two readings it was decided against are worth keeping beside the answer. Reading it as
+    /// a rule that collects the whole declared scope makes a misspelled member name a collection
+    /// holding every film somebody owns, which is the expensive silent failure. Leaving it
+    /// accepted makes a document that collects nothing, which nobody writes on purpose, and makes
+    /// it indistinguishable from the misspelling.
     /// </summary>
     [Fact]
-    public void ADocumentDeclaringNoRuleIsAcceptedAndThatIsUndecidedRatherThanIntended()
+    public void ADocumentDeclaringNoRuleIsRefusedAndTheMessageNamesTheMember()
     {
         var result = RuleDocumentValidator.Read(
             "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}");
 
-        Assert.True(result.IsValid, Because(result));
+        Assert.False(result.IsValid, "The document was accepted.");
+
+        var error = Assert.Single(result.Errors);
+
+        Assert.Equal("/" + RuleDocumentValidator.MatchMember, error.Pointer);
+        Assert.Contains(
+            "The document declares no " + RuleDocumentValidator.MatchMember + ".",
+            error.Message,
+            StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// The near miss the decision is about: a document whose rule member is MISSPELLED is refused
+    /// too, and for a different reason, so the two answers are told apart. This is the pair #231
+    /// opened on, where both documents got one answer.
+    /// </summary>
+    [Fact]
+    public void AMisspelledRuleMemberIsRefusedForBeingAMemberThisVersionDoesNotDeclare()
+    {
+        var result = RuleDocumentValidator.Read(
+            "{\"schemaVersion\": 1, \"id\": \"christmas\", \"name\": \"Christmas\", \"collects\": [\"movie\"], \"mach\": {}}");
+
+        var error = Assert.Single(result.Errors);
+
+        Assert.Equal("/mach", error.Pointer);
+        Assert.Contains("declares no member called \"mach\"", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("declares no match.", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A document that carries a rule is unmoved by the refusal above. Without this the pair could
+    /// pass on a stage that refuses every document it reads.
+    /// </summary>
+    [Fact]
+    public void ADocumentThatCarriesARuleIsStillAccepted()
+        => Assert.True(RuleDocumentValidator.Read(Sound).IsValid);
 
     private static string Because(RuleDocumentValidation result)
         => "Refused with: " + string.Join(" | ", result.Errors.Select(error => error.ToString()));

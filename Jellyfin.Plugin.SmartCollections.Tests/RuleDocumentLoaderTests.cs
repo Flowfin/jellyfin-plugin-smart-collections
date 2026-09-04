@@ -282,7 +282,7 @@ public sealed class RuleDocumentLoaderTests : IDisposable
     // id a first one already holds, so one shared text would make most of these tests about
     // that refusal instead of about what they are named for.
     private static string ValidWith(string id)
-        => "{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\", \"collects\": [\"movie\"]}";
+        => "{\"schemaVersion\": 1, \"id\": \"" + id + "\", \"name\": \"Christmas\", \"collects\": [\"movie\"], \"match\": {\"allOf\": [{\"field\": \"genres\", \"operator\": \"contains\", \"value\": \"Thriller\"}]}}";
 
     private static string Reason(RuleDocumentScan scan, string name)
         => string.Join(
