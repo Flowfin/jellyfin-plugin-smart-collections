@@ -1,4 +1,4 @@
-# The mutation score, and where its number comes from
+# The mutation gate, and what it holds
 
 The coverage floor answers whether a line was executed. It cannot answer whether
 a change to that line would be noticed, and those are different questions: a
@@ -14,159 +14,152 @@ suite: either a test that was never written, or a piece of code nobody needs.
 
 ```
 dotnet tool restore
-dotnet stryker
+dotnet stryker --concurrency 1
 ```
 
-Everything the run needs is in `stryker-config.json` and the tool version is
-pinned in `.config/dotnet-tools.json`, so a clone reproduces the number rather
+Everything else the run needs is in `stryker-config.json` and the tool version is
+pinned in `.config/dotnet-tools.json`, so a clone reproduces the record rather
 than a nearby one. Reports land under `StrykerOutput/`, which is untracked.
 
-## The number
+The concurrency is part of the measurement rather than a speed setting, and the
+section below is why. `.github/workflows/mutation.yml` passes the same number,
+and `.github/scripts/mutation-record.js` refuses a workflow and a record that
+disagree about it.
 
-91.97 %, and the threshold that holds it is 91.
+## What the gate holds
 
-```
-dotnet stryker
-[..] The final mutation score is 91.97 %
-```
+`mutation-record.json`, and no percentage anywhere. It names three things:
 
-Read off the report of the same run rather than off the banner alone:
+- **`survivors`** - every mutant nothing in the suite noticed, by file, line,
+  column, mutator and replacement. This is the list to work from: writing a test
+  that kills one of these is the point, and deleting the code a mutant sits in is
+  also a legitimate answer.
+- **`unstable`** - every mutant whose verdict moved between the runs the record
+  was taken from, with the verdicts seen and the runs that saw each. These are
+  excluded from the comparison and from the floor, because a mutant that is
+  killed on one run and survives on the next is evidence about the run and not
+  about the suite.
+- **`killed`** - the killed count over what is left, which is the floor.
 
-```
-node -e "
-const r=require('./StrykerOutput/<run>/reports/mutation-report.json');
-const by={};
-for(const v of Object.values(r.files)) for(const m of v.mutants) by[m.status]=(by[m.status]||0)+1;
-const killed=(by.Killed||0)+(by.Timeout||0);
-const scored=killed+(by.Survived||0)+(by.NoCoverage||0);
-console.log('{ '+Object.entries(by).map(([k,v])=>k+': '+v).join(', ')+' }');
-console.log(killed+'/'+scored, (100*killed/scored).toFixed(2));
-"
-{ Ignored: 81, Killed: 376, Survived: 32, CompileError: 100, NoCoverage: 1, Timeout: 2 }
-378/411 91.97
-```
+Each row is a tuple rather than an object, in the order the record's own
+`columns` names, so a new survivor is one added line in a diff rather than a
+block a reviewer has to assemble. The check refuses a record whose `columns` are
+not the order it reads.
 
-THE COMMAND ABOVE USED TO HAND THE OBJECT STRAIGHT TO `console.log` AND ITS
-OUTPUT STOPPED FITTING ON ONE LINE. Node wraps an object once its rendering
-passes a width, so a run producing a sixth status printed six lines where this
-page had one, and the paste stopped reproducing for a reason that has nothing to
-do with the tree. The line is built here instead, which makes the output a
-function of the counts rather than of how many of them there are.
-
-Measured on Windows against the net10.0 build, which is the target framework
-`stryker-config.json` names. Only that one was measured: the machine this was run
-on has no .NET 9 runtime. Nothing here claims the two legs agree, and nothing in
-the engine is written per target framework, which is a reason to expect agreement
-rather than evidence of it:
+No figure is written into this page, and that is deliberate: a number restated in
+a document drifts against the thing it describes, and this page carried four such
+figures until the gate changed. Derive them instead:
 
 ```
-grep -rn '#if\|NET9_0\|NET10_0' --include=*.cs Jellyfin.Plugin.SmartCollections.Engine/ ; echo "exit=$?"
-exit=1
+node -e "const r=require('./mutation-record.json'); console.log('survivors', r.survivors.length, '| unstable', r.unstable.length, '| killed floor', r.killed, '| concurrency', r.concurrency)"
 ```
 
-## Why the threshold is 91 and not 92 or 88
+And to judge a run you have just taken against it:
 
-A threshold is measured, never chosen. A round number above the score reds every
-run from the first one, and a round number below it lets the suite weaken by
-however wide the gap was without anything saying so.
+```
+node .github/scripts/mutation-record.js StrykerOutput
+```
 
-`thresholds.break` takes a whole number, and 91 is the measured score with its
-fraction dropped. WHAT THE DROPPED FRACTION BUYS BACK GREW WITH THE POPULATION,
-AND THIS PARAGRAPH USED TO PUT IT AT ONE MUTANT. 411 mutants are scored now
-rather than 148, so one is worth 0.24 points against a dropped fraction of 0.97:
-losing one takes the score to 91.73, and it takes four to red the run at 90.99.
-Counted off the report the figures above are read from.
+When a change moves the set on purpose, the same script writes the record the run
+implies, and the formatter settles its layout the way it settles every other file
+here:
 
-So dropping the fraction now buys back four mutants where it once bought back
-one, and that is what a whole number costs on a larger population rather than
-something this file chose. It is also the number to watch: the same slack that
-was worth 0.81 points is worth 0.97 now, and it will go on growing with the
-mutant count while the threshold stays a whole number. The alternative is a
-threshold above the score, which reds every run from the first one.
+```
+node .github/scripts/mutation-record.js StrykerOutput mutation-record.json --print-record > mutation-record.json.new
+mv mutation-record.json.new mutation-record.json
+npx prettier --write mutation-record.json
+```
 
-Raise it in the same change that raises the score, the way a coverage floor is
-raised in `coverage-floors.json`. That sentence was held by nothing here until
-#190, and what it left behind is why the mechanism arrived rather than another
-correction: this page read 82.67 with a threshold of 82 while the suite reached
-85.81, because the tool asks only whether the score is BELOW the break. A gap of
-that width is not the harmless kind either: six killed mutants could have turned
-into survivors before the run reddened. `.github/scripts/mutation-threshold.js`
-refuses the other direction now, from the report the run already writes, and
-`.github/workflows/mutation.yml` is where it runs.
+It carries the `unstable` list forward rather than deriving it, because one run
+cannot see instability: that takes two verdicts on one mutant and the runs that
+saw each, which is what the entry has to name.
 
-IT HAPPENED AGAIN AND THE MECHANISM CAUGHT IT, WHICH IS THE DIFFERENCE. Three
-changes added the value types, the operator set and the composition reader to the
-engine, each raised its coverage floors in the same change and none of them
-re-ran this tool, so the threshold sat at 85 while the suite reached 91.97. #199
-is where that was measured and repaired. Nothing found it before the repair
-either: the run that judges it is scheduled rather than on a pull request, so the
-gap stood on the default branch from the first of those three merges until
-somebody ran the tool by hand.
+WHAT THAT COSTS IS WORTH SAYING PLAINLY. Nothing refuses a figure typed into this
+page tomorrow. The check that re-extracted four of them is gone because there is
+nothing left here for it to re-extract, not because the class stopped mattering,
+and the review is what stands in its place.
+
+## Why a score cannot be the gate
+
+Because it is a fact about a run rather than about the tree. Three consecutive
+runs on an unchanged tree at the tool's default concurrency, nothing edited
+between them, measured on 2026-09-02 and recorded on #200:
+
+```
+[..] The final mutation score is 91.31 %
+[..] The final mutation score is 91.44 %
+[..] The final mutation score is 91.31 %
+```
+
+The two that agree to the hundredth disagree about WHICH mutants survived: one
+missed a mutant the other killed, and it was a different mutant each time. So two
+runs agreeing on a number is not evidence that the run reproduced, and a check
+comparing scores cannot see a set that moved underneath one.
+
+A score is also a sum, so it moves whenever any one verdict does, and a threshold
+under it reds an unchanged tree while a threshold over it lets the suite weaken
+by however wide the gap was. Both directions were live here: the scheduled run of
+2026-08-31 crashed the tool against its own break with nothing changed, and
+before that the threshold sat three points under the score for weeks. Issue #200
+carries the measurements and the arrangement decided on them.
+
+A set moves only where a verdict does, and the check can then say which mutant
+and in which direction. That is what `mutation-record.json` is.
+
+## Why the run is at concurrency one
+
+Because that is the one variable that made the survivor set move. Measured over
+nine runs in three arrangements, three runs each: with the test classes running
+in parallel six mutants moved between survived and killed; with them in sequence
+none did, and the only movement left was the killed-and-timed-out split below.
+
+Four of the six sit in the static `Table` initializer of a rule table, which is
+the case the tool's own documentation names under `coverage-analysis`: a mutant
+inside a static initializer is covered by whichever test touched the type first,
+and with classes in parallel that is a different test on every run. The others
+stop moving under the same arrangement and the reason for them is not
+established.
+
+What it costs is wall clock, and the workflow's timeout is sized for it rather
+than for the parallel run it replaced.
 
 ## What the split between killed and timed out does not mean
 
 A mutant that hangs the tests is counted as killed, because a test suite that
 never finishes is a test suite that noticed. Which of the two a given mutant
 lands in moves between runs on the same tree, since it depends on how long the
-test host took that time. The sum does not move, and the sum is what the score is
-built from. Two runs on the tree of 2026-08-17, minutes apart, which is the pair
-that showed it and is kept as the reading it was rather than restated of a tree
-it was not taken on:
+test host took that time. This is the movement that leaves the sum alone, it is
+present under every arrangement measured, and it is why `additional-timeout` in
+`stryker-config.json` is 30000: without it a slow test host start is read as a
+hung mutant, which does not move the count but does move a dozen mutants into a
+column where they look like something worth investigating.
+
+Two runs on the tree of 2026-08-17, minutes apart, which is the pair that showed
+it and is kept as the reading it was rather than restated of a tree it was not
+taken on:
 
 ```
 Killed: 62, Timeout: 0  ->  62/75  ->  82.67 %
 Killed: 61, Timeout: 1  ->  62/75  ->  82.67 %
 ```
 
-The run recorded above for the current tree lands 376 killed and 2 timed out, so
-the split is no longer empty on this side of it and the two columns above are the
-reading that predicted it.
+## What the record cannot say
 
-## A larger movement between two runs, which the split above does not cover
+Whether a mutant on the `unstable` list is genuinely unstable or was put there to
+make a real survivor go away. Nothing in a report separates the two. The entry
+carries the verdicts seen and the runs that saw each so a reader has something to
+check the claim against, and the review is where a wrong one is caught.
 
-THE SPLIT IS NOT THE ONLY THING THAT MOVES, AND THIS SECTION IS THE MEASUREMENT
-THAT SHOWED IT RATHER THAN AN ARGUMENT ABOUT IT. Two runs on this tree, minutes
-apart, with nothing edited between them but `thresholds` in
-`stryker-config.json`, which decides no test:
-
-```
-[..] The final mutation score is 91.97 %   Killed: 376  Survived: 32  Timeout: 2
-[..] The final mutation score is 92.94 %   Killed: 380  Survived: 28  Timeout: 2
-```
-
-Four mutants moved from survived to killed. That is not the killed-and-timed-out
-split, which leaves the sum alone; it changes the score. The four, read off the
-two reports rather than off the banners:
+It also says nothing about a target framework it was not taken on. The record is
+measured on Windows against the `net10.0` build, which is the target framework
+`stryker-config.json` names, and the machine it was taken on has no .NET 9
+runtime. Nothing in the engine is written per target framework, which is a reason
+to expect the two to agree rather than evidence that they do:
 
 ```
-Survived -> Killed  Rules/RuleOperatorRow.cs:27      Block removal mutation
-Survived -> Killed  Rules/RuleOperatorTable.cs:135   Statement mutation
-Survived -> Killed  Rules/RuleOperatorTable.cs:187   String mutation
-Survived -> Killed  Rules/RuleOperatorTable.cs:215   String mutation
+grep -rn '#if\|NET9_0\|NET10_0' --include=*.cs Jellyfin.Plugin.SmartCollections.Engine/ ; echo "exit=$?"
+exit=1
 ```
-
-Each of those four sits under a test that asserts it: the null check at 135 is
-`ALookupWithNoNameIsRefusedAtTheCall`, and the two message strings are asserted
-whole by `AnUnknownNameIsRefusedWithEveryLegalOne` and
-`AnOperatorAppliedToATypeItDoesNotAcceptIsRefusedNamingBoth`. So the runs
-disagree about which tests reached them rather than about what the tests assert,
-and the tool runs in `CoverageBasedTest` mode, which picks the tests for a mutant
-out of a coverage capture rather than running all of them. Why that capture
-attributed those four differently on two runs is NOT ESTABLISHED HERE, and the
-plausible reasons - a cold test host on a first run, tests executing in parallel
-during the capture - are guesses this page does not assert.
-
-WHAT IT COSTS IS THE MECHANISM ABOVE, NOT THE NUMBER. The score is a fact about
-a run rather than about the tree, and both the threshold and the four figures on
-this page are compared against whatever run the check is handed. The lower of the
-two is recorded here, so the tool's own break cannot fire on the other; the check
-that compares the page against a fresh run has no such margin and reds whenever a
-run lands on the other figure. That is a live gap rather than a repaired one.
-
-`additional-timeout` in `stryker-config.json` is 30000 for this reason. Without
-it a slow test host start is read as a hung mutant, which does not move the score
-but does move a dozen mutants into a column where they look like something worth
-investigating.
 
 ## What is not covered
 
@@ -174,14 +167,8 @@ The plugin host assembly is not mutated. It holds the settings page, the service
 registration and the library event plumbing, and those are covered by their own
 tests; the determinism claim this measurement exists for lives in the engine.
 
-Thirty-two mutants survive and one is reached by no test at all. The report names
-each one with its file and its line, and that list is the thing to work from
-rather than the total: raising the score by writing a test for a surviving mutant
-is the point, and raising it by deleting the code a mutant sits in is also a
-legitimate answer.
-
-The score is measured on a schedule and on manual dispatch, never on a pull
-request. A change that weakens the suite therefore merges and is caught by the
-next scheduled run rather than at review time, which is a cost paid on purpose:
-a full run is minutes of compute per pull request to say the same thing as the
-run before it. `.github/workflows/mutation.yml` is where that is argued.
+The run happens on a schedule and on manual dispatch, never on a pull request. A
+change that weakens the suite therefore merges and is caught by the next
+scheduled run rather than at review time, which is a cost paid on purpose: a full
+run at concurrency one is a long time per pull request to say the same thing as
+the run before it. `.github/workflows/mutation.yml` is where that is argued.

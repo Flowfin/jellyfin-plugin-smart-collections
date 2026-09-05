@@ -1,5 +1,6 @@
 # Measure what the suite would catch if determinism broke, and hold it at the
-# score the suite actually reaches (#46).
+# set of faults the suite actually notices (#46, and #200 for what "hold" means
+# here now).
 #
 # Line coverage does not measure this. A test that executes a line without
 # asserting anything about it covers the line and catches nothing, so the
@@ -16,26 +17,34 @@
 # the project rather than a glob, so a file added to the engine is mutated
 # without anybody remembering to widen a list.
 #
-# By construction this job runs on no pull request. A full run is minutes of
+# By construction this job runs on no pull request. A full run is half an hour of
 # compute that says the same thing as the run before it unless the engine or the
 # suite moved, and the pull request gate already has enough legs. It runs on a
 # schedule and on manual dispatch and never on a merge path, which is also why
-# its name cannot become a required status check by accident.
+# its name cannot become a required status check by accident. THAT COST WENT UP
+# WITH #200 rather than staying where this paragraph found it, and the
+# concurrency paragraph below is where the reason is.
 #
-# The threshold is the measured score and not a round number. A round number
-# above the score reds every run from the first one; a round number below it
-# lets the suite weaken by however much the gap was, quietly. `thresholds.break`
-# in `stryker-config.json` carries the number and the pull request that set it
-# carries the run that produced it. 148 mutants are scored, so one killed mutant
-# turning into a survivor costs 0.68 points and lands under the break, and a
-# deleted assertion reds this job rather than lowering the bar.
+# WHAT THIS JOB HOLDS IS A SET AND NOT A SCORE, AND THIS PARAGRAPH ARGUED THE
+# OPPOSITE UNTIL #200. It said the threshold was the measured score and that a
+# deleted assertion would red the run, and both halves rested on the score being
+# a fact about the tree. It is a fact about a RUN: three consecutive runs on an
+# unchanged tree, measured on 2026-09-02 and recorded on #200, landed 91.31,
+# 91.44 and 91.31, and the two that agreed to the hundredth disagreed about which
+# mutants survived. So the tool's own break is
+# off - `thresholds.break` is 0 in `stryker-config.json`, which reports the score
+# and enforces nothing - and `mutation-record.json` carries the surviving set,
+# the mutants whose verdict moves, and the killed count over what is left.
+# `.github/scripts/mutation-record.js` compares a run against it in both
+# directions, the way `.github/scripts/coverage-floor.js` does for the floor
+# beside it, and #200 carries the measurements.
 #
-# THIS PARAGRAPH SAID 75 SCORED AND 1.33 POINTS, AND THE ENGINE HAS GROWN SINCE.
-# What made the drift worth a mechanism rather than a correction is that the
-# threshold went with it: the tool asks only whether the score is BELOW the
-# break, so the number stayed at 82 while the suite reached 85.81 and nothing in
-# the tree said so. The step below refuses that direction now (#190), and its
-# script carries the reasoning that #188 carries for the coverage floor.
+# THE CONCURRENCY IS PART OF THE MEASUREMENT. Nine runs in three arrangements
+# said that test classes executing in parallel during the coverage capture are
+# what moves the survivor set: in sequence, no mutant moved between survived and
+# killed on any of three runs. So the tool is run at concurrency one here, the
+# record declares the same number, and the check refuses the two disagreeing. It
+# costs wall clock, which is what the timeout below is sized for.
 #
 # A run that produced no report fails here. `if-no-files-found: error` on the
 # upload is what stops a tool or infrastructure failure ending green with
@@ -43,8 +52,8 @@
 # found nothing wrong.
 #
 # The tool is pinned in the committed manifest and restored rather than
-# installed by name, so the version that produced the recorded score is the
-# version a later run uses:
+# installed by name, so the version that produced the record is the version a
+# later run uses:
 #
 #   cat .config/dotnet-tools.json
 name: Mutation
@@ -70,10 +79,18 @@ jobs:
   mutation:
     name: Mutation score
     runs-on: ubuntu-latest
-    # The engine is small and the suite is seconds, so a run is minutes rather
-    # than hours. The limit is sized well above the measured wall clock so a
-    # genuinely hung run is cut off and an ordinary one never is.
-    timeout-minutes: 30
+    # THIS WAS 30 AND THE RUN GOT LONGER ON PURPOSE. At the runner's default
+    # concurrency a pass was minutes; at concurrency one it is a single test
+    # session per mutant, and the runs the record was taken from took just under
+    # half an hour each on a 32-processor Windows machine, the wall clocks being
+    # on the pull request that landed this. A GitHub runner has far fewer
+    # processors. WHAT THAT DOES TO THIS NUMBER IS NOT MEASURED HERE: the
+    # concurrency limits the tool to one test session, and inside that session
+    # the suite still spreads its classes over whatever cores there are, so a
+    # smaller runner is slower by an amount no reading in this tree has taken.
+    # The limit is four times the measured wall clock for that reason rather than
+    # a reading of the runner. A genuinely hung run is still cut off.
+    timeout-minutes: 120
     permissions:
       contents: read # check out the tree that is mutated and tested
     steps:
@@ -98,16 +115,30 @@ jobs:
         run: dotnet restore --locked-mode
 
       - name: Restore the pinned tool
-        # By manifest rather than by name, so this is the version the recorded
-        # score was measured with and not whatever is newest on the day.
+        # By manifest rather than by name, so this is the version the record was
+        # measured with and not whatever is newest on the day.
         run: dotnet tool restore
 
+      - name: Prove the record check bites
+        # Before the tool runs, so a check that has stopped refusing is reported
+        # in seconds rather than after a run of this length, and so a green
+        # comparison below is one that could have been red. Every arm of the
+        # comparison is exercised against a fabricated run and record pair built
+        # to trip exactly it and against a one-change neighbour that trips
+        # nothing.
+        run: node .github/scripts/mutation-record.js --prove-the-check-bites
+
       - name: Measure the mutation score
-        # The break threshold in stryker-config.json is what makes this step red
-        # on a weakened suite. Nothing here passes a threshold on the command
-        # line: a number in a workflow file and a number in the configuration
-        # would drift, and the configuration is the one a contributor can run.
-        run: dotnet stryker
+        # `--concurrency 1` is the arrangement the record was taken under and is
+        # not a speed setting; see the paragraph on it above. It is on the
+        # command line rather than in the configuration because the tool takes no
+        # such key in a config file, and the check refuses this line and the
+        # record disagreeing, so the two cannot drift.
+        #
+        # Nothing here passes a threshold: `thresholds.break` is 0 in
+        # stryker-config.json, so this step reports the score and refuses
+        # nothing, and the step below is what makes a weakened suite red.
+        run: dotnet stryker --concurrency 1
 
       - name: Upload the mutation report
         # Uploaded whatever the step above decided, because the run somebody
@@ -121,18 +152,21 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-      - name: Hold the threshold and the page at the score this run reached
+      - name: Compare the run against the record
         # After the upload, so the report is downloadable from a run this step
-        # reds, and after the tool rather than beside it: the tool refuses a
-        # score BELOW the break, and this refuses a break left below the score,
-        # which are the two directions of one relation. It is skipped when the
-        # tool has already failed, because a score under its threshold is the
-        # other direction and is already refused there.
+        # reds. This is the only step that refuses anything about the suite now:
+        # the tool's break is 0, so a red here is a survivor the record does not
+        # name, a record survivor this run killed, a record entry no mutant
+        # matches, a killed count off the floor in either direction, or a
+        # workflow and a record that disagree about the concurrency.
         #
-        # It judges `docs/mutation-score.md` in the same pass (#192). That page
-        # is where the score, the status counts and the killed-over-scored
-        # figure are written down and it is what `docs/testing.md` sends a
-        # reader to, and nothing re-extracted any of them until that arm: a
-        # change raising the threshold correctly and leaving the page alone
-        # passed every route here.
-        run: node .github/scripts/mutation-threshold.js StrykerOutput
+        # THIS STEP USED TO JUDGE `docs/mutation-score.md` AND NO LONGER DOES,
+        # and that is a guard removed rather than replaced. #192 built it because
+        # the page carried the score, the status counts and the
+        # killed-over-scored figure, and a change that raised the threshold
+        # correctly and left the page alone passed every route here. The page
+        # carries no figure now - it hands the reader the command that derives
+        # each one from the record - so there is nothing left to re-extract. A
+        # figure typed into that page tomorrow is refused by nothing, and the
+        # page says so about itself.
+        run: node .github/scripts/mutation-record.js StrykerOutput
