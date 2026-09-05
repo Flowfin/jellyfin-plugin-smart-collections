@@ -42,6 +42,8 @@ public class TestingDocumentTests
     {
         "CollectionStamp.cs",
         "ICollectionOwnership.cs",
+        "IRuleItemSource.cs",
+        "LibraryManagerItemSource.cs",
         "RuleQueryCompilation.cs",
         "RuleQueryCompiler.cs",
         "RuleQueryRow.cs",
@@ -129,8 +131,10 @@ public class TestingDocumentTests
         Assert.Contains("`ICollectionOwnership`", document, StringComparison.Ordinal);
         Assert.Contains("`FakeCollectionOwnership`", document, StringComparison.Ordinal);
         Assert.Contains("`RuleQueryCompiler`", document, StringComparison.Ordinal);
+        Assert.Contains("`IRuleItemSource`", document, StringComparison.Ordinal);
+        Assert.Contains("`FakeRuleItemSource`", document, StringComparison.Ordinal);
         Assert.Contains(
-            "WHAT IS STILL ABSENT IS THE PORT AND ITS FAKE.",
+            "THE PORT AND ITS FAKE ARE HERE",
             document,
             StringComparison.Ordinal);
 
