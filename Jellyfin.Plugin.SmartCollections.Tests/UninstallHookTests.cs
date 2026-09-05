@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.SmartCollections.Configuration;
@@ -213,5 +214,36 @@ public class UninstallHookTests
     {
         Assert.IsAssignableFrom<BasePlugin<PluginConfiguration>>(
             (Plugin)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Plugin)));
+    }
+
+    /// <summary>
+    /// The page pastes the members a rule document declares, read out of the schema. It went a
+    /// member out of date in silence when the rule member was declared, which is what this holds.
+    /// </summary>
+    /// <remarks>
+    /// The comparison is against the schema the tree carries rather than against a list written
+    /// here, so the page and the schema are one statement and not three.
+    ///
+    /// It reads the page as text and looks for the line, rather than parsing the fenced block,
+    /// because what a reader trusts is the line under the command and not the fence around it.
+    /// </remarks>
+    [Fact]
+    public void TheUninstallPageListsTheMembersTheSchemaDeclares()
+    {
+        using var schema = JsonDocument.Parse(
+            RepositoryFiles.ReadFromRoot(
+                "Jellyfin.Plugin.SmartCollections.Engine/Rules/rule-document.schema.json"));
+
+        var declared = string.Join(
+            ", ",
+            schema.RootElement.GetProperty("properties").EnumerateObject().Select(member => member.Name));
+
+        var page = RepositoryFiles.ReadFromRoot("docs/uninstall.md");
+
+        Assert.Contains("Object.keys(s.properties)", page, StringComparison.Ordinal);
+        Assert.Contains(
+            "\n" + declared + "\n",
+            page.Replace("\r\n", "\n", StringComparison.Ordinal),
+            StringComparison.Ordinal);
     }
 }

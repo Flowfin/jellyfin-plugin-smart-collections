@@ -138,11 +138,26 @@ writes one:
 
 ```
 node -e "const s=require('./Jellyfin.Plugin.SmartCollections.Engine/Rules/rule-document.schema.json');console.log(Object.keys(s.properties).join(', '))"
-schemaVersion, id, name, collects
-git grep -n 'CreateCollectionAsync' -- 'Jellyfin.Plugin.SmartCollections/' 'Jellyfin.Plugin.SmartCollections.Engine/'
-Jellyfin.Plugin.SmartCollections.Engine/Membership/CollectionResolver.cs:68:        return await _ownership.CreateCollectionAsync(
-Jellyfin.Plugin.SmartCollections.Engine/Membership/ICollectionOwnership.cs:71:    Task<Guid> CreateCollectionAsync(
+schemaVersion, id, name, collects, match
 ```
+
+That line is held by `TheUninstallPageListsTheMembersTheSchemaDeclares` rather
+than by a reader re-running the command, because it is a paste of this
+repository's own state and it went a member out of date once already, in silence.
+
+The create itself is named rather than pasted with its line numbers. A line
+number moves whenever anything is added above it, so a copy of one goes stale
+for a reason that has nothing to do with what it is evidence for, and both of
+the two this page used to carry did. What to look for is the member and the one
+call, in two files:
+
+```
+git grep -n 'CreateCollectionAsync' -- 'Jellyfin.Plugin.SmartCollections/' 'Jellyfin.Plugin.SmartCollections.Engine/'
+```
+
+`ICollectionOwnership` declares it and `CollectionResolver` is the only caller.
+No count is pasted, because a comment mentioning the member is a hit too and a
+number here would red for an edit to a sentence.
 
 The mark is a provider entry whose key is this plugin and whose value is the
 rule's id, written by the create rather than onto the collection afterwards, and
