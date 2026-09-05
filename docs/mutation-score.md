@@ -38,7 +38,9 @@ disagree about it.
   was taken from, with the verdicts seen and the runs that saw each. These are
   excluded from the comparison and from the floor, because a mutant that is
   killed on one run and survives on the next is evidence about the run and not
-  about the suite.
+  about the suite. IT IS EMPTY TODAY, AND EMPTY MEANS NO RUN HAS YET DISAGREED
+  WITH ANOTHER - not that none can. The section on the static class below says
+  which mutants are the candidates and what makes them move.
 - **`killed`** - the killed count over what is left, which is the floor.
 
 Each row is a tuple rather than an object, in the order the record's own
@@ -120,6 +122,13 @@ nine runs in three arrangements, three runs each: with the test classes running
 in parallel six mutants moved between survived and killed; with them in sequence
 none did, and the only movement left was the killed-and-timed-out split below.
 
+THAT IS A READING OF NINE RUNS AND NOT A LAW, and three more at concurrency one
+on 2026-09-05 say where it stops. The two that had the machine to themselves
+agreed on the surviving set; the third did not have it, and two mutants that
+survived in both of the others timed out in it. A survivor that times out is
+counted as killed, so a busy machine moves the set even in sequence, and the
+class it moves is the one two sections below.
+
 Four of the six sit in the static `Table` initializer of a rule table, which is
 the case the tool's own documentation names under `coverage-analysis`: a mutant
 inside a static initializer is covered by whichever test touched the type first,
@@ -179,7 +188,8 @@ private static DateTimeOffset Instant(DateTime value)
 Where the local zone IS UTC the two arms compute the same instant, so nothing in
 the suite separates them and all three mutants survive. They are in the record as
 survivors because that is what the machine the gate runs on sees, and they are
-three tests worth writing rather than a quirk of the report.
+three tests worth writing rather than a quirk of the report. #267 holds that
+work and carries the reading on both machines.
 
 That is what a set-shaped record buys that a score never could: the score on the
 runner and the score here differ by a tenth of a point, and the reason is a test

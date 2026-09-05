@@ -17,9 +17,10 @@
 # the project rather than a glob, so a file added to the engine is mutated
 # without anybody remembering to widen a list.
 #
-# By construction this job runs on no pull request. A full run is half an hour of
-# compute that says the same thing as the run before it unless the engine or the
-# suite moved, and the pull request gate already has enough legs. It runs on a
+# By construction this job runs on no pull request. A full run is a quarter of an
+# hour of compute here - the reading is in the timeout paragraph below - and it
+# says the same thing as the run before it unless the engine or the suite moved,
+# and the pull request gate already has enough legs. It runs on a
 # schedule and on manual dispatch and never on a merge path, which is also why
 # its name cannot become a required status check by accident. THAT COST WENT UP
 # WITH #200 rather than staying where this paragraph found it, and the
@@ -39,12 +40,26 @@
 # directions, the way `.github/scripts/coverage-floor.js` does for the floor
 # beside it, and #200 carries the measurements.
 #
+# THE RECORD'S CONTENTS COME FROM A RUN OF THIS JOB AND NOT FROM A CLONE, because
+# two things measured on the first dispatched run said they have to: a mutant's
+# replacement is source text and carries the checkout's line endings, and the
+# suite's own coverage of one expression depends on the machine's time zone.
+# `docs/mutation-score.md` carries both readings and the command that takes a
+# run to write a record from.
+#
 # THE CONCURRENCY IS PART OF THE MEASUREMENT. Nine runs in three arrangements
 # said that test classes executing in parallel during the coverage capture are
 # what moves the survivor set: in sequence, no mutant moved between survived and
 # killed on any of three runs. So the tool is run at concurrency one here, the
 # record declares the same number, and the check refuses the two disagreeing. It
 # costs wall clock, which is what the timeout below is sized for.
+#
+# CONCURRENCY ONE IS NOT A GUARANTEE AND THE SENTENCE ABOVE IS A READING OF NINE
+# RUNS RATHER THAN A LAW. Three more at concurrency one on 2026-09-05 agreed on
+# the surviving set in the two that had the machine to themselves, and the third,
+# which did not, timed out two mutants that had survived in both of the others.
+# A survivor that times out counts as killed, so a busy machine can still move
+# the set. `docs/mutation-score.md` says which class of mutant that is and why.
 #
 # A run that produced no report fails here. `if-no-files-found: error` on the
 # upload is what stops a tool or infrastructure failure ending green with
