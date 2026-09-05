@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using Jellyfin.Plugin.SmartCollections.Evaluation;
 using Jellyfin.Plugin.SmartCollections.Rules;
 using MediaBrowser.Controller.Entities;
@@ -287,7 +286,7 @@ public class ConditionMatcherTests
     [Fact]
     public void TheStageRefusesAnArgumentThatIsNotThere()
     {
-        var condition = Condition("name", "equals", ["a"]);
+        var condition = RuleConditionFixture.Condition("name", "equals", ["a"]);
 
         Assert.Throws<ArgumentNullException>(() => ConditionMatcher.Matches(null!, condition, Given));
         Assert.Throws<ArgumentNullException>(() => ConditionMatcher.Matches(new Movie(), null!, Given));
@@ -459,66 +458,6 @@ public class ConditionMatcherTests
     }
 
     /// <summary>
-    /// Builds one condition by writing the document that carries it and reading it back through
-    /// the stages the plugin itself reads a rule with.
-    /// </summary>
-    /// <param name="field">The field, as a document writes it.</param>
-    /// <param name="operatorName">The operator, as a document writes it.</param>
-    /// <param name="written">The values the document wrote.</param>
-    /// <returns>The condition.</returns>
-    /// <remarks>
-    /// Through the document rather than by constructing the value, because the type a value is
-    /// parsed against depends on the field and the operator together, and a test that decided that
-    /// itself would be asserting against its own answer rather than against the vocabulary's.
-    /// </remarks>
-    private static RuleConditionValue Condition(string field, string operatorName, IReadOnlyList<string> written)
-    {
-        var fieldRow = RuleFieldTable.Find(field)!;
-        var operatorRow = RuleOperatorTable.Find(operatorName)!;
-        var value = Json(fieldRow.ValueType, operatorRow, written);
-        var text = "{\"schemaVersion\":1,\"id\":\"x\",\"name\":\"X\",\"collects\":[\"movie\"],"
-                   + "\"match\":{\"allOf\":[{\"field\":\"" + field + "\",\"operator\":\"" + operatorName + "\""
-                   + value + "}]}}";
-
-        using var parsed = JsonDocument.Parse(text);
-        var root = parsed.RootElement;
-        var scope = RuleItemScopeReader.Read(root);
-        var composition = RuleCompositionReader.Read(root.GetProperty("match"), "/match");
-        var fields = RuleFieldReader.Read(root, composition.Group!, scope.Kinds);
-        var operators = RuleOperatorReader.Read(root, fields.Fields);
-        var values = RuleValueReader.Read(root, operators.Operators);
-
-        Assert.True(
-            values.IsAccepted,
-            "The fixture is refused: " + string.Join("; ", values.Errors.Select(error => error.ToString())));
-
-        return Assert.Single(values.Conditions);
-    }
-
-    /// <summary>
-    /// The <c>value</c> member a document writes beside an operator, or nothing where the operator
-    /// takes none.
-    /// </summary>
-    /// <param name="type">The field's declared type.</param>
-    /// <param name="operatorRow">The operator's row.</param>
-    /// <param name="written">The values, as a test wrote them.</param>
-    /// <returns>The member, with its leading comma, or an empty string.</returns>
-    private static string Json(RuleValueType type, RuleOperatorRow operatorRow, IReadOnlyList<string> written)
-    {
-        if (!operatorRow.TakesAValue)
-        {
-            return string.Empty;
-        }
-
-        var bare = type is RuleValueType.Integer or RuleValueType.Decimal or RuleValueType.Boolean;
-        var members = written.Select(value => bare ? value : "\"" + value + "\"").ToArray();
-
-        return operatorRow.TakesAList
-            ? ",\"value\":[" + string.Join(",", members) + "]"
-            : ",\"value\":" + members[0];
-    }
-
-    /// <summary>
     /// Whether an item satisfies a condition written the way a document writes one.
     /// </summary>
     /// <param name="item">The item.</param>
@@ -527,5 +466,5 @@ public class ConditionMatcherTests
     /// <param name="written">The values the document wrote.</param>
     /// <returns>The answer.</returns>
     private static bool Matches(BaseItem item, string field, string operatorName, IReadOnlyList<string> written)
-        => ConditionMatcher.Matches(item, Condition(field, operatorName, written), Given);
+        => ConditionMatcher.Matches(item, RuleConditionFixture.Condition(field, operatorName, written), Given);
 }
