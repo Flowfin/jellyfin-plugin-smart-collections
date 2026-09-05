@@ -54,12 +54,14 @@
 # record declares the same number, and the check refuses the two disagreeing. It
 # costs wall clock, which is what the timeout below is sized for.
 #
-# CONCURRENCY ONE IS NOT A GUARANTEE AND THE SENTENCE ABOVE IS A READING OF NINE
-# RUNS RATHER THAN A LAW. Three more at concurrency one on 2026-09-05 agreed on
-# the surviving set in the two that had the machine to themselves, and the third,
-# which did not, timed out two mutants that had survived in both of the others.
-# A survivor that times out counts as killed, so a busy machine can still move
-# the set. `docs/mutation-score.md` says which class of mutant that is and why.
+# CONCURRENCY ONE IS NOT A GUARANTEE, AND IT IS NOT WHAT THOSE NINE RUNS
+# MEASURED. What held the set still there was an assembly attribute turning off
+# the suite's own class parallelism; this flag limits the tool's test SESSIONS
+# and not what xunit does inside one, and no file in this tree asks the suite to
+# run its classes in sequence. Four runs at concurrency one in a clone on
+# 2026-09-05 moved five mutants between surviving and not surviving. Three runs
+# of this job on `ubuntu-latest` moved none, which is why the record is taken
+# from here and judged only here. `docs/mutation-score.md` carries both readings.
 #
 # A run that produced no report fails here. `if-no-files-found: error` on the
 # upload is what stops a tool or infrastructure failure ending green with

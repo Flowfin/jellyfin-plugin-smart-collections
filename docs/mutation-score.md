@@ -122,12 +122,35 @@ nine runs in three arrangements, three runs each: with the test classes running
 in parallel six mutants moved between survived and killed; with them in sequence
 none did, and the only movement left was the killed-and-timed-out split below.
 
-THAT IS A READING OF NINE RUNS AND NOT A LAW, and three more at concurrency one
-on 2026-09-05 say where it stops. The two that had the machine to themselves
-agreed on the surviving set; the third did not have it, and two mutants that
-survived in both of the others timed out in it. A survivor that times out is
-counted as killed, so a busy machine moves the set even in sequence, and the
-class it moves is the one two sections below.
+THAT IS A READING OF NINE RUNS AND NOT A LAW, AND CONCURRENCY ONE IS NOT WHAT
+THOSE NINE RUNS MEASURED. The arrangement that held the set still there was an
+assembly attribute turning off the suite's own class parallelism; `--concurrency
+1` was not among the three tried, and what it limits is the number of test
+SESSIONS the tool starts, not what xunit does inside one. Nothing in this tree
+asks the suite to run its classes in sequence:
+
+```
+git grep -n 'CollectionBehavior\|DisableTestParallelization\|MaxParallelThreads' -- '*.cs' '*.json' '*.csproj' ; echo "exit=$?"
+exit=1
+git ls-files | grep -c 'xunit.runner.json'
+0
+```
+
+Four runs at concurrency one on one clone on 2026-09-05 say what is left. Five
+mutants moved between surviving and not surviving across them: two timed out in
+the one run whose machine was loaded, and three were KILLED in the fourth having
+survived in the first three. So the survivor set does not fully reproduce in a
+clone even at concurrency one.
+
+WHAT THAT DOES NOT SAY IS THAT THE GATE IS UNSTABLE, and the difference is the
+machine. Three runs of this workflow on `ubuntu-latest` agreed on the whole
+surviving set and on the floor - the record was written from the first and the
+other two judged it green. The record is a runner artefact and is judged only
+there, so the clone's movement is a reason to take a record from a run of this
+job rather than a reason to widen the `unstable` list with evidence from a
+machine the gate never uses. If a runner run ever disagrees with the record about
+one of these, that entry goes on the `unstable` list with the runs that saw each
+verdict, which is what the list is for.
 
 Four of the six sit in the static `Table` initializer of a rule table, which is
 the case the tool's own documentation names under `coverage-analysis`: a mutant
