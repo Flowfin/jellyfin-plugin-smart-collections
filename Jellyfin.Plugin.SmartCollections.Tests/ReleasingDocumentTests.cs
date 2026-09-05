@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -24,6 +25,18 @@ public class ReleasingDocumentTests
     /// because the suite already derives those from the tree.
     /// </summary>
     private const string PropsFile = "Directory.Build.props";
+
+    /// <summary>
+    /// The heading over the steps somebody walks to cut a release. The expected-file step has to
+    /// sit under it rather than anywhere on the page: a reason asked for after the tag is pushed
+    /// is asked for after the release that needed it.
+    /// </summary>
+    private const string CuttingHeading = "## Cutting a release";
+
+    /// <summary>
+    /// Where the reason goes.
+    /// </summary>
+    private const string ChangelogFile = "CHANGELOG.md";
 
     /// <summary>
     /// A test named in the page, written as the class and the method inside a code span. Reading
@@ -62,6 +75,32 @@ public class ReleasingDocumentTests
     }
 
     [Fact]
+    public void TheReleasingPageAsksForTheReasonAnExpectedFileChanged()
+    {
+        var page = RepositoryFiles.ReadFromRoot(Page);
+        var cutting = Section(page, CuttingHeading);
+
+        Assert.False(
+            string.IsNullOrEmpty(cutting),
+            Page + " carries no \"" + CuttingHeading + "\" section, so the steps a releaser walks "
+                + "are somewhere this test cannot find and the one below holds nothing.");
+
+        // Derived from the corpus rather than written out here, so a corpus that moves or is
+        // renamed reds this instead of leaving the page pointing at a directory nobody has.
+        var suffix = Path.GetFileName(RuleCorpus.ExpectedPath("a"))[1..];
+
+        foreach (var named in new[] { RuleCorpus.Directory, suffix, ChangelogFile })
+        {
+            Assert.True(
+                cutting.Contains(named, StringComparison.Ordinal),
+                Page + " does not name " + named + " under \"" + CuttingHeading + "\". An expected "
+                    + "file is the record of what a rule meant in the version that shipped last, so a "
+                    + "release that changed one and said nothing moves collection membership on a "
+                    + "server with no way to tell an intended change from a regression.");
+        }
+    }
+
+    [Fact]
     public void TheReleasingPageNamesEveryPlaceTheVersionIsWritten()
     {
         var page = RepositoryFiles.ReadFromRoot(Page);
@@ -76,5 +115,28 @@ public class ReleasingDocumentTests
                 Page + " does not name " + place + ", which carries the version a release ships. "
                     + "A releaser following that page raises the number somewhere else and leaves this one behind.");
         }
+    }
+
+    /// <summary>
+    /// The text under one heading, up to the next heading of the same level. Read rather than
+    /// asserted against the whole page, so a step that moved out of the release procedure into a
+    /// paragraph further down is a failure rather than a pass.
+    /// </summary>
+    /// <param name="page">The page.</param>
+    /// <param name="heading">The heading to read under.</param>
+    /// <returns>The text under it, or an empty string if the page has no such heading.</returns>
+    private static string Section(string page, string heading)
+    {
+        var start = page.IndexOf(heading, StringComparison.Ordinal);
+        if (start < 0)
+        {
+            return string.Empty;
+        }
+
+        start += heading.Length;
+
+        var end = page.IndexOf("\n## ", start, StringComparison.Ordinal);
+
+        return end < 0 ? page[start..] : page[start..end];
     }
 }
