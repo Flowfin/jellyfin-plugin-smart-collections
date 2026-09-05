@@ -91,21 +91,35 @@ needs both at once. What the suite holds meanwhile is the decision in front of
 each port, `CollectionResolver` and `MembershipApplier`, neither of which names
 a server type.
 
-A rule's query is composed now and nothing answers it, which is a different
-state from the one this paragraph used to record. `RuleQueryTable` declares the
+A rule's query is composed AND ANSWERED now, which is the third state this
+paragraph has recorded and is the one the sentence below is about.
+`RuleQueryTable` declares the
 pairs of a field and an operator the server's query carries, `RuleQueryRow`
 holds each pair's write, `RuleQueryCompiler` walks a rule's conditions onto one
 query and `RuleQueryCompilation` carries what came out. Every one of those is
 asserted without a server, because a query is an object with properties and the
 suite reads them by reflecting over the type the build resolved.
 
-WHAT IS STILL ABSENT IS THE PORT AND ITS FAKE. Nothing here asks the server for
-the items a compiled query selects: there is no interface over
-`ILibraryManager.GetItemList` and no fake behind one, and
-`FakeLibraryChangeSource` raises the three library events and holds no items, so
-it stands in for what starts an evaluation rather than for what an evaluation
-reads. Running a rule against a library is therefore still something this suite
-cannot express rather than something it does without a server.
+THE PORT AND ITS FAKE ARE HERE, AND THIS PARAGRAPH SAID THEY WERE NOT. What
+stood here recorded that nothing asked the server for the items a compiled query
+selects, that there was no interface over `ILibraryManager.GetItemList` and no
+fake behind one, and that running a rule against a library was something this
+suite could not express. `IRuleItemSource` is that interface, one method over a
+query and a list of items; `LibraryManagerItemSource` is the adapter that hands
+the query to the server; and the suite drives the port through
+`FakeRuleItemSource` in `RuleEvaluatorTests`, which records every query it was
+asked and can answer in the reverse of the order it was filled.
+
+`FakeLibraryChangeSource` is unchanged and is still not that fake. It raises the
+three library events and holds no items, so it stands in for what starts an
+evaluation rather than for what an evaluation reads, and the two are named apart
+here because a reader looking for one of them will meet the other first.
+
+The adapter has no test and cannot have one, for the reason
+`LibraryManagerChangeSource` has none: the only way to execute it is to hold a
+real `ILibraryManager`, which means the running server this page refuses. The
+residual is one forwarding line a reader checks by eye, and it is the second of
+two in this tree rather than a new kind of gap.
 
 The one place a running server is the right answer is the interoperability
 matrix, which boots containers on an ordinary runner, needs no display and no

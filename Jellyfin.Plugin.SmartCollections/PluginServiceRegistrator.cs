@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Jellyfin.Plugin.SmartCollections.Evaluation;
 using Jellyfin.Plugin.SmartCollections.Library;
 using Jellyfin.Plugin.SmartCollections.Membership;
 using Jellyfin.Plugin.SmartCollections.Rules;
@@ -75,6 +76,13 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<CollectionRefreshGate>();
 
         serviceCollection.AddSingleton<ILibraryChangeSource, LibraryManagerChangeSource>();
+
+        // The one question an evaluation asks the server, behind the port the engine
+        // declares. Registered here rather than constructed by whatever runs an
+        // evaluation, for the reason every other line in this method is: a second
+        // instance would be a second forward onto the same library manager, and the
+        // thing anything else resolves would not be the thing that answered.
+        serviceCollection.AddSingleton<IRuleItemSource, LibraryManagerItemSource>();
 
         // One coalescer for the plugin, and the only observer of the subscription. A second
         // instance would accumulate a second copy of every change and close its own batches, so
