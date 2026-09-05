@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 
 namespace Jellyfin.Plugin.SmartCollections.Rules;
@@ -252,17 +253,8 @@ public static class RuleFieldReader
     /// one written rather than whichever the table happens to hold first.
     /// </remarks>
     private static string RefusedMemberNote(JsonElement condition)
-    {
-        foreach (var member in condition.EnumerateObject())
-        {
-            var note = RuleRefusalTable.Note(member.Name);
-
-            if (note.Length > 0)
-            {
-                return note;
-            }
-        }
-
-        return string.Empty;
-    }
+        => condition
+            .EnumerateObject()
+            .Select(member => RuleRefusalTable.Note(member.Name))
+            .FirstOrDefault(note => note.Length > 0) ?? string.Empty;
 }
