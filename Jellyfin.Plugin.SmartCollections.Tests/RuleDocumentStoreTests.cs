@@ -133,6 +133,15 @@ public sealed class RuleDocumentStoreTests : IDisposable
         Assert.False(File.Exists(outside), outside + " was written and the name was supposed to be refused.");
     }
 
+    /// <summary>
+    /// A delete answers whether there was a document rather than throwing on a name the directory
+    /// does not hold. The caller that asks for one is acting on a listing that may be a moment
+    /// old, and a second delete of one rule is not a fault.
+    /// </summary>
+    [Fact]
+    public void DeletingANameTheDirectoryDoesNotHoldAnswersFalse()
+        => Assert.False(new RuleDocumentStore(_directory).Delete("absent"));
+
     [Fact]
     public void TheStoreReportsTheDirectoryItWasGiven()
     {

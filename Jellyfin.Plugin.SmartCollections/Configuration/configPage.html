@@ -11,6 +11,9 @@
                     <h2>Smart Collections</h2>
                     <p>This plugin has no settings yet. Nothing on this page is missing: the configuration it would edit is empty, because no part of the plugin reads a setting so far. Controls appear here as the surfaces that read them land.</p>
                     <p>Rules are not settings and will not be edited here. A rule is a document per collection, and where those live and how they are edited is a separate part of the plan.</p>
+                    <h3>Who may use this plugin's administration API</h3>
+                    <p>Every endpoint this plugin serves requires a server administrator. Jellyfin also carries a separate collection management permission, and if you have granted somebody that permission they will not be able to reach these endpoints.</p>
+                    <p>That is a known limitation and not a decision that this plugin's rules are more dangerous than collections. A rule document decides what appears in a shared library view, which is wider than managing one collection, and nobody has yet read that permission against what each endpoint here exposes. It will be honoured once that reading has been made.</p>
                 </div>
             </div>
             <script type="text/javascript">

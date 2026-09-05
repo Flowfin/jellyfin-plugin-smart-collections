@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 
@@ -92,6 +93,10 @@ public sealed class RuleDocumentStore
     /// </summary>
     /// <param name="name">The document name, without its extension.</param>
     /// <param name="content">The bytes to write.</param>
+    [SuppressMessage(
+        "Security",
+        "CA3003:Review code for file path injection vulnerabilities",
+        Justification = "The path is composed by PathFor, which refuses every name that is not a bare file name before anything is written, on both supported platforms. The analyser does not recognise that check as a sanitizer and reports the name as it arrived from the administrator API. Two refusals stand in front of that write and each has its own test: the API refuses the name before it reaches this store, held by CreatingUnderAnEscapingNameIsRefusedAndWritesNothing, which asserts against the directory rather than against a status; and this store refuses it again, held by ANameThatIsNotABareFileNameIsRefused and AnEscapingNameWritesNothingOutsideTheDirectory, which are what red when the check here is removed. THIS IS THE ONLY SUPPRESSION IN THIS TREE, and it is here rather than on the four other sinks because those take a name the store itself produced by listing its own directory.")]
     public void Write(string name, byte[] content)
     {
         ArgumentNullException.ThrowIfNull(content);
@@ -100,16 +105,47 @@ public sealed class RuleDocumentStore
     }
 
     /// <summary>
-    /// Builds the path a document of that name sits at, refusing a name that would leave the
-    /// directory.
+    /// Removes a document from the directory.
     /// </summary>
     /// <remarks>
-    /// A name reaches this store from a rules directory listing today and from an administrator
-    /// API later, and the second of those is a caller-supplied string. A name carrying a separator
-    /// or a parent segment would compose into a path outside the directory this store was given,
-    /// which turns "save a rule" into "write a file wherever the server process can reach". The
-    /// check is here, in the one place every read and every write goes through, rather than at
-    /// each caller.
+    /// It answers whether there was one rather than throwing on a name the directory does not
+    /// hold, because the caller that asks for a delete is an administrator acting on a listing
+    /// that may be a moment old, and a second delete of one rule is not a fault. The name goes
+    /// through the same path check as every read and every write, so a name composing outside the
+    /// directory is refused here as it is there rather than deleting a file elsewhere.
+    ///
+    /// Nothing is kept. A copy left behind would be a second document in a directory the loader
+    /// scans, under a name nobody chose.
+    /// </remarks>
+    /// <param name="name">The document name, without its extension.</param>
+    /// <returns><see langword="true"/> where a document was removed.</returns>
+    /// <exception cref="ArgumentException">The name is not a bare file name.</exception>
+    public bool Delete(string name)
+    {
+        var path = PathFor(name);
+
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        File.Delete(path);
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a string is a name this store will read or write a document under.
+    /// </summary>
+    /// <remarks>
+    /// The same clauses <see cref="PathFor"/> refuses on, asked as a question rather than raised as
+    /// an exception, because the API in front of this store has to turn a bad name into a message
+    /// an operator reads rather than into an unhandled fault. It is ONE implementation with two
+    /// callers rather than a second copy: <see cref="PathFor"/> asks this and builds its refusal
+    /// from <see cref="NameRefusal"/>, so a clause added here is added to both routes at once.
+    ///
+    /// It touches no file. Whether a name is legal and whether a document exists under it are two
+    /// questions, and a caller that has to ask the first before composing a path needs an answer
+    /// that reaches no file system.
     ///
     /// Both separators are named, and not because one of them is redundant. A backslash is an
     /// ordinary character in a file name on Linux, so <see cref="Path.GetFileName(string)"/> and
@@ -118,6 +154,42 @@ public sealed class RuleDocumentStore
     /// the other is worse than either answer: it is accepted where it is written and escapes where
     /// it is read. The store answers the same way on every platform instead.
     /// </remarks>
+    /// <param name="name">The name to judge.</param>
+    /// <returns><see langword="true"/> where a document may be read or written under it.</returns>
+    public static bool IsDocumentName(string? name)
+        => !string.IsNullOrWhiteSpace(name)
+           && !name.Contains('/', StringComparison.Ordinal)
+           && !name.Contains('\\', StringComparison.Ordinal)
+           && string.Equals(Path.GetFileName(name), name, StringComparison.Ordinal)
+           && name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0
+           && !string.Equals(name, "..", StringComparison.Ordinal)
+           && !string.Equals(name, ".", StringComparison.Ordinal);
+
+    /// <summary>
+    /// What a caller is told about a name this store will not use.
+    /// </summary>
+    /// <remarks>
+    /// Here rather than at each caller, so the sentence is the same one whether the name arrived
+    /// from a directory listing or from a request.
+    /// </remarks>
+    /// <param name="name">The name as it was written.</param>
+    /// <returns>The refusal, naming what was written.</returns>
+    public static string NameRefusal(string? name)
+        => string.Create(
+            CultureInfo.InvariantCulture,
+            $"A rule document name is a bare file name, and '{name}' is not one.");
+
+    /// <summary>
+    /// Builds the path a document of that name sits at, refusing a name that would leave the
+    /// directory.
+    /// </summary>
+    /// <remarks>
+    /// A name reaches this store from a rules directory listing and from the administrator API,
+    /// and the second of those is a caller-supplied string. A name carrying a separator or a
+    /// parent segment would compose into a path outside the directory this store was given, which
+    /// turns "save a rule" into "write a file wherever the server process can reach". The check is
+    /// here, in the one place every read and every write goes through, rather than at each caller.
+    /// </remarks>
     /// <param name="name">The document name, without its extension.</param>
     /// <returns>The full path of the document.</returns>
     /// <exception cref="ArgumentException">The name is not a bare file name.</exception>
@@ -125,20 +197,17 @@ public sealed class RuleDocumentStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-        if (name.Contains('/', StringComparison.Ordinal)
-            || name.Contains('\\', StringComparison.Ordinal)
-            || !string.Equals(Path.GetFileName(name), name, StringComparison.Ordinal)
-            || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
-            || string.Equals(name, "..", StringComparison.Ordinal)
-            || string.Equals(name, ".", StringComparison.Ordinal))
+        if (!IsDocumentName(name))
         {
-            throw new ArgumentException(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"A rule document name is a bare file name, and '{name}' is not one."),
-                nameof(name));
+            throw new ArgumentException(NameRefusal(name), nameof(name));
         }
 
-        return Path.Combine(_directory, name + Extension);
+        // Composed from Path.GetFileName's answer rather than from the name itself, although the
+        // check above has already established the two are the same string. What that buys is a
+        // reader, human or static, who can see the last-segment reduction on the line that builds
+        // the path rather than inside a predicate above it. The equality clause stays: it is what
+        // makes a name that would have been reduced a REFUSAL rather than a quiet truncation, and
+        // a store that silently wrote "b" for "a/b" would be answering a request nobody made.
+        return Path.Combine(_directory, Path.GetFileName(name) + Extension);
     }
 }
