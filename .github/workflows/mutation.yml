@@ -79,17 +79,23 @@ jobs:
   mutation:
     name: Mutation score
     runs-on: ubuntu-latest
-    # THIS WAS 30 AND THE RUN GOT LONGER ON PURPOSE. At the runner's default
+    # THIS WAS 30 AND THE RUN GOT LONGER ON PURPOSE. At the tool's default
     # concurrency a pass was minutes; at concurrency one it is a single test
-    # session per mutant, and the runs the record was taken from took just under
-    # half an hour each on a 32-processor Windows machine, the wall clocks being
-    # on the pull request that landed this. A GitHub runner has far fewer
-    # processors. WHAT THAT DOES TO THIS NUMBER IS NOT MEASURED HERE: the
-    # concurrency limits the tool to one test session, and inside that session
-    # the suite still spreads its classes over whatever cores there are, so a
-    # smaller runner is slower by an amount no reading in this tree has taken.
-    # The limit is four times the measured wall clock for that reason rather than
-    # a reading of the runner. A genuinely hung run is still cut off.
+    # session per mutant. Measured here rather than guessed at, on the dispatched
+    # run that the record was written from:
+    #
+    #   gh api repos/Flowfin/jellyfin-plugin-smart-collections/actions/runs/33980381830/jobs --jq
+    #     '.jobs[0].steps[] | select(.name=="Measure the mutation score")
+    #      | .started_at + " -> " + .completed_at'
+    #   2026-09-05T17:15:36Z -> 2026-09-05T17:30:30Z
+    #
+    # Fifteen minutes for the tool on this runner, against just under half an
+    # hour for the same pass on a 32-processor Windows clone - the runner is
+    # FASTER here, which is the opposite of what the reading this replaces
+    # assumed. The limit stays well above both because the class of mutant that
+    # decides the tail is the static one, which runs against the whole suite, and
+    # one slow session is what a hung run looks like. A genuinely hung run is
+    # still cut off.
     timeout-minutes: 120
     permissions:
       contents: read # check out the tree that is mutated and tested

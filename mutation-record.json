@@ -1,7 +1,7 @@
 {
     "concurrency": 1,
     "columns": ["file", "line", "column", "mutator", "replacement"],
-    "killed": 947,
+    "killed": 944,
     "survivors": [
         ["Evaluation/ConditionMatcher.cs", 60, 9, "Statement mutation", ";"],
         ["Evaluation/ConditionMatcher.cs", 124, 17, "String mutation", "\"\""],
@@ -10,6 +10,9 @@
         ["Evaluation/ConditionMatcher.cs", 335, 15, "String mutation", "\"\""],
         ["Evaluation/ItemFieldReader.cs", 41, 9, "Statement mutation", ";"],
         ["Evaluation/ItemFieldReader.cs", 62, 17, "String mutation", "\"\""],
+        ["Evaluation/ItemFieldReader.cs", 72, 12, "Conditional (false) mutation", "(false?new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc))\n:new DateTimeOffset(value.ToUniversalTime(), TimeSpan.Zero))"],
+        ["Evaluation/ItemFieldReader.cs", 72, 12, "Conditional (true) mutation", "(true?new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc))\n:new DateTimeOffset(value.ToUniversalTime(), TimeSpan.Zero))"],
+        ["Evaluation/ItemFieldReader.cs", 72, 12, "Equality mutation", "value.Kind != DateTimeKind.Unspecified"],
         ["Evaluation/RuleEvaluator.cs", 152, 52, "String mutation", "\"\""],
         ["Evaluation/RuleEvaluator.cs", 254, 13, "PostIncrementExpression to PostDecrementExpression mutation", "members--"],
         ["Evaluation/RuleEvaluator.cs", 254, 13, "Statement mutation", ";"],
@@ -29,12 +32,12 @@
         ["Membership/MembershipDiff.cs", 91, 9, "Statement mutation", ";"],
         ["Rules/RuleCompositionReader.cs", 77, 67, "String mutation", "\"\""],
         ["Rules/RuleDocumentValidator.cs", 179, 86, "Boolean mutation", "true"],
-        ["Rules/RuleDocumentValidator.cs", 235, 47, "Object initializer mutation", "new JsonDocumentOptions\r\n{}"],
+        ["Rules/RuleDocumentValidator.cs", 235, 47, "Object initializer mutation", "new JsonDocumentOptions\n{}"],
         ["Rules/RuleDocumentValidator.cs", 241, 39, "Boolean mutation", "true"],
         ["Rules/RuleDocumentValidator.cs", 388, 17, "Equality mutation", "control > 0"],
         ["Rules/RuleDocumentValidator.cs", 496, 16, "Conditional (false) mutation", "(false?[] :values.Errors)"],
         ["Rules/RuleDocumentValidator.cs", 530, 14, "String mutation", "\"\""],
-        ["Rules/RuleDocumentValidator.cs", 581, 12, "Conditional (false) mutation", "(false?string.Create(CultureInfo.InvariantCulture, $\"'{character}'\")\r\n:string.Create(CultureInfo.InvariantCulture, $\"U+{(int)character:X4}\"))"],
+        ["Rules/RuleDocumentValidator.cs", 581, 12, "Conditional (false) mutation", "(false?string.Create(CultureInfo.InvariantCulture, $\"'{character}'\")\n:string.Create(CultureInfo.InvariantCulture, $\"U+{(int)character:X4}\"))"],
         ["Rules/RuleDocumentValidator.cs", 581, 25, "Equality mutation", "> ' '"],
         ["Rules/RuleDocumentValidator.cs", 581, 36, "Equality mutation", "< '~'"],
         ["Rules/RuleDocumentValidator.cs", 581, 36, "Equality mutation", "> '~'"],
@@ -112,6 +115,8 @@
         ["Rules/RuleRefusalTable.cs", 56, 88, "String mutation", "\"\""],
         ["Rules/RuleRefusalTable.cs", 57, 13, "String mutation", "\"\""],
         ["Rules/RuleRefusalTable.cs", 60, 26, "String mutation", "\"\""],
+        ["Rules/RuleRefusalTable.cs", 60, 36, "String mutation", "\"\""],
+        ["Rules/RuleRefusalTable.cs", 60, 49, "String mutation", "\"\""],
         ["Rules/RuleRefusalTable.cs", 60, 60, "String mutation", "\"\""],
         ["Rules/RuleRefusalTable.cs", 60, 73, "String mutation", "\"\""],
         ["Rules/RuleRefusalTable.cs", 60, 87, "String mutation", "\"\""],
@@ -142,20 +147,5 @@
         ["Rules/RuleValueReader.cs", 222, 27, "Boolean mutation", "false"],
         ["Rules/RuleValueReader.cs", 228, 16, "Conditional (false) mutation", "(false?null :values)"]
     ],
-    "unstable": [
-        {
-            "mutant": ["Rules/RuleRefusalTable.cs", 60, 36, "String mutation", "\"\""],
-            "verdicts": {
-                "Survived": ["run 1"],
-                "Timeout": ["run 2"]
-            }
-        },
-        {
-            "mutant": ["Rules/RuleRefusalTable.cs", 60, 49, "String mutation", "\"\""],
-            "verdicts": {
-                "Survived": ["run 1"],
-                "Timeout": ["run 2"]
-            }
-        }
-    ]
+    "unstable": []
 }

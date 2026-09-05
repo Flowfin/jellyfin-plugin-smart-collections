@@ -62,13 +62,20 @@ node .github/scripts/mutation-record.js StrykerOutput
 
 When a change moves the set on purpose, the same script writes the record the run
 implies, and the formatter settles its layout the way it settles every other file
-here:
+here. TAKE THAT RUN FROM THE RUNNER RATHER THAN FROM YOUR CLONE - the section
+below is why, and it is two measured reasons rather than a preference:
 
 ```
-node .github/scripts/mutation-record.js StrykerOutput mutation-record.json --print-record > mutation-record.json.new
+gh workflow run mutation.yml --repo Flowfin/jellyfin-plugin-smart-collections --ref <your branch>
+gh run download <the run> --name mutation-report --dir report
+node .github/scripts/mutation-record.js report mutation-record.json --print-record > mutation-record.json.new
 mv mutation-record.json.new mutation-record.json
 npx prettier --write mutation-record.json
 ```
+
+A run in a clone is still worth taking, and is what says whether the set is
+stable at all before a record is written from anything; it is the record's
+CONTENTS that belong to the machine the gate runs on.
 
 It carries the `unstable` list forward rather than deriving it, because one run
 cannot see instability: that takes two verdicts on one mutant and the runs that
@@ -143,6 +150,72 @@ Killed: 62, Timeout: 0  ->  62/75  ->  82.67 %
 Killed: 61, Timeout: 1  ->  62/75  ->  82.67 %
 ```
 
+## Why the record is taken from a run on the runner, and not from a clone
+
+Because it is a fact about the machine the gate runs on, and two things measured
+here say so. Both were found by dispatching this workflow on the branch that
+built the record and reading what it refused; a record written from a Windows
+clone and judged on `ubuntu-latest` failed on each of them in a different way.
+
+**A replacement carries the checkout's line endings.** A mutant's identity here
+includes the text the tool would substitute, and a multi-line replacement written
+on a CRLF checkout holds a carriage return that the same mutant on the runner
+does not. Two entries dangled and the identical two mutants arrived as unnamed
+survivors. `.github/scripts/mutation-record.js` drops the carriage return from
+every replacement it reads out of a report and refuses a record that carries one,
+so this cannot come back in silence.
+
+**The suite's own behaviour depends on the machine.** Three mutants in
+`ItemFieldReader.Instant` are killed on a machine whose local time zone is not
+UTC and survive on one where it is:
+
+```
+private static DateTimeOffset Instant(DateTime value)
+    => value.Kind == DateTimeKind.Unspecified
+        ? new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc))
+        : new DateTimeOffset(value.ToUniversalTime(), TimeSpan.Zero);
+```
+
+Where the local zone IS UTC the two arms compute the same instant, so nothing in
+the suite separates them and all three mutants survive. They are in the record as
+survivors because that is what the machine the gate runs on sees, and they are
+three tests worth writing rather than a quirk of the report.
+
+That is what a set-shaped record buys that a score never could: the score on the
+runner and the score here differ by a tenth of a point, and the reason is a test
+that only holds because of where it ran.
+
+## The class that can move a survivor, and it is not the timing split above
+
+A mutant inside a static initializer is covered by no captured test, so the tool
+runs it against the WHOLE suite. Its wall clock is therefore the suite's, which
+is the longest any mutant has, and it is the first class to cross
+`additional-timeout` when the machine is busy - and a survivor that times out is
+counted as killed, so this class DOES move the set. Two mutants in
+`RuleRefusalTable`'s table did exactly that on a clone while an unrelated build
+was running beside the measurement.
+
+How much of the engine is in that class is derived rather than written here:
+
+```
+node -e "
+const fs=require('node:fs');
+const r=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));
+let scored=0, stat=0, statSurv=0;
+for (const d of Object.values(r.files)) for (const m of d.mutants) {
+  if (!['Survived','Killed','Timeout','NoCoverage'].includes(m.status)) continue;
+  scored++;
+  if (m.static) { stat++; if (m.status==='Survived') statSurv++; }
+}
+console.log('scored',scored,'| static',stat,'| static and surviving',statSurv);
+" StrykerOutput/<run>/reports/mutation-report.json
+```
+
+The rule vocabulary is built in static tables, so this class is large here rather
+than incidental. It is the direction to check first when this job reds on a
+survivor the run killed, and it is the reason not to run anything else on the
+machine while a measurement is being taken.
+
 ## What the record cannot say
 
 Whether a mutant on the `unstable` list is genuinely unstable or was put there to
@@ -151,10 +224,10 @@ carries the verdicts seen and the runs that saw each so a reader has something t
 check the claim against, and the review is where a wrong one is caught.
 
 It also says nothing about a target framework it was not taken on. The record is
-measured on Windows against the `net10.0` build, which is the target framework
-`stryker-config.json` names, and the machine it was taken on has no .NET 9
-runtime. Nothing in the engine is written per target framework, which is a reason
-to expect the two to agree rather than evidence that they do:
+taken against the `net10.0` build, which is the target framework
+`stryker-config.json` names. Nothing in the engine is written per target
+framework, which is a reason to expect the two to agree rather than evidence that
+they do:
 
 ```
 grep -rn '#if\|NET9_0\|NET10_0' --include=*.cs Jellyfin.Plugin.SmartCollections.Engine/ ; echo "exit=$?"

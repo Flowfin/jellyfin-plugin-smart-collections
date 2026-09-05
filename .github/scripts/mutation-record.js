@@ -117,8 +117,25 @@ function fail(message) {
 // chose would be one of them.
 const COLUMNS = ["file", "line", "column", "mutator", "replacement"];
 
+// THE REPLACEMENT IS SOURCE TEXT AND CARRIES THE CHECKOUT'S LINE ENDINGS, WHICH
+// IS THE ONE PART OF THIS KEY THAT IS NOT A FACT ABOUT THE TREE. A multi-line
+// replacement written on a Windows clone holds a carriage return and the same
+// mutant on a Linux runner holds none, so a record taken on one never matches a
+// run on the other: the entry dangles and the identical mutant arrives as new.
+// Measured rather than reasoned - the first dispatched run of this workflow on a
+// GitHub runner refused exactly two entries and reported the same two mutants as
+// unnamed survivors, and the run is on the pull request that landed this file.
+//
+// The carriage return is dropped here, on the report side, so the record holds
+// one spelling whatever produced it. `readRecord` refuses a record that carries
+// the other spelling rather than accepting both, because two spellings of one
+// mutant is the drift this key exists against.
+function withoutCarriageReturns(replacement) {
+    return typeof replacement === "string" ? replacement.split("\r\n").join("\n").split("\r").join("\n") : replacement;
+}
+
 function entryOf(file, mutant) {
-    return [file, mutant.location.start.line, mutant.location.start.column, mutant.mutatorName, mutant.replacement];
+    return [file, mutant.location.start.line, mutant.location.start.column, mutant.mutatorName, withoutCarriageReturns(mutant.replacement)];
 }
 
 function keyOf(file, mutant) {
@@ -359,6 +376,15 @@ function readRecord(recordFile) {
     for (const entry of record.survivors) {
         if (!Array.isArray(entry) || entry.length !== COLUMNS.length) {
             fail(`${recordFile} carries a survivor that is not a ${COLUMNS.length}-value tuple: ${JSON.stringify(entry)}`);
+        }
+    }
+    // A carriage return in a replacement is the checkout that produced the record
+    // showing through, and it makes the entry unmatchable anywhere else. Refused
+    // rather than dropped on the way in, because a record that is read leniently
+    // and written strictly is two records.
+    for (const entry of record.survivors.concat(record.unstable.map((it) => it.mutant))) {
+        if (typeof entry[4] === "string" && entry[4].includes("\r")) {
+            fail(`${recordFile} carries a replacement holding a carriage return: ${describe(entry)}. ` + "A replacement is source text, so a record written on a checkout with CRLF line endings names a mutant no other checkout produces. Write the record from a run whose report this check has already read, which drops them.");
         }
     }
     return record;
