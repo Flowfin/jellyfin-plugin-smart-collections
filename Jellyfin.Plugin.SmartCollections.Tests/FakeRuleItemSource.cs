@@ -23,10 +23,28 @@ internal sealed class FakeRuleItemSource : IRuleItemSource
 {
     private readonly List<BaseItem> _items = new();
 
+    private Random? _shuffle;
+
     /// <summary>
     /// Gets a value indicating whether this answers in the reverse of the order it was filled.
     /// </summary>
     public bool AnswersInReverse { get; init; }
+
+    /// <summary>
+    /// Gets the seed this shuffles its answer with, or <see langword="null"/> where it does not
+    /// shuffle.
+    /// </summary>
+    /// <remarks>
+    /// One generator for the life of the fake rather than one per call, so consecutive calls get
+    /// DIFFERENT orders and the whole sequence is still decided by the seed. A generator built
+    /// per call from one seed would answer in the same order every time, which is the arrangement
+    /// this exists to rule out.
+    ///
+    /// Where a seed is set it decides the order and <see cref="AnswersInReverse"/> is not read.
+    /// The two are separate arrangements: one is a fixed order that is not the fill order, the
+    /// other is a different order on every call.
+    /// </remarks>
+    public int? Seed { get; init; }
 
     /// <summary>
     /// Gets every query this was asked, in the order it was asked.
@@ -55,6 +73,20 @@ internal sealed class FakeRuleItemSource : IRuleItemSource
         Asked.Add(query);
 
         var answer = new List<BaseItem>(_items);
+
+        if (Seed.HasValue)
+        {
+            _shuffle ??= new Random(Seed.Value);
+
+            for (var index = answer.Count - 1; index > 0; index--)
+            {
+                var swap = _shuffle.Next(index + 1);
+                (answer[index], answer[swap]) = (answer[swap], answer[index]);
+            }
+
+            return answer;
+        }
+
         if (AnswersInReverse)
         {
             answer.Reverse();
