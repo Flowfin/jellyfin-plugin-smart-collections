@@ -28,8 +28,29 @@ name.
     version in `build.yaml`** below, and that check runs after the tag has been
     pushed.
 
-2. Check that the commit you want to release is on that branch.
-3. Push the tag for that commit:
+2. Check whether any expected file under
+   `Jellyfin.Plugin.SmartCollections.Tests/rules` changed since the last
+   release, and write the reason for each one into `CHANGELOG.md` before the tag
+   is pushed:
+
+    ```
+    git diff --name-only <the last release tag>..HEAD -- 'Jellyfin.Plugin.SmartCollections.Tests/rules/*.expected.txt'
+    ```
+
+    An expected file is the record of what a rule meant in the version that
+    shipped last. A changed one is therefore a change of meaning, and the first
+    refresh after the upgrade moves collection membership on somebody's server
+    because of it. Without a line saying why, the operator sees items move and
+    cannot tell an intended change from a regression, which is the failure #58
+    is about.
+
+    The command prints nothing on a release that moved no meaning, which is the
+    ordinary case and owes no entry. On the first release there is no previous
+    tag to name and every expected file is new rather than changed, so this step
+    is read then and produces nothing.
+
+3. Check that the commit you want to release is on that branch.
+4. Push the tag for that commit:
 
     ```
     git tag 1.4.0-stable <commit>
