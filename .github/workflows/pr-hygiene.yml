@@ -89,39 +89,52 @@ jobs:
               per_page: 100,
             });
 
-            // Who the FAIL tier is for.
+            // Who the FAIL tier is for: every author but a bot.
             //
-            // The issue convention it enforces belongs to this repository.
-            // Somebody arriving from outside cannot know which issue number a
-            // change should carry before they open it, and often no issue
-            // exists yet, so failing their contribution on it is a ritual
-            // rather than a caught slip. Applied to work from inside, the same
-            // check catches a real one, which is why the tier is narrowed by
-            // audience instead of dropped.
+            // THIS WAS NARROWED BY AUDIENCE UNTIL #246 AND THE NARROWING MADE
+            // THE TIER UNREACHABLE. It read the author's relationship to this
+            // repository out of the event payload and skipped the tier for
+            // anything outside ["OWNER", "MEMBER"]. The payload answers
+            // COLLABORATOR on the pull requests this repository actually
+            // receives, so the tier was skipped on all of them, while the same
+            // field read back through the pulls API answers MEMBER. #246
+            // carries the four runs that were measured and the disagreement
+            // between the two routes.
             //
-            // A bot is skipped for a different reason: it cannot know the
-            // convention at all. A person outside the repository can, and is
-            // simply not the one who owes it here.
+            // What that cost is the whole point of the repair rather than a
+            // detail of it: this job's name is in the branch ruleset's required
+            // set, so a context that cannot fail was standing in front of every
+            // merge and refusing nothing. A gate is worth what it refuses, and
+            // an audience test keyed on a field that answers differently on two
+            // routes is not a thing a merge should rest on.
             //
-            // author_association describes the author's relationship to THIS
-            // repository, so a collaborator later added as a member stops being
-            // exempt from that moment. COLLABORATOR is deliberately outside the
-            // inside set.
+            // A bot is still skipped, and for a reason no reading of a payload
+            // can move: it cannot know the convention at all, and a machine
+            // account opening a dependency bump has no issue to name. That is
+            // the one exemption left and it is keyed on the account being a
+            // bot, which is a fact about the account rather than about its
+            // relationship to this repository.
             //
-            // The linkage is still wanted for an outside contribution. It moves
-            // to whoever handles it, and the annotation below says so where
-            // that person will read it. This skip means "not their obligation",
-            // never "linkage does not matter here".
-            const INSIDE = ["OWNER", "MEMBER"];
-            const isOutside = !INSIDE.includes(pr.author_association || "NONE");
-            const failTierApplies = !isBot && !isOutside;
-            if (isOutside && !isBot) {
+            // An author from outside this repository is now held to the same
+            // tier as one from inside. The argument the narrowing rested on -
+            // that somebody arriving from outside cannot know which issue
+            // number to carry - is answered by the refusal text itself, which
+            // says what to write, rather than by not running the test. Should
+            // this repository ever take an outside contribution and find the
+            // refusal unreasonable there, that is a decision to re-take on
+            // #246 with the run in front of it, not a skip to restore quietly.
+            //
+            // The association is annotated rather than acted on, so the value
+            // the payload carries stays readable on the run without deciding
+            // anything.
+            const failTierApplies = !isBot;
+            if (!isBot) {
               warnings.push(
-                "The author is outside this repository (author_association: " +
-                  `${pr.author_association || "NONE"}), so the failing tier is ` +
-                  "skipped. The issue linkage is still wanted: whoever handles " +
-                  "this contribution supplies the reference, and files the issue " +
-                  "where none exists yet.",
+                "The failing tier applies to this author (author_association: " +
+                  `${pr.author_association || "NONE"}). It is applied whatever ` +
+                  "that value is, since #246: reading it decided nothing but " +
+                  "whether the tier ran, and it answered differently on the " +
+                  "two routes that read it.",
               );
             }
 
