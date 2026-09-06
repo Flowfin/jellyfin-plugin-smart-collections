@@ -86,14 +86,20 @@ public class RuleDocumentValidatorTests
     /// it wrote rather than for whichever a reading order reaches first. The person repairing it
     /// is looking at their own document rather than at the plugin's member list.
     /// </summary>
+    /// <remarks>
+    /// The two names were <c>limit</c> and <c>order</c> until #39 declared one of them, at which
+    /// point this case asserted the pointer of a member the plugin now reads and failed for a
+    /// reason that had nothing to do with what it is about. They are misspellings of the two
+    /// members that arrived, which is the shape a document meets this refusal in.
+    /// </remarks>
     [Fact]
     public void TheMemberNamedIsTheFirstOneTheDocumentWrote()
     {
         var result = RuleDocumentValidator.Read(
             "{\"schemaVersion\":1,\"id\":\"christmas\",\"name\":\"Christmas\",\"collects\":[\"movie\"],"
-            + "\"limit\":200,\"order\":{}}");
+            + "\"cap\":200,\"ordering\":{}}");
 
-        Assert.Equal("/limit", Assert.Single(result.Errors).Pointer);
+        Assert.Equal("/cap", Assert.Single(result.Errors).Pointer);
     }
 
     [Fact]

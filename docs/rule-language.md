@@ -26,6 +26,9 @@ Each part of a rule has one page, and each page carries one table:
 - [`rule-queries.md`](rule-queries.md) is which field and operator pairs the
   server's own query answers, what each pair writes, and what is left for the
   stage after the query.
+- [`rule-sort.md`](rule-sort.md) is the order a rule may declare, the two
+  directions a term is written in, the fields that have no order, and the cap a
+  rule may put on the collection.
 - [`rule-examples.md`](rule-examples.md) is worked documents, each one complete
   and each one handed to the validator a rules directory scan hands a file to.
 

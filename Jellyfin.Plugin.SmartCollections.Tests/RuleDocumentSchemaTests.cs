@@ -318,6 +318,70 @@ public class RuleDocumentSchemaTests
     }
 
     /// <summary>
+    /// The schema names the sort directions, so an editor pointed at this file offers the two the
+    /// reader accepts rather than a third somebody typed here.
+    /// </summary>
+    /// <remarks>
+    /// The enumeration is in the schema rather than left to the validator because it is the one
+    /// place in the sort member where an editor can help before a document is saved. Everything
+    /// else about a term - which fields have an order, what a cap without one means - is a rule
+    /// the schema cannot state, and the validator carries those.
+    /// </remarks>
+    [Fact]
+    public void TheSchemaDeclaresTheSameSortDirectionsTheTableDeclares()
+    {
+        var permitted = Schema()
+            .GetProperty("properties")
+            .GetProperty(RuleSortReader.SortMember)
+            .GetProperty("items")
+            .GetProperty("properties")
+            .GetProperty(RuleSortTable.DirectionMember)
+            .GetProperty("enum")
+            .EnumerateArray()
+            .Select(value => value.GetString() ?? string.Empty)
+            .ToArray();
+
+        Assert.Equal(
+            Enum.GetValues<RuleSortDirection>().Select(RuleSortTable.NameOf).ToArray(),
+            permitted);
+
+        foreach (var name in permitted)
+        {
+            Assert.NotNull(RuleSortTable.Find(name));
+        }
+    }
+
+    /// <summary>
+    /// The schema requires of a sort term what the reader requires of one, so a document an editor
+    /// calls complete is one the plugin reads.
+    /// </summary>
+    [Fact]
+    public void TheSchemaRequiresOfATermWhatTheReaderRequires()
+    {
+        var term = Schema()
+            .GetProperty("properties")
+            .GetProperty(RuleSortReader.SortMember)
+            .GetProperty("items");
+
+        Assert.Equal(
+            [RuleSortTable.FieldMember, RuleSortTable.DirectionMember],
+            term.GetProperty("required")
+                .EnumerateArray()
+                .Select(value => value.GetString() ?? string.Empty)
+                .ToArray());
+
+        Assert.Equal(JsonValueKind.False, term.GetProperty("additionalProperties").ValueKind);
+
+        var refused = RuleDocumentValidator.Read(
+            "{\"schemaVersion\":1,\"id\":\"christmas\",\"name\":\"Christmas\",\"collects\":[\"movie\"],"
+            + "\"sort\":[{\"field\":\"name\"}],"
+            + "\"match\":{\"allOf\":[{\"field\":\"name\",\"operator\":\"notEquals\",\"value\":\"x\"}]}}");
+
+        Assert.False(refused.IsValid);
+        Assert.Equal("/sort/0/direction", Assert.Single(refused.Errors).Pointer);
+    }
+
+    /// <summary>
     /// The comparison every other test in this class makes for one member, made over the SET of
     /// members. Each of those holds a bound or a list the two declarations share; none of them
     /// asks whether the two declare the same members at all, so a stage that starts reading a new
@@ -340,7 +404,11 @@ public class RuleDocumentSchemaTests
     /// value - which are not members of the document, so reflecting over every reader would
     /// compare this file against names that never appear at the top level. The two types are
     /// therefore named by hand and this paragraph is the bound: a document member introduced on a
-    /// third type is outside the comparison until that type is added here.
+    /// further type is outside the comparison until that type is added here. THE SORT STAGE IS THE
+    /// THIRD AND THE BOUND IS WHY ITS TWO CONSTANTS SIT WHERE THEY DO. The names a sort TERM
+    /// writes are on the sort table beside the directions, because they are members of a term
+    /// rather than of the document, and reflecting over that table would ask this file to declare
+    /// a top-level member nobody writes.
     /// </remarks>
     [Fact]
     public void TheSchemaDeclaresEveryMemberTheValidatorReadsOrIsNamedAsNotDeclaringIt()
@@ -410,7 +478,7 @@ public class RuleDocumentSchemaTests
     /// <returns>The member names, sorted.</returns>
     private static string[] DocumentMembersTheValidatorReads()
     {
-        var members = new[] { typeof(RuleDocumentValidator), typeof(RuleItemScopeReader) }
+        var members = new[] { typeof(RuleDocumentValidator), typeof(RuleItemScopeReader), typeof(RuleSortReader) }
             .SelectMany(type => type.GetFields(BindingFlags.Public | BindingFlags.Static))
             .Where(field => field.IsLiteral
                 && field.FieldType == typeof(string)

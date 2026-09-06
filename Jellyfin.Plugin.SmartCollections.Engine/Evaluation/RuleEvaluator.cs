@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Text.Json;
 using Jellyfin.Plugin.SmartCollections.Rules;
 using MediaBrowser.Controller.Entities;
@@ -35,11 +34,12 @@ namespace Jellyfin.Plugin.SmartCollections.Evaluation;
 /// pushed condition reads as satisfied, and what is compared here is what the compiler handed
 /// back plus everything the tree kept out of the query.
 ///
-/// THE ORDER IS THE IDENTIFIER AND ONLY THE IDENTIFIER, WHICH IS THE TIE-BREAK RATHER THAN THE
-/// SORT. #39 declares that a rule may name a sort and that every sort ends with the identifier so
-/// that the order is total; no rule document declares a sort yet, so what is left is the
-/// tie-break, and a list ordered by it alone is total, reproducible and independent of the order
-/// the server answered in. The sort this consumes arrives with that issue rather than here.
+/// THE ORDER IS THE RULE'S, AND IT ENDS ON THE IDENTIFIER SO THAT IT IS TOTAL. A document may
+/// declare a sort and a cap; where it declares neither, the order is the identifier alone, which
+/// is what this step ended on before a document could say anything else. <see cref="ItemOrder"/>
+/// is where both halves live, and the cap is applied there rather than pushed into the query,
+/// because a cap applied before the post-query stage cuts items the rule has not finished
+/// judging.
 ///
 /// NOTHING HERE READS A CLOCK. The instant is an argument, it is handed to the compiler and to
 /// every comparison that needs one, and it is carried out on the answer, which is what
@@ -72,6 +72,12 @@ public static class RuleEvaluator
         if (!scope.IsAccepted)
         {
             return RuleEvaluation.Refused(scope.Errors, evaluatedAt);
+        }
+
+        var order = RuleSortReader.Read(root, scope.Kinds);
+        if (!order.IsAccepted)
+        {
+            return RuleEvaluation.Refused(order.Errors, evaluatedAt);
         }
 
         var rule = ReadRule(root, scope.Kinds);
@@ -113,18 +119,16 @@ public static class RuleEvaluator
             byPointer.Add(condition.Pointer, condition);
         }
 
-        var collected = new List<Guid>();
+        var collected = new List<BaseItem>();
         foreach (var item in items.Select(compilation.Query))
         {
             if (Satisfies(item, rule.Group!, byPointer, pushed, evaluatedAt))
             {
-                collected.Add(item.Id);
+                collected.Add(item);
             }
         }
 
-        collected.Sort(static (left, right) => string.CompareOrdinal(Key(left), Key(right)));
-
-        return RuleEvaluation.Accepted(collected, evaluatedAt);
+        return RuleEvaluation.Accepted(ItemOrder.Take(collected, order.Terms, order.Limit), evaluatedAt);
     }
 
     /// <summary>
@@ -283,19 +287,6 @@ public static class RuleEvaluator
         DateTimeOffset evaluatedAt)
         => pushed.Contains(pointer)
            || ConditionMatcher.Matches(item, byPointer[pointer], evaluatedAt);
-
-    /// <summary>
-    /// The sort key of an identifier.
-    /// </summary>
-    /// <param name="id">The identifier.</param>
-    /// <returns>The key.</returns>
-    /// <remarks>
-    /// The text form rather than the value, because the comparison a reader can reproduce is the
-    /// one over the string an expected file would hold. Every identifier renders to the same
-    /// thirty-two characters from the same alphabet, so an ordinal comparison over them is total
-    /// and is the same on every platform.
-    /// </remarks>
-    private static string Key(Guid id) => id.ToString("N", CultureInfo.InvariantCulture);
 
     /// <summary>
     /// What reading a rule out of a document produced.

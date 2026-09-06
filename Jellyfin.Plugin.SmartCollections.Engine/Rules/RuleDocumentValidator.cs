@@ -154,6 +154,8 @@ public static class RuleDocumentValidator
         IdMember,
         NameMember,
         RuleItemScopeReader.CollectsMember,
+        RuleSortReader.SortMember,
+        RuleSortReader.LimitMember,
         MatchMember
     ];
 
@@ -462,6 +464,12 @@ public static class RuleDocumentValidator
         if (!scope.IsAccepted)
         {
             return scope.Errors;
+        }
+
+        var order = RuleSortReader.Read(root, scope.Kinds);
+        if (!order.IsAccepted)
+        {
+            return order.Errors;
         }
 
         if (!root.TryGetProperty(MatchMember, out var declaredMatch))

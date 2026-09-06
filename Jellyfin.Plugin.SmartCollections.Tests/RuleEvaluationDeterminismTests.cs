@@ -67,6 +67,25 @@ public class RuleEvaluationDeterminismTests
         """;
 
     /// <summary>
+    /// The same rule with an order declared on it, so the shuffle case below runs over a document
+    /// whose order is the document's rather than the tie-break alone.
+    /// </summary>
+    private const string Ordered = """
+        {
+            "schemaVersion": 1,
+            "id": "determinism",
+            "name": "Determinism",
+            "collects": ["movie"],
+            "sort": [ { "field": "officialRating", "direction": "descending" } ],
+            "match": {
+                "allOf": [
+                    { "field": "overview", "operator": "contains", "value": "heist" }
+                ]
+            }
+        }
+        """;
+
+    /// <summary>
     /// The first half: the same rule against the same library, evaluated a hundred times in one
     /// process, produces the same ordered identifier list every time.
     /// </summary>
@@ -124,6 +143,62 @@ public class RuleEvaluationDeterminismTests
                     $"Seed {seed}, call {run}: the shuffled library answered {Render(answer)} where the "
                     + $"unshuffled one answered {Render(expected)}. Replay with that seed."));
         }
+    }
+
+    /// <summary>
+    /// The same half again over a rule that DECLARES an order, which is the done condition #39
+    /// carries: shuffling the query result changes nothing about the output order.
+    /// </summary>
+    /// <param name="seed">The seed the shuffle runs from.</param>
+    /// <remarks>
+    /// The declared term is deliberately one that TIES for most of the library: the age
+    /// classification takes two values over forty films, so the term decides a coarse split and
+    /// the tie-break decides everything inside it. That is the arrangement a partial order fails
+    /// in and a total one does not, and it is why this case is not the same case as the one above:
+    /// there the identifier order was the whole order, here it is what is left after a term that
+    /// cannot separate twenty items from each other.
+    /// </remarks>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(20260905)]
+    [InlineData(int.MaxValue)]
+    public void ShufflingTheLibraryMovesNothingAboutADeclaredOrderEither(int seed)
+    {
+        var expected = Evaluate(Library(false, null), Ordered);
+        var shuffled = Library(false, seed);
+
+        Assert.NotEmpty(expected);
+
+        for (var run = 1; run <= Repeats; run++)
+        {
+            var answer = Evaluate(shuffled, Ordered);
+
+            Assert.True(
+                expected.SequenceEqual(answer),
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Seed {seed}, call {run}: the shuffled library answered {Render(answer)} where the "
+                    + $"unshuffled one answered {Render(expected)}. Replay with that seed."));
+        }
+    }
+
+    /// <summary>
+    /// The declared order is genuinely coarser than the answer, which is the other way the case
+    /// above could pass while proving nothing: a term that separated every item would leave the
+    /// tie-break with no work and the case would be the unordered one again.
+    /// </summary>
+    [Fact]
+    public void TheDeclaredTermLeavesMostOfTheOrderToTheTieBreak()
+    {
+        var source = Library(false, null);
+        var ratings = source.Select(new MediaBrowser.Controller.Entities.InternalItemsQuery())
+            .Select(item => item.OfficialRating)
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+
+        Assert.Equal(2, ratings);
+        Assert.True(Evaluate(source, Ordered).Count > ratings);
     }
 
     /// <summary>
@@ -202,9 +277,11 @@ public class RuleEvaluationDeterminismTests
     /// </summary>
     /// <param name="source">The library.</param>
     /// <returns>The ordered identifiers.</returns>
-    private static IReadOnlyList<Guid> Evaluate(FakeRuleItemSource source)
+    private static IReadOnlyList<Guid> Evaluate(FakeRuleItemSource source) => Evaluate(source, Mixed);
+
+    private static IReadOnlyList<Guid> Evaluate(FakeRuleItemSource source, string document)
     {
-        var validation = RuleDocumentValidator.Read(Mixed);
+        var validation = RuleDocumentValidator.Read(document);
 
         Assert.True(validation.IsValid);
 
