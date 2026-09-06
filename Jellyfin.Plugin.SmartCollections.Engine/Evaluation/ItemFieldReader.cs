@@ -68,10 +68,51 @@ public static class ItemFieldReader
     /// </summary>
     /// <param name="value">The value the library holds.</param>
     /// <returns>The instant.</returns>
-    private static DateTimeOffset Instant(DateTime value)
+    private static DateTimeOffset Instant(DateTime value) => Instant(value, TimeZoneInfo.Local);
+
+    /// <summary>
+    /// The same reading, out of a named zone rather than out of the one the machine happens to sit in.
+    /// </summary>
+    /// <param name="value">The value the library holds.</param>
+    /// <param name="server">The zone a value that carries a kind is converted out of.</param>
+    /// <returns>The instant.</returns>
+    /// <remarks>
+    /// THE ZONE IS A PARAMETER SO THE TWO ARMS BELOW CAN BE TOLD APART WHEREVER THE SUITE RUNS.
+    /// Where the zone is UTC the conversion and the relabelling compute the same instant for every
+    /// input, so a suite running there separates the arms by nothing: three seeded faults at that
+    /// expression are killed in a clone whose zone is not UTC and survived on the runner, which is
+    /// UTC, and #267 carries both readings. The reading above passes the machine's zone and is the
+    /// one an evaluation takes; a test passes a zone with an offset of its own, and the two arms
+    /// then answer differently on any machine.
+    /// </remarks>
+    internal static DateTimeOffset Instant(DateTime value, TimeZoneInfo server)
         => value.Kind == DateTimeKind.Unspecified
             ? new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc))
-            : new DateTimeOffset(value.ToUniversalTime(), TimeSpan.Zero);
+            : new DateTimeOffset(Universal(value, server), TimeSpan.Zero);
+
+    /// <summary>
+    /// A value that carries a kind, in UTC.
+    /// </summary>
+    /// <param name="value">The value the library holds, carrying a kind.</param>
+    /// <param name="server">The zone the value is converted out of where it is not already UTC.</param>
+    /// <returns>The same instant, labelled UTC.</returns>
+    /// <remarks>
+    /// <see cref="DateTime.ToUniversalTime"/> reads <see cref="TimeZoneInfo.Local"/> and cannot be
+    /// pointed at another zone, so the offset is taken from the zone above instead. A value already
+    /// in UTC is returned rather than shifted, which is what that method does with one, and the
+    /// kind is dropped before the offset is asked for so the zone above is the one that answers
+    /// rather than the machine's.
+    /// </remarks>
+    private static DateTime Universal(DateTime value, TimeZoneInfo server)
+    {
+        if (value.Kind == DateTimeKind.Utc)
+        {
+            return value;
+        }
+
+        var wall = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
+        return DateTime.SpecifyKind(wall - server.GetUtcOffset(wall), DateTimeKind.Utc);
+    }
 
     /// <summary>
     /// A list of strings the library holds, with a null read as none.
