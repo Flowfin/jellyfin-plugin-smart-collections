@@ -24,6 +24,23 @@ public class ConditionMatcherTests
     private static readonly DateTimeOffset Given = new(2026, 1, 15, 0, 0, 0, TimeSpan.Zero);
 
     /// <summary>
+    /// A zone five and a half hours east of UTC, built here rather than looked up.
+    /// </summary>
+    /// <remarks>
+    /// Built rather than named, because a zone identifier is spelled differently on the two
+    /// operating systems this suite runs on and a lookup would make these cases depend on the tz
+    /// database being present. The offset is a half hour off the hour so an assertion that lost the
+    /// minutes still fails. What matters about it is only that it is not zero: the three cases that
+    /// use it are the ones the machine's own zone cannot decide, because a machine in UTC computes
+    /// both arms of the reading the same way.
+    /// </remarks>
+    private static readonly TimeZoneInfo EastOfUtc = TimeZoneInfo.CreateCustomTimeZone(
+        "smart-collections-fixture",
+        TimeSpan.FromMinutes(330),
+        "five and a half hours east of UTC",
+        "five and a half hours east of UTC");
+
+    /// <summary>
     /// One string the library holds, compared every way a document may compare it.
     /// </summary>
     /// <param name="operatorName">The operator, as a document writes it.</param>
@@ -403,6 +420,13 @@ public class ConditionMatcherTests
     /// <summary>
     /// An instant the library holds in local time is converted rather than relabelled.
     /// </summary>
+    /// <remarks>
+    /// This case is the reading an evaluation takes, through the machine's own zone, and it is the
+    /// one that says the two agree. It cannot say they are different: where the machine's zone is
+    /// UTC both sides of this assertion are the same expression, so it holds for a tree in which
+    /// the conversion had been deleted. The three cases below are the ones that separate the arms,
+    /// and they name a zone rather than asking for the machine's.
+    /// </remarks>
     [Fact]
     public void AnInstantInLocalTimeIsConverted()
     {
@@ -411,6 +435,45 @@ public class ConditionMatcherTests
         Assert.Equal(
             new DateTimeOffset(local.ToUniversalTime(), TimeSpan.Zero),
             ItemFieldReader.Read(new Movie { PremiereDate = local }, RuleField.PremiereDate).Instant);
+    }
+
+    /// <summary>
+    /// An instant with no kind is relabelled UTC and never converted, on a machine in any zone.
+    /// </summary>
+    [Fact]
+    public void AnInstantWithNoKindIsRelabelledWhereverTheSuiteRuns()
+    {
+        var noKind = new DateTime(1994, 6, 1, 12, 0, 0, DateTimeKind.Unspecified);
+
+        Assert.Equal(
+            new DateTimeOffset(1994, 6, 1, 12, 0, 0, TimeSpan.Zero),
+            ItemFieldReader.Instant(noKind, EastOfUtc));
+    }
+
+    /// <summary>
+    /// An instant in local time is converted out of the server's zone, on a machine in any zone.
+    /// </summary>
+    [Fact]
+    public void AnInstantInLocalTimeIsConvertedWhereverTheSuiteRuns()
+    {
+        var local = new DateTime(1994, 6, 1, 12, 0, 0, DateTimeKind.Local);
+
+        Assert.Equal(
+            new DateTimeOffset(1994, 6, 1, 6, 30, 0, TimeSpan.Zero),
+            ItemFieldReader.Instant(local, EastOfUtc));
+    }
+
+    /// <summary>
+    /// An instant already in UTC is left where it is rather than converted out of the zone again.
+    /// </summary>
+    [Fact]
+    public void AnInstantAlreadyUniversalIsNotShifted()
+    {
+        var universal = new DateTime(1994, 6, 1, 12, 0, 0, DateTimeKind.Utc);
+
+        Assert.Equal(
+            new DateTimeOffset(1994, 6, 1, 12, 0, 0, TimeSpan.Zero),
+            ItemFieldReader.Instant(universal, EastOfUtc));
     }
 
     /// <summary>
