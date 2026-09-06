@@ -198,25 +198,32 @@ every replacement it reads out of a report and refuses a record that carries one
 so this cannot come back in silence.
 
 **The suite's own behaviour depends on the machine.** Three mutants in
-`ItemFieldReader.Instant` are killed on a machine whose local time zone is not
-UTC and survive on one where it is:
+`ItemFieldReader.Instant` were killed in a clone whose local time zone is CEST
+and survived on the runner, which is UTC. The reading had two arms, one
+relabelling a value that carries no kind and one converting a value that does,
+and where the local zone is UTC those two compute the same instant for every
+input, so nothing in the suite separated them. They were in the record as
+survivors because that is what the machine the gate runs on saw, and the score on
+the two machines differed by a tenth of a point for that reason alone.
+
+THAT INSTANCE IS REPAIRED AND THIS PARAGRAPH IS KEPT FOR THE CLASS. #267 closed
+it: the zone the reading converts out of is a parameter now, three cases pass a
+zone of their own instead of asking the machine for one, and the record written
+from the run that landed them names no survivor at that expression:
 
 ```
-private static DateTimeOffset Instant(DateTime value)
-    => value.Kind == DateTimeKind.Unspecified
-        ? new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc))
-        : new DateTimeOffset(value.ToUniversalTime(), TimeSpan.Zero);
+node -e "console.log(require('./mutation-record.json').survivors.filter(s => s[0] === 'Evaluation/ItemFieldReader.cs').map(s => s[1] + '  ' + s[3]).join('
+'))"
+41  Statement mutation
+62  String mutation
 ```
 
-Where the local zone IS UTC the two arms compute the same instant, so nothing in
-the suite separates them and all three mutants survive. They are in the record as
-survivors because that is what the machine the gate runs on sees, and they are
-three tests worth writing rather than a quirk of the report. #267 holds that
-work and carries the reading on both machines.
-
-That is what a set-shaped record buys that a score never could: the score on the
-runner and the score here differ by a tenth of a point, and the reason is a test
-that only holds because of where it ran.
+WHAT THE REPAIR DOES NOT BUY IS THE CLAIM THAT NOTHING ELSE IN THIS SUITE HOLDS
+BECAUSE OF WHERE IT RAN. Nothing here derives that. The one instance was found by
+dispatching this workflow on a branch and reading what it refused rather than by
+looking for the class, and a second would be found the same way. That is what a
+set-shaped record buys that a score never could, and it is why the record is
+taken from a run of this job.
 
 ## The class that can move a survivor, and it is not the timing split above
 
