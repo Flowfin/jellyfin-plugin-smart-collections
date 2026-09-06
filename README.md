@@ -99,6 +99,8 @@ for it to belong, and how the collection is ordered.
     "id": "nineties-thrillers",
     "name": "Nineties Thrillers",
     "collects": ["movie"],
+    "sort": [{ "field": "productionYear", "direction": "descending" }],
+    "limit": 50,
     "match": {
         "allOf": [
             { "field": "genres", "operator": "contains", "value": "Thriller" },
@@ -110,8 +112,9 @@ for it to belong, and how the collection is ordered.
 ```
 
 Saved into the rule directory, that produces a collection called
-`Nineties Thrillers` holding every film in the library whose genres include
-`Thriller` and whose production year falls in the nineties.
+`Nineties Thrillers` holding the fifty most recent films in the library whose
+genres include `Thriller` and whose production year falls in the nineties, newest
+first.
 
 Reading it clause by clause:
 
@@ -136,6 +139,20 @@ Reading it clause by clause:
   of the query. The names are a declared list rather than the server's own
   enumeration; [the field reference](docs/rule-fields.md) is where each one is
   written down with what it means.
+- `sort` is the order the collection is written in, and it is optional. Each term
+  names a field and a direction, and the terms are read in the order you wrote
+  them: the first decides, the second decides what the first left tied. Every
+  order ends with the item identifier underneath whatever you declared, which is
+  what makes it total - without that, two films released on one day would sit
+  either way round and the collection would differ between two refreshes. A
+  document with no `sort` gets that identifier order alone.
+- `limit` is the greatest number of items the collection holds, and it is
+  optional. It counts what the rule collects rather than what the server
+  answered, so it is the first fifty of your rule and not the first fifty the
+  library happened to hand over. A `limit` written without a `sort` is refused:
+  the first fifty of a set nobody ordered are the items whose identifiers happen
+  to sort first, which is reproducible and is not a thing anybody means.
+  [The sort reference](docs/rule-sort.md) is where both members are written down.
 - `match` is a tree of conditions and is required. `allOf` requires every clause
   to hold. Which composition operators exist and how deeply they may nest is part
   of the rule language rather than something a document decides for itself. A

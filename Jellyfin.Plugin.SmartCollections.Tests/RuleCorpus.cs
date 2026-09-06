@@ -138,6 +138,22 @@ internal static class RuleCorpus
             "scope: " + string.Join(", ", scope.Kinds.Select(kind => kind.Name))
         };
 
+        // The order and the cap are rendered where a document declares them, and nothing is
+        // written where it does not, so an expected file taken before #39 is unmoved by the
+        // members arriving. They are part of what a document produces even though the query
+        // carries neither: the cap is applied after the stage that runs over the query's answer,
+        // and the order is applied after that.
+        var order = RuleSortReader.Read(root, scope.Kinds);
+        foreach (var term in order.Terms)
+        {
+            lines.Add("order: " + term.Field.Name + " " + RuleSortTable.NameOf(term.Direction));
+        }
+
+        if (order.Limit is not null)
+        {
+            lines.Add(string.Create(CultureInfo.InvariantCulture, $"cap: {order.Limit}"));
+        }
+
         var snapshot = QuerySnapshot.Of(compilation.Query);
         foreach (var property in QuerySnapshot.Moved(compilation.Query))
         {

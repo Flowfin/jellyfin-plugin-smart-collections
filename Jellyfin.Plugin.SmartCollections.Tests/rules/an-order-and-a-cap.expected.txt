@@ -1,0 +1,10 @@
+# A document that declares both members #39 added. Neither reaches the query: the
+# order is applied after the stage that runs over the query's answer and the cap
+# after that, so what the query carries is the genre alone and the two lines below
+# it are what the document says about the collection rather than about the query.
+scope: movie
+order: premiereDate descending
+order: name ascending
+cap: 25
+query: Genres=[Thriller]
+query: IncludeItemTypes=[Movie]

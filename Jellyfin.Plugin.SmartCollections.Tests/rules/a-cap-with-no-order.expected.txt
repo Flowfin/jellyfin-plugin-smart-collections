@@ -1,0 +1,5 @@
+# A cap written with no order. The first twenty-five of a set nobody ordered are
+# the items whose identifiers happen to sort first, which is reproducible and is
+# not a thing anybody means, so the pair is refused rather than given the
+# identifier order.
+refused: /limit: The document declares a limit and no sort. The first 25 of a set nobody ordered are the items whose identifiers happen to sort first, which is reproducible and is not a thing anybody means. Declare the order the cap applies to, or drop the cap.

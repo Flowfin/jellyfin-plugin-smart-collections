@@ -1,0 +1,20 @@
+{
+    "schemaVersion": 1,
+    "id": "an-order-and-a-cap",
+    "name": "An order and a cap",
+    "collects": ["movie"],
+    "sort": [
+        { "field": "premiereDate", "direction": "descending" },
+        { "field": "name", "direction": "ascending" }
+    ],
+    "limit": 25,
+    "match": {
+        "allOf": [
+            {
+                "field": "genres",
+                "operator": "contains",
+                "value": "Thriller"
+            }
+        ]
+    }
+}

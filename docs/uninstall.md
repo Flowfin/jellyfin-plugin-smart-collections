@@ -138,7 +138,7 @@ writes one:
 
 ```
 node -e "const s=require('./Jellyfin.Plugin.SmartCollections.Engine/Rules/rule-document.schema.json');console.log(Object.keys(s.properties).join(', '))"
-schemaVersion, id, name, collects, match
+schemaVersion, id, name, collects, sort, limit, match
 ```
 
 That line is held by `TheUninstallPageListsTheMembersTheSchemaDeclares` rather

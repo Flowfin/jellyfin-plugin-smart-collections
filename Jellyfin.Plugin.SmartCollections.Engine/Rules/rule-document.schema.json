@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://github.com/Flowfin/jellyfin-plugin-smart-collections/blob/master/Jellyfin.Plugin.SmartCollections.Engine/Rules/rule-document.schema.json",
     "title": "Smart Collections rule document",
-    "description": "One rule document per collection. This file declares the envelope every version of the format carries. The rule inside the envelope is not declared here, and \"match\", the member a rule is written in, is declared here as an object and no further, because the vocabulary a rule is written from is declared in the engine and written out one page each in the docs directory rather than in this file. This file declares no member beyond the five, and additionalProperties is false, because a member this version does not declare is refused: that was the question on #231 and it was decided on 2026-09-04, on the ground that the alternative reads a misspelled member name as a document that meant to say nothing. Requiring \"match\" is the other half of that decision and is taken here too; a document declaring none is refused by the validator, and this file requires it so that an editor and the plugin say one thing. A document is refused by Jellyfin.Plugin.SmartCollections.Rules.RuleDocumentValidator rather than by a schema processor, so that a refusal can carry a pointer into the document and a message in the words an operator reads. This file is what an editor points at, and the suite holds it to the validator rather than to this sentence: its schemaVersion bounds, its id bounds, its name bounds, the scope member it requires and the item kinds it permits are each compared against what the engine declares, and the set of members it declares is compared against the set the validator reads in both directions, so a member that starts being read has to be declared here or named above as deliberately undeclared.",
+    "description": "One rule document per collection. This file declares the envelope every version of the format carries. The rule inside the envelope is not declared here, and \"match\", the member a rule is written in, is declared here as an object and no further, because the vocabulary a rule is written from is declared in the engine and written out one page each in the docs directory rather than in this file. This file declares no member beyond the seven, and additionalProperties is false, because a member this version does not declare is refused: that was the question on #231 and it was decided on 2026-09-04, on the ground that the alternative reads a misspelled member name as a document that meant to say nothing. Requiring \"match\" is the other half of that decision and is taken here too; a document declaring none is refused by the validator, and this file requires it so that an editor and the plugin say one thing. A document is refused by Jellyfin.Plugin.SmartCollections.Rules.RuleDocumentValidator rather than by a schema processor, so that a refusal can carry a pointer into the document and a message in the words an operator reads. This file is what an editor points at, and the suite holds it to the validator rather than to this sentence: its schemaVersion bounds, its id bounds, its name bounds, the scope member it requires, the item kinds it permits and the sort directions it names are each compared against what the engine declares, and the set of members it declares is compared against the set the validator reads in both directions, so a member that starts being read has to be declared here or named above as deliberately undeclared.",
     "type": "object",
     "required": ["schemaVersion", "id", "name", "collects", "match"],
     "properties": {
@@ -34,6 +34,30 @@
                 "type": "string",
                 "enum": ["movie", "series"]
             }
+        },
+        "sort": {
+            "description": "The order the collection is written in, as an array of terms, each naming a field and a direction. Optional: a rule that declares none is ordered by the item identifier alone, which is total and reproducible and means nothing to a person. Every declared order ends with that same identifier as its tie-break, which is what makes it total: two films released on one day would otherwise sit either way round and the collection would differ between two runs over one library. Refused when it is not an array, when it is empty, when a term is not an object, when a term names no field or no direction, when a field is not one this plugin declares, when the field's value on an item is a list rather than one value, when the field means nothing for any kind the rule collects, when a direction is not one of the declared names, and when two terms name one field. A field whose value is a list is refused rather than ordered on a member of it, because every order over a list is one somebody invented and none of them is what the document says. docs/rule-sort.md is where the member is written down with the directions and the fields it accepts.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": ["field", "direction"],
+                "properties": {
+                    "field": {
+                        "type": "string"
+                    },
+                    "direction": {
+                        "type": "string",
+                        "enum": ["ascending", "descending"]
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "limit": {
+            "description": "The greatest number of items the collection holds. Optional. Refused when it is not a whole number and when it is less than one, because a rule meant to collect nothing is not one anybody writes on purpose. Refused by the validator, rather than here, when it is written without a sort: the first fifty of a set nobody ordered are the items whose identifiers happen to sort first, which is reproducible and is not a thing anybody means, and a schema processor can say that a pair of members is wrong but not why. The cap is applied after everything that decides membership, so it is the first n of what the rule collects rather than the first n the server answered with.",
+            "type": "integer",
+            "minimum": 1
         },
         "match": {
             "description": "The rule: the conditions an item has to meet to be collected. Declared here as an object and no further, because the grammar inside it is the field table, the operator set, the value forms and the composition groups, each declared in the engine and written out on its own page in the docs directory. A schema that repeated any of them would be a second declaration drifting against the first. The validator reads this member stage by stage and refuses what is inside it with a pointer into the document, which is what a schema processor cannot do. A document declaring no match is refused, which is the other half of #231, decided on 2026-09-04: it is refused rather than read as a rule collecting the whole declared scope, because that reading turns a misspelled member name into a collection holding everything in that scope.",

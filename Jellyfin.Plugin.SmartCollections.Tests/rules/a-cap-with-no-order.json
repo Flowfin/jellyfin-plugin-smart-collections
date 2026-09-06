@@ -1,0 +1,16 @@
+{
+    "schemaVersion": 1,
+    "id": "a-cap-with-no-order",
+    "name": "A cap with no order",
+    "collects": ["movie"],
+    "limit": 25,
+    "match": {
+        "allOf": [
+            {
+                "field": "genres",
+                "operator": "contains",
+                "value": "Thriller"
+            }
+        ]
+    }
+}
