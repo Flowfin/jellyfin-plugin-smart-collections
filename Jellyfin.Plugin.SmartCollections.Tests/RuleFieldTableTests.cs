@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Jellyfin.Plugin.SmartCollections.Rules;
 using Xunit;
 
@@ -176,13 +177,22 @@ public class RuleFieldTableTests
         }
     }
 
+    /// <summary>
+    /// A field row says what a field is and nothing about how the server reaches it. That column
+    /// was here until #31 and this is the test that reds if one comes back, because the failure it
+    /// prevents is a second declaration of the mark that has to be kept in step with the pair
+    /// table by hand.
+    /// </summary>
     [Fact]
-    public void APostQueryRowIsExactlyOneWithNoQueryProperty()
+    public void NoRowCarriesAMarkAboutHowTheServerReachesTheField()
     {
-        foreach (var row in RuleFieldTable.Rows)
-        {
-            Assert.Equal(row.QueryProperty is null, row.IsPostQuery);
-        }
+        var declared = typeof(RuleFieldRow)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Select(property => property.Name)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(["Field", "Kinds", "Name", "Operators", "Semantics", "ValueType"], declared);
     }
 
     [Fact]

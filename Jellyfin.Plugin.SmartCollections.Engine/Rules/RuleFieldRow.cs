@@ -6,29 +6,32 @@ namespace Jellyfin.Plugin.SmartCollections.Rules;
 /// One field, as the table declares it.
 /// </summary>
 /// <remarks>
-/// Six things and no more: which field this is, what a document writes to name it, the type it
-/// holds, the operators it accepts, which item kinds it means anything for, and how it reaches
-/// the library.
+/// Five things and no more: which field this is, what a document writes to name it, the type it
+/// holds, the operators it accepts, and which item kinds it means anything for.
 ///
 /// The written name is declared rather than derived from the member, for the reason
 /// <see cref="RuleOperatorRow"/> gives about its own: deriving it would make the wire format a
 /// property of a C# identifier, so renaming the member for a compiler warning would silently
 /// break every rule document on every server.
 ///
-/// <see cref="QueryProperty"/> is the name of the property on the server's item query that the
-/// field reaches the library through, or <see langword="null"/> where the field is read off the
-/// item after the query has returned. Those are the only two ways a field can reach the library,
-/// and a row says which one it is rather than leaving a reader to infer it from the compiler.
-/// WHICH OPERATORS NARROW INSIDE THE QUERY AND WHICH NARROW AFTER IT IS NOT THIS COLUMN. A row
-/// names the property the field is about; how a particular operator over that field is compiled is
-/// the compiler's business, and the post-query stage it may fall back to is declared separately.
+/// HOW THE FIELD REACHES THE LIBRARY IS NO LONGER A COLUMN HERE, and this remark described one.
+/// A sixth column named the property on the server's item query the field narrows on, or nothing
+/// where the field was read off the item after the query returned, and the remark said that which
+/// OPERATORS narrow inside the query was not that column's business. That was the defect rather
+/// than an aside: a field can be answered by the server under one operator and not under another,
+/// so a mark on the field alone is either too wide or too narrow for one of them. #31 decided it
+/// on 2026-09-04 and the mark is a property of the field and operator PAIR, which
+/// <see cref="RuleQueryTable"/> already declared one row at a time.
 ///
-/// The query type is named in <c>docs/rule-fields.md</c> and in the suite rather than in this
-/// file, and that is deliberate. <c>docs/testing.md</c> accounts for the files of this tree that
-/// COMPOSE a library query, and a check holds that page by scanning the product sources for the
-/// type's name; this file composes nothing and would sit in that population as a permanent false
-/// positive. The name it declines to write is one string in the reflection the suite runs against
-/// the real type, which is a stronger reading of the column than a mention here would be.
+/// So nothing in this row answers whether the query carries a condition;
+/// <c>RuleQueryTable.AnswersInTheQuery</c> does, and the answer takes both halves of the pair. A
+/// row here says what a field IS - its name, its type, the operators it accepts and the kinds it
+/// means anything for - and the pair table says what the server can do about each way of asking.
+///
+/// The query type is not named in this file, and that is deliberate. <c>docs/testing.md</c>
+/// accounts for the files of this tree that COMPOSE a library query, and a check holds that page
+/// by scanning the product sources for the type's name; this file composes nothing and would sit
+/// in that population as a permanent false positive.
 /// </remarks>
 public sealed class RuleFieldRow
 {
@@ -38,7 +41,6 @@ public sealed class RuleFieldRow
         RuleValueType valueType,
         IReadOnlyList<RuleOperator> operators,
         IReadOnlyList<RuleItemKind> kinds,
-        string? queryProperty,
         string semantics)
     {
         Field = field;
@@ -46,7 +48,6 @@ public sealed class RuleFieldRow
         ValueType = valueType;
         Operators = operators;
         Kinds = kinds;
-        QueryProperty = queryProperty;
         Semantics = semantics;
     }
 
@@ -106,21 +107,9 @@ public sealed class RuleFieldRow
     public IReadOnlyList<RuleItemKind> Kinds { get; }
 
     /// <summary>
-    /// Gets the property on the server's item query that the field reaches the library through,
-    /// or <see langword="null"/> where the field is read after the query has returned.
-    /// </summary>
-    public string? QueryProperty { get; }
-
-    /// <summary>
     /// Gets what the field holds, in one sentence.
     /// </summary>
     public string Semantics { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether the field is read after the query rather than narrowed by
-    /// it.
-    /// </summary>
-    public bool IsPostQuery => QueryProperty is null;
 
     /// <summary>
     /// Whether this field means anything for an item of the given kind.

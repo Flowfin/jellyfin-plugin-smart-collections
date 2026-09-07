@@ -312,6 +312,83 @@ public class RuleEvaluatorTests
     }
 
     /// <summary>
+    /// #31's second clause: a rule whose conditions the query answers none of still cannot walk the
+    /// whole library, because the scope bounds the query whatever the conditions are.
+    /// </summary>
+    /// <remarks>
+    /// <c>EveryFilm</c> is that rule and it is worth reading as one. Its condition is
+    /// <c>tags isEmpty</c>, and <c>tags</c> is a field the query answers two operators for -
+    /// <c>contains</c> and <c>notContains</c> - which is exactly the case the mark could not
+    /// express while it was a column on the field. The old column marked <c>tags</c> as narrowed by
+    /// the query, and this rule narrows nothing but the kind.
+    /// </remarks>
+    [Fact]
+    public void ARuleTheQueryAnswersNoConditionOfIsStillBoundedByItsScope()
+    {
+        var source = new FakeRuleItemSource();
+
+        RuleEvaluator.Evaluate(Document(EveryFilm), source, Given);
+
+        var asked = Assert.Single(source.Asked);
+
+        Assert.Equal([Jellyfin.Data.Enums.BaseItemKind.Movie], asked.IncludeItemTypes);
+        Assert.Equal(["IncludeItemTypes"], QuerySnapshot.Moved(asked));
+        Assert.False(RuleQueryTable.AnswersInTheQuery(RuleField.Tags, RuleOperator.IsEmpty));
+        Assert.True(RuleQueryTable.Narrows(RuleField.Tags));
+    }
+
+    /// <summary>
+    /// The other half of that clause: a rule declaring no scope has no bound to fall back on, and
+    /// it is refused before the server is asked anything rather than compiled into a query for the
+    /// whole library.
+    /// </summary>
+    [Fact]
+    public void ARuleWithNoBoundIsRefusedAndAsksTheServerNothing()
+    {
+        var source = new FakeRuleItemSource();
+
+        var evaluation = RuleEvaluator.Evaluate(
+            new RuleDocument(1, "unbounded", "Unbounded", NoScope),
+            source,
+            Given);
+
+        Assert.False(evaluation.IsAccepted);
+        Assert.NotEmpty(evaluation.Errors);
+        Assert.Empty(source.Asked);
+    }
+
+    /// <summary>
+    /// #31's third clause: the stage runs over what the query returned and never asks the server
+    /// again, so the number of calls a refresh makes does not grow with what the rule matched.
+    /// </summary>
+    /// <remarks>
+    /// Asserted over a library big enough that a call per item would be unmistakable, and over a
+    /// rule every item satisfies, so the walk reaches the end rather than stopping at the first
+    /// item it rejects. The count is the whole assertion: a stage that asked once per item would
+    /// answer exactly the same set.
+    /// </remarks>
+    [Fact]
+    public void TheStageAsksTheServerOnceWhateverItWasHanded()
+    {
+        var source = new FakeRuleItemSource();
+        for (var index = 0; index < 50; index++)
+        {
+            source.Put(new Movie
+            {
+                Id = Guid.Parse(string.Create(CultureInfo.InvariantCulture, $"{index + 1:D8}-0000-0000-0000-000000000000")),
+                Name = "Film " + index.ToString(CultureInfo.InvariantCulture),
+                Overview = "A heist in three acts."
+            });
+        }
+
+        var evaluation = RuleEvaluator.Evaluate(Document(EveryHeist), source, Given);
+
+        Assert.True(evaluation.IsAccepted);
+        Assert.Equal(50, evaluation.ItemIds.Count);
+        Assert.Single(source.Asked);
+    }
+
+    /// <summary>
     /// A document with no rule in it is refused rather than read as a rule collecting everything
     /// the scope names. Nothing the store hands out can be in that state, because validation
     /// refuses it; a caller building a document itself can be, and the answer is a refusal rather
@@ -376,6 +453,34 @@ public class RuleEvaluatorTests
             "name": "Every film",
             "collects": ["movie"],
             "match": { "allOf": [ { "field": "tags", "operator": "isEmpty" } ] }
+        }
+        """;
+
+    /// <summary>
+    /// A rule whose only condition is answered after the query, so nothing but the scope narrows
+    /// the query it asks.
+    /// </summary>
+    private const string EveryHeist = """
+        {
+            "schemaVersion": 1,
+            "id": "every-heist",
+            "name": "Every heist",
+            "collects": ["movie"],
+            "match": { "allOf": [ { "field": "overview", "operator": "contains", "value": "heist" } ] }
+        }
+        """;
+
+    /// <summary>
+    /// A document that declares no kinds to collect, which is the only way a rule has no bound at
+    /// all. Nothing the store hands out can be in that state, because validation refuses it; a
+    /// caller building a document itself can be, which is why this step refuses it too.
+    /// </summary>
+    private const string NoScope = """
+        {
+            "schemaVersion": 1,
+            "id": "unbounded",
+            "name": "Unbounded",
+            "match": { "allOf": [ { "field": "overview", "operator": "contains", "value": "heist" } ] }
         }
         """;
 

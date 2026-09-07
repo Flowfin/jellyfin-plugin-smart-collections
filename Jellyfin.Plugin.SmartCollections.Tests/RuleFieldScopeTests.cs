@@ -42,7 +42,6 @@ public class RuleFieldScopeTests
         RuleValueType.Integer,
         [RuleOperator.Equals],
         [RuleItemKind.Series],
-        null,
         "How many seasons the series has.");
 
     private static IReadOnlyList<RuleItemKindRow> Scope(params RuleItemKind[] kinds)

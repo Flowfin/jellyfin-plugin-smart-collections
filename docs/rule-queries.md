@@ -28,11 +28,18 @@ difference has to be visible rather than discovered.
 
 ## A pair is a field AND an operator
 
-The field table names the property a field is about. This table is narrower,
-because a field the query knows still has operators the query cannot express.
-`name` reaches the library through `Name`, and the query offers no way to ask
-for a title that ends with something, so `name equals` is here and
-`name endsWith` is not.
+The field table says what a field IS - its type, its operators, the kinds it
+means anything for. THIS TABLE IS WHERE THE MARK LIVES: whether the server's own
+query answers a condition is a property of the field AND the operator, and
+`RuleQueryTable.AnswersInTheQuery` is the presence of a row here. `name` is a
+title the query can ask for, and the query offers no way to ask for a title that
+ends with something, so `name equals` is on this page and `name endsWith` is not.
+
+THE FIELD TABLE CARRIED A SECOND MARK UNTIL #31, one query property per field,
+and it could not say that. It marked `name` as narrowed by the query while seven
+of that field's eight operators are answered after it. The column is gone,
+`docs/rule-fields.md` derives its `Answered by the query:` line from this table,
+and there is nothing left to keep in step.
 
 A condition whose pair is not here is handed back by the compiler rather than
 dropped, and the stage that answers it is declared separately. A caller that

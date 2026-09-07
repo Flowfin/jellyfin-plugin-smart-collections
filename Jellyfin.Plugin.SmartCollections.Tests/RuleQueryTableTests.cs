@@ -27,49 +27,66 @@ public class RuleQueryTableTests
     }
 
     /// <summary>
-    /// A field the field table marks as read after the query has nothing on the server's query to
-    /// narrow on, so a row here for one of its operators would be a query built on a property the
-    /// field is not about.
+    /// The mark is the presence of a row, so there is nothing for it to disagree with. Three tests
+    /// stood here holding it against a column on the field table, in both directions, and #31 took
+    /// that column away on 2026-09-04. What is left to assert is that the answer and the row are
+    /// one thing rather than two that agree.
     /// </summary>
     [Fact]
-    public void EveryRowIsForAFieldTheFieldTableNarrowsOn()
+    public void TheMarkIsExactlyThePresenceOfARow()
     {
-        foreach (var row in RuleQueryTable.Rows)
+        foreach (var field in RuleFieldTable.Rows)
         {
-            Assert.False(
-                RuleFieldTable.Of(row.Field).IsPostQuery,
-                RuleFieldTable.Of(row.Field).Name + " is read after the query and this table "
-                + "compiles a pair over it.");
+            foreach (var @operator in field.Operators)
+            {
+                Assert.Equal(
+                    RuleQueryTable.Find(field.Field, @operator) is not null,
+                    RuleQueryTable.AnswersInTheQuery(field.Field, @operator));
+            }
         }
     }
 
     /// <summary>
-    /// The done condition this test carries: the compiler produces a query for every vocabulary
-    /// row that names one. A field the field table says the query narrows on, with no pair here,
-    /// is a promise the compiler does not keep.
+    /// THE PROPERTY THE MOVE WAS FOR, and the one a field-level column could not express: a field
+    /// the server answers under one operator and not under another. This asserts that such a field
+    /// exists rather than describing one, because a vocabulary in which no field split would make
+    /// every test around it pass for the wrong reason.
     /// </summary>
+    /// <remarks>
+    /// It is not a corner of this vocabulary. Most fields the query narrows on at all are split
+    /// today, which is the size of what the old column was saying wrongly: it marked such a field
+    /// as narrowed by the query while several ways of asking about it were answered after the
+    /// query. A field answered under EVERY one of its operators is the other case and exists too,
+    /// so the assertion below is a subset relation rather than an equality.
+    /// </remarks>
     [Fact]
-    public void EveryFieldTheFieldTableNarrowsOnHasAPairThatCompiles()
+    public void AFieldIsAnsweredUnderSomeOfItsOperatorsAndNotOthers()
     {
-        foreach (var field in RuleFieldTable.Rows.Where(row => !row.IsPostQuery))
-        {
-            Assert.True(
-                RuleQueryTable.Narrows(field.Field),
-                field.Name + " names InternalItemsQuery." + field.QueryProperty
-                + " and no pair over it compiles.");
-        }
+        var split = RuleFieldTable.Rows
+            .Where(field => field.Operators.Any(@operator => RuleQueryTable.AnswersInTheQuery(field.Field, @operator))
+                && field.Operators.Any(@operator => !RuleQueryTable.AnswersInTheQuery(field.Field, @operator)))
+            .ToArray();
+
+        Assert.NotEmpty(split);
+        Assert.All(split, field => Assert.True(RuleQueryTable.Narrows(field.Field)));
     }
 
     /// <summary>
-    /// A field the field table does not narrow on has no pair here, which is the other direction
-    /// of the test above and is what stops it passing on a table that compiles everything.
+    /// The operators a field is answered under are the field's own, in the field's own order, so a
+    /// page or a form reads them beside the operator list they belong to. Deriving them from this
+    /// table's order instead would move the answer when a row is added in a different place.
     /// </summary>
     [Fact]
-    public void NoFieldReadAfterTheQueryHasAPairThatCompiles()
+    public void TheOperatorsAFieldIsAnsweredUnderAreItsOwnInItsOwnOrder()
     {
-        foreach (var field in RuleFieldTable.Rows.Where(row => row.IsPostQuery))
+        foreach (var field in RuleFieldTable.Rows)
         {
-            Assert.False(RuleQueryTable.Narrows(field.Field), field.Name + " is compiled into the query.");
+            var answered = RuleQueryTable.OperatorsAnswered(field.Field);
+
+            Assert.Equal(
+                field.Operators.Where(@operator => RuleQueryTable.AnswersInTheQuery(field.Field, @operator)),
+                answered);
+            Assert.Equal(RuleQueryTable.Narrows(field.Field), answered.Count > 0);
         }
     }
 

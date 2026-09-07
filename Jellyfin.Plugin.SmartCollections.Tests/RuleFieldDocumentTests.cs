@@ -20,16 +20,10 @@ public class RuleFieldDocumentTests
     private const string Page = "docs/rule-fields.md";
 
     /// <summary>
-    /// The words the page writes where a field is read off the item rather than narrowed by the
-    /// query. An empty line would be indistinguishable from a line somebody deleted.
+    /// The word the page writes where the query answers none of a field's operators. An empty line
+    /// would be indistinguishable from a line somebody deleted.
     /// </summary>
-    private const string AfterTheQuery = "after the query";
-
-    /// <summary>
-    /// What the page prefixes a query property with, so the line names the type as well as the
-    /// member.
-    /// </summary>
-    private const string QueryPrefix = "InternalItemsQuery.";
+    private const string None = "none";
 
     /// <summary>
     /// The post-query list, which is the second thing this page is held to. A field reaches the
@@ -43,7 +37,7 @@ public class RuleFieldDocumentTests
         TimeSpan.FromSeconds(5));
 
     private static readonly Regex Section = new(
-        @"^## Field: (?<name>[A-Za-z]+)\r?\n\r?\nValue type: (?<type>.+?)\r?\n\r?\nOperators: (?<operators>.+?)\r?\n\r?\nKinds: (?<kinds>.+?)\r?\n\r?\nReaches the library: (?<reach>.+?)\r?\n\r?\nSemantics: (?<semantics>.+?)\r?$",
+        @"^## Field: (?<name>[A-Za-z]+)\r?\n\r?\nValue type: (?<type>.+?)\r?\n\r?\nOperators: (?<operators>.+?)\r?\n\r?\nKinds: (?<kinds>.+?)\r?\n\r?\nAnswered by the query: (?<reach>.+?)\r?\n\r?\nSemantics: (?<semantics>.+?)\r?$",
         RegexOptions.Multiline | RegexOptions.CultureInvariant);
 
     private sealed record DocumentedField(string Type, string Operators, string Kinds, string Reach, string Semantics);
@@ -66,8 +60,26 @@ public class RuleFieldDocumentTests
     private static string WrittenKinds(RuleFieldRow row)
         => string.Join(", ", row.Kinds.Select(kind => RuleItemKindTable.Of(kind).Name));
 
+    /// <summary>
+    /// The operators the query answers a field under, as the page writes them.
+    /// </summary>
+    /// <remarks>
+    /// THIS LINE USED TO BE ONE QUERY PROPERTY OR THE WORDS "after the query", read off a column on
+    /// the field row. #31 moved that mark onto the field and operator pair on 2026-09-04, so the
+    /// line is a list rather than a name: a field the query narrows on almost always has operators
+    /// it answers and operators it does not, and the old line said the first thing about all of
+    /// them.
+    /// </remarks>
+    /// <param name="row">The field.</param>
+    /// <returns>The line the page has to carry.</returns>
     private static string WrittenReach(RuleFieldRow row)
-        => row.QueryProperty is null ? AfterTheQuery : QueryPrefix + row.QueryProperty;
+    {
+        var answered = RuleQueryTable.OperatorsAnswered(row.Field);
+
+        return answered.Count == 0
+            ? None
+            : string.Join(", ", answered.Select(@operator => RuleOperatorTable.Of(@operator).Name));
+    }
 
     /// <summary>
     /// Without this the comparisons below pass on a page somebody emptied, because two empty sets
@@ -146,10 +158,10 @@ public class RuleFieldDocumentTests
     }
 
     /// <summary>
-    /// This is where the post-query mark is held to something. The column is one nullable string,
-    /// so a row cannot contradict itself; what it can do is drift away from the page a reader
-    /// consults, and a field silently moving from the query into the post-query stage is the
-    /// change that turns a narrow query into a full library walk.
+    /// This is where the mark is held to something a reader sees. It cannot contradict itself -
+    /// the answer is the presence of a row in the compile table - but it can drift away from the
+    /// page somebody consults, and a pair silently moving out of the query and into the stage is
+    /// the change that turns a narrow query into a walk over the whole scope.
     /// </summary>
     [Fact]
     public void EverySectionSaysHowTheFieldReachesTheLibraryAndSaysWhatTheTableSays()
@@ -163,11 +175,11 @@ public class RuleFieldDocumentTests
     }
 
     [Fact]
-    public void EverySectionThatSaysAfterTheQueryDescribesARowCarryingNoQueryProperty()
+    public void EverySectionThatSaysNoneDescribesAFieldNoPairAnswers()
     {
         foreach (var (name, documented) in Documented())
         {
-            if (!string.Equals(documented.Reach, AfterTheQuery, StringComparison.Ordinal))
+            if (!string.Equals(documented.Reach, None, StringComparison.Ordinal))
             {
                 continue;
             }
@@ -175,8 +187,8 @@ public class RuleFieldDocumentTests
             var row = RuleFieldTable.Find(name);
 
             Assert.NotNull(row);
-            Assert.Null(row!.QueryProperty);
-            Assert.True(row.IsPostQuery);
+            Assert.False(RuleQueryTable.Narrows(row!.Field));
+            Assert.Empty(RuleQueryTable.OperatorsAnswered(row.Field));
         }
     }
 
@@ -220,7 +232,7 @@ public class RuleFieldDocumentTests
     public void ThePageListsTheFieldsReadAfterTheQuery()
     {
         Assert.NotEmpty(Listed());
-        Assert.Contains(RuleFieldTable.Rows, row => row.IsPostQuery);
+        Assert.Contains(RuleFieldTable.Rows, row => !RuleQueryTable.Narrows(row.Field));
     }
 
     /// <summary>
@@ -230,10 +242,10 @@ public class RuleFieldDocumentTests
     /// nullable column somebody changed.
     /// </summary>
     [Fact]
-    public void TheListIsExactlyTheRowsCarryingNoQueryProperty()
+    public void TheListIsExactlyTheFieldsNoPairAnswers()
         => Assert.Equal(
             RuleFieldTable.Rows
-                .Where(row => row.IsPostQuery)
+                .Where(row => !RuleQueryTable.Narrows(row.Field))
                 .Select(row => row.Name)
                 .OrderBy(name => name, StringComparer.Ordinal),
             Listed().Keys.OrderBy(name => name, StringComparer.Ordinal));

@@ -269,7 +269,9 @@ public sealed class SmartCollectionsController : ControllerBase
                     row.ValueType.ToString(),
                     row.Operators.Select(@operator => RuleOperatorTable.Of(@operator).Name).ToArray(),
                     row.Kinds.Select(kind => RuleItemKindTable.Of(kind).Name).ToArray(),
-                    row.QueryProperty,
+                    RuleQueryTable.OperatorsAnswered(row.Field)
+                        .Select(@operator => RuleOperatorTable.Of(@operator).Name)
+                        .ToArray(),
                     row.Semantics))
                 .ToArray(),
             RuleOperatorTable.Rows
