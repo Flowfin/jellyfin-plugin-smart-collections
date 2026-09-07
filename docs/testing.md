@@ -81,15 +81,30 @@ is `ICollectionOwnership`, and the suite drives that port through
 `FakeCollectionOwnership` in `CollectionResolverTests`, which matches on a
 provider key and its value together the way the server's own query does.
 
-Neither port has a server side in this tree. `ICollectionMembershipWriter` has
-stood without one since it was declared and `ICollectionOwnership` arrives the
-same way, because each adapter is a forward onto `ILibraryManager` or
-`ICollectionManager` and no test here can execute one: an `ILibraryManager` is
-eighty-four members, and holding a real one means the running server this page
-refuses. Both therefore arrive with the first trigger that runs a refresh, which
-needs both at once. What the suite holds meanwhile is the decision in front of
-each port, `CollectionResolver` and `MembershipApplier`, neither of which names
-a server type.
+BOTH PORTS HAVE A SERVER SIDE NOW, AND THIS PARAGRAPH SAID NEITHER COULD HAVE ONE
+A TEST COULD REACH. What stood here was that each adapter is a forward onto
+`ILibraryManager` or `ICollectionManager`, that an `ILibraryManager` is
+eighty-four members, and that holding a real one means the running server this
+page refuses. #263 built both:
+`LibraryManagerCollectionOwnership` and `LibraryManagerMembershipWriter`, each
+member asserted on both target frameworks against `FakeServer`.
+
+The reading that was wrong is the middle one. Eighty-four members is a fact about
+how a stand-in gets WRITTEN rather than about whether one can exist, and
+`FakeServer` stops writing it: `DispatchProxy`, which is in the base class
+library, builds a type implementing the interface at run time, so a stand-in is
+exactly as large as the part of the server a test names and every other member
+throws. That refusal is the assertion rather than a convenience - it is what makes
+each of those tests say the adapter reached that server member AND no other - and
+it is what caught the two supported lines resolving a collection's members
+differently.
+
+What the suite holds beside them is the decision in front of each port,
+`CollectionResolver` and `MembershipApplier`, neither of which names a server
+type. And what none of it says is that a server behaves as the stand-in does: the
+mapping from each port member to the server call behind it is read out of the
+server's own source, with the command, in each adapter's remarks, and no
+collection has yet been created on a Jellyfin server by this plugin.
 
 A rule's query is composed AND ANSWERED now, which is the third state this
 paragraph has recorded and is the one the sentence below is about.

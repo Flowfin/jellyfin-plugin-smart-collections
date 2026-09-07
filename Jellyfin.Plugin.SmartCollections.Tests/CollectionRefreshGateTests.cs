@@ -298,6 +298,8 @@ public class CollectionRefreshGateTests
 
         public IReadOnlyList<Guid> ItemsThatStillResolve(IReadOnlyList<Guid> itemIds) => itemIds;
 
+        public IReadOnlyList<Guid> ItemsInCollection(Guid collectionId) => [];
+
         public async Task AddToCollectionAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken)
         {
             Enter(collectionId);

@@ -84,6 +84,15 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         // thing anything else resolves would not be the thing that answered.
         serviceCollection.AddSingleton<IRuleItemSource, LibraryManagerItemSource>();
 
+        // The server side of the two ports a refresh writes through. Singletons for the same reason
+        // every other line here is one: the scheduled refresh, the manual endpoint and the library
+        // subscription all write through these, and a second instance would be a second forward
+        // onto the same two server managers, so the object one trigger wrote through would not be
+        // the object another resolved. Neither adapter holds state, which makes the instance count
+        // a property of this registration rather than of them.
+        serviceCollection.AddSingleton<ICollectionOwnership, LibraryManagerCollectionOwnership>();
+        serviceCollection.AddSingleton<ICollectionMembershipWriter, LibraryManagerMembershipWriter>();
+
         // One coalescer for the plugin, and the only observer of the subscription. A second
         // instance would accumulate a second copy of every change and close its own batches, so
         // the burst the subscription reports once would be evaluated twice. The intervals are the

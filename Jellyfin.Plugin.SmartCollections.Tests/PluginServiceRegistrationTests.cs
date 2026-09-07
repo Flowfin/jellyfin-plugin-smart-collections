@@ -128,6 +128,33 @@ public class PluginServiceRegistrationTests
     }
 
     /// <summary>
+    /// The two ports a refresh writes a collection through resolve to the adapters over the server,
+    /// one registration each. Until #263 neither had an implementation outside this suite, so a
+    /// refresh could compile, run and write nothing.
+    /// </summary>
+    /// <remarks>
+    /// The descriptor is read rather than the resolved object, because resolving one would need an
+    /// <c>ILibraryManager</c> and an <c>ICollectionManager</c> in the container and this is a
+    /// question about the registration rather than about the construction. <c>Single</c> is the
+    /// assertion that carries the weight: a second registration of one of these ports would leave
+    /// two adapters over the same two server managers, and which one a caller got would depend on
+    /// the order they were added in.
+    /// </remarks>
+    [Theory]
+    [InlineData(typeof(ICollectionOwnership), typeof(LibraryManagerCollectionOwnership))]
+    [InlineData(typeof(ICollectionMembershipWriter), typeof(LibraryManagerMembershipWriter))]
+    public void EachCollectionPortResolvesToOneAdapterOverTheServer(Type port, Type adapter)
+    {
+        var services = new ServiceCollection();
+        new PluginServiceRegistrator().RegisterServices(services, null!);
+
+        var registered = services.Single(descriptor => descriptor.ServiceType == port);
+
+        Assert.Equal(adapter, registered.ImplementationType);
+        Assert.Equal(ServiceLifetime.Singleton, registered.Lifetime);
+    }
+
+    /// <summary>
     /// The registration is the one place the documented defaults reach the object that runs on
     /// them, so it is the one place a plugin can be wired to intervals its own page does not
     /// describe.

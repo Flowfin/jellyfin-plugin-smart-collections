@@ -779,6 +779,12 @@ public class MembershipApplierTests
             return [.. itemIds.Where(_library.Contains)];
         }
 
+        public IReadOnlyList<Guid> ItemsInCollection(Guid collectionId)
+        {
+            _calls.Add("read " + collectionId.ToString("D", CultureInfo.InvariantCulture));
+            return _collections.TryGetValue(collectionId, out var held) ? [.. held] : [];
+        }
+
         public Task AddToCollectionAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken)
         {
             _calls.Add("add " + Join(itemIds));

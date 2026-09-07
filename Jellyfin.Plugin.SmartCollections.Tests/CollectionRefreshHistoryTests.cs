@@ -296,6 +296,8 @@ public class CollectionRefreshHistoryTests
         public IReadOnlyList<Guid> ItemsThatStillResolve(IReadOnlyList<Guid> itemIds)
             => [.. itemIds.Where(id => id == inLibrary)];
 
+        public IReadOnlyList<Guid> ItemsInCollection(Guid collectionId) => [];
+
         public Task AddToCollectionAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken)
             => _throwOnAdd.Contains(collectionId)
                 ? throw new ArgumentException(

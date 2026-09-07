@@ -69,6 +69,12 @@ public class UninstallHookTests
     /// The two membership calls take item identifiers, so what they change is what a collection
     /// holds. Neither takes a provider entry or a collection to delete.
     ///
+    /// A MEMBERSHIP READ IS IN THE SET NOW AND IT WRITES NOTHING. <c>ItemsInCollection</c> arrived
+    /// with #263, which needed the current side of a diff to come from these two ports rather than
+    /// from a third route. It answers a list and takes a collection identifier, which is the shape
+    /// this set is checked against: a member that returned nothing and took a provider dictionary
+    /// would be the removal this test exists to refuse, and this one is neither.
+    ///
     /// A RENAME IS IN THE SET NOW AND IT IS NOT A REMOVAL, which is the one entry here a reader
     /// has to be told about rather than shown. #29 needs a rule's declared name to reach the
     /// collection that rule owns, and the write that does it is <c>RenameCollectionAsync</c>. It
@@ -98,7 +104,7 @@ public class UninstallHookTests
                 .Select(parameter => parameter.ParameterType));
 
         Assert.Equal(
-            new[] { "AddToCollectionAsync", "ItemsThatStillResolve", "RemoveFromCollectionAsync" },
+            new[] { "AddToCollectionAsync", "ItemsInCollection", "ItemsThatStillResolve", "RemoveFromCollectionAsync" },
             Members(typeof(ICollectionMembershipWriter)));
 
         Assert.Equal(
