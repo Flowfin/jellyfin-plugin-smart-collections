@@ -39,6 +39,48 @@ test class that holds it. This list is held the same way, by
 the suite, a line naming a page that is not in the tree reds it, and a page
 named here that no test holds reds it too.
 
+## How text is compared
+
+Every comparison a rule makes against text the library holds is ordinal and
+case-insensitive. One comparison, at every site, for every operator that
+compares text: `equals`, `notEquals`, `contains`, `notContains`, `startsWith`,
+`endsWith`, `in` and `notIn`.
+
+Ordinal means the comparison does not read the server's culture. That is the
+property, and it is worth more than it sounds: a folded comparison answers
+differently on a server running in Turkish, where the uppercase of `i` is not
+`I`, so a rule collecting the genre `Sci-Fi` collects a different set of films in
+Istanbul than in Dublin. A collection whose contents depend on the operating
+system's locale is not a collection anybody can reason about.
+
+Case-insensitive means an operator writing `Sci-Fi` collects an item the library
+holds as `SCI-FI` or as `sci-fi`. It does NOT mean the two are folded by the
+rules of any language: the dotted capital `İ` is a different character from `i`
+and stays one here, in every locale, including the one where a language would
+fold them together.
+
+**A rule document cannot vary this.** There is no per-condition case sensitivity
+member, and that is a decision taken on 2026-09-04 rather than a gap: one
+comparison everywhere is a language an operator can predict, and a flag is a
+question somebody opens when a document needs one. Nothing about it is a
+permanent refusal, and it is not written among the refusals below because those
+are about what the language will not do rather than about what this version has
+not needed.
+
+Two things are compared under other rules and are not this. The names a document
+writes - a field, an operator, an item kind, a sort direction - are wire tokens
+compared ordinally and case SENSITIVELY, so `premiereDate` is the name and
+`PREMIEREDATE` is refused; that is written on each part's own page. And a
+condition the server's own query answers is compared by the server, in the
+server's way, and is not compared again here, which
+[`rule-queries.md`](rule-queries.md) is the page for.
+
+What holds this rather than merely stating it is
+`RuleReadUnderAServerLocaleTests`, which runs a rule matching `Sci-Fi` against a
+library under the invariant culture, Turkish and Arabic and asserts the same
+films come out, over a fixture that a culture-sensitive comparison answers
+differently in both directions.
+
 ## What a rule deliberately cannot say
 
 A rule language is defined as much by its refusals as by its vocabulary. This
@@ -104,8 +146,16 @@ in either direction. What is being read is a behaviour and the shape of a
 mistake, not source.
 
 The declared replacements are `contains`, `startsWith`, `endsWith`, `equals` and
-`in`, each with an explicit case sensitivity flag. Between them they cover the
-patterns operators actually write, without handing the server a program to run.
+`in`. Between them they cover the patterns operators actually write, without
+handing the server a program to run.
+
+THIS SENTENCE SAID EACH OF THOSE CARRIED AN EXPLICIT CASE SENSITIVITY FLAG. None
+of them does and none of them will in this version, which was decided on
+2026-09-04 and is written out under `How text is compared` above. The clause is
+removed rather than softened, because a reference that offers a member the
+vocabulary does not declare is worse than one that offers less than it could: an
+operator writes the flag, the validator refuses the document, and the page that
+sent them there is the last place they look.
 
 If regular expressions are ever added, they arrive with three things together: a
 non-backtracking engine, a match timeout, and a test proving a known
