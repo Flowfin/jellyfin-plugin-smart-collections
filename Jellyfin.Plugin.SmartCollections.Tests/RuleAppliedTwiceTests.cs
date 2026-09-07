@@ -179,6 +179,12 @@ public class RuleAppliedTwiceTests
             return itemIds.Where(_library.Contains).ToArray();
         }
 
+        public IReadOnlyList<Guid> ItemsInCollection(Guid collectionId)
+        {
+            _calls.Add("read");
+            return Held(collectionId);
+        }
+
         public Task AddToCollectionAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken)
         {
             _calls.Add("add");

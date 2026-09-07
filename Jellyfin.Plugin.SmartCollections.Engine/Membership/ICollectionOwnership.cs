@@ -34,15 +34,22 @@ namespace Jellyfin.Plugin.SmartCollections.Membership;
 /// that decision.
 ///
 /// <para>
-/// NOTHING IN THIS TREE IMPLEMENTS THIS PORT AGAINST A SERVER YET, and the same is true of
-/// <see cref="ICollectionMembershipWriter"/>, which has stood without one since it was declared.
-/// Both adapters are one call each over <c>ILibraryManager</c> and <c>ICollectionManager</c>, and
-/// neither can be executed by this suite: an <c>ILibraryManager</c> is eighty-four members and
-/// holding a real one means a running server, which is what <c>docs/testing.md</c> refuses for a
-/// unit-level property. They therefore arrive with the first trigger that runs a refresh, which
-/// needs both at once. What this suite holds instead is the decision each port is in front of, at
-/// <see cref="CollectionResolver"/> and <see cref="MembershipApplier"/>, and neither of those
-/// touches a server type.
+/// THIS PARAGRAPH SAID NOTHING IN THIS TREE IMPLEMENTED THIS PORT AGAINST A SERVER, and that both
+/// adapters were unreachable by this suite because an <c>ILibraryManager</c> is eighty-four members
+/// and holding a real one means a running server. #263 built both.
+/// <c>LibraryManagerCollectionOwnership</c> is this port's, <c>LibraryManagerMembershipWriter</c>
+/// is the other's, and each member of each is asserted against a stand-in for the server's own two
+/// managers on both target frameworks. What that argument was actually about was how a stand-in for
+/// eighty-four members gets WRITTEN, and the answer was to stop writing it: the suite builds one at
+/// run time and refuses any member a test did not name.
+/// </para>
+///
+/// <para>
+/// WHAT IS STILL TRUE IS THE PART UNDERNEATH IT. No collection has been created on a Jellyfin
+/// server by this plugin, because no trigger runs a refresh yet, so what the adapters are asserted
+/// against is a stand-in rather than a server. What this suite holds beside them is the decision
+/// each port is in front of, at <see cref="CollectionResolver"/> and <see cref="MembershipApplier"/>,
+/// and neither of those touches a server type.
 /// </para>
 /// </remarks>
 public interface ICollectionOwnership

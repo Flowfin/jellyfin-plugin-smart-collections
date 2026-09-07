@@ -208,13 +208,21 @@ rule document is what makes it stick. That is a refresh-time behaviour and it ha
 nothing to do with uninstalling, which still leaves every title exactly as the
 last refresh wrote it.
 
-WHAT NONE OF THAT COVERS IS THE SERVER, and it is a larger gap than the one this
-section used to name. No collection has been created on a Jellyfin server by this
-plugin, because nothing calls the resolve yet: neither port has an adapter over
-the server's own managers, and no trigger runs a refresh. So the stamp is written
-and read by code the suite executes, and the sentence at the top of this page
-about what an operator finds after a reinstall is still one no run against a
-server has confirmed.
+WHAT NONE OF THAT COVERS IS THE SERVER, and the gap is narrower than it was
+without being closed. THIS PARAGRAPH SAID NEITHER PORT HAD AN ADAPTER OVER THE
+SERVER'S OWN MANAGERS. Both do since #263, and each of their members is asserted
+against a stand-in for those managers. What is unchanged is the sentence beside
+it: no trigger runs a refresh, so nothing calls the resolve, and no collection has
+been created on a Jellyfin server by this plugin. The stamp is still written and
+read by code the suite executes, and the sentence at the top of this page about
+what an operator finds after a reinstall is still one no run against a server has
+confirmed.
+
+The membership read those adapters added is worth one line here, because a reader
+counting the members of the write port will meet it. `ItemsInCollection` answers
+what a collection holds at this moment and writes nothing, which is why the set
+comparison above accepts it: what that check refuses is a member that could delete
+a collection or take a mark off one, and a read of a membership is neither.
 
 The tests here also say nothing about what happens to a collection by a route
 outside this plugin. An operator, another plugin or the server itself may delete
