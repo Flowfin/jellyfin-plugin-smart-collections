@@ -208,6 +208,6 @@ public sealed class RuleDocumentStore
         // the path rather than inside a predicate above it. The equality clause stays: it is what
         // makes a name that would have been reduced a REFUSAL rather than a quiet truncation, and
         // a store that silently wrote "b" for "a/b" would be answering a request nobody made.
-        return Path.Combine(_directory, Path.GetFileName(name) + Extension);
+        return Path.Join(_directory, Path.GetFileName(name) + Extension);
     }
 }

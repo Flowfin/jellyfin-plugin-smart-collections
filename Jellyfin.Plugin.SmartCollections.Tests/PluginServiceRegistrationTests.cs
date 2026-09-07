@@ -91,7 +91,7 @@ public class PluginServiceRegistrationTests
     [Fact]
     public void TheRuleDocumentStoreReadsADirectoryUnderThePathTheServerHandsOut()
     {
-        var paths = new FakeApplicationPaths(Path.Combine(Path.GetTempPath(), "smart-collections-registration"));
+        var paths = new FakeApplicationPaths(Path.Join(Path.GetTempPath(), "smart-collections-registration"));
 
         using var provider = Registered(paths);
 
@@ -209,7 +209,7 @@ public class PluginServiceRegistrationTests
     private static ServiceProvider Registered(IApplicationPaths? paths = null)
     {
         var services = new ServiceCollection();
-        services.AddSingleton(paths ?? new FakeApplicationPaths(Path.Combine(Path.GetTempPath(), "smart-collections-registration")));
+        services.AddSingleton(paths ?? new FakeApplicationPaths(Path.Join(Path.GetTempPath(), "smart-collections-registration")));
 
         new PluginServiceRegistrator().RegisterServices(services, null!);
 

@@ -23,7 +23,7 @@ public sealed class RuleDocumentLoaderTests : IDisposable
 
     public RuleDocumentLoaderTests()
     {
-        _directory = Path.Combine(
+        _directory = Path.Join(
             Path.GetTempPath(),
             "smart-collections-loader-" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
     }
@@ -146,8 +146,8 @@ public sealed class RuleDocumentLoaderTests : IDisposable
         Write("christmas", Encoding.UTF8.GetBytes(Valid));
 
         Directory.CreateDirectory(_directory);
-        File.WriteAllBytes(Path.Combine(_directory, "..json"), Encoding.UTF8.GetBytes(Valid));
-        File.WriteAllBytes(Path.Combine(_directory, ".json"), Encoding.UTF8.GetBytes(Valid));
+        File.WriteAllBytes(Path.Join(_directory, "..json"), Encoding.UTF8.GetBytes(Valid));
+        File.WriteAllBytes(Path.Join(_directory, ".json"), Encoding.UTF8.GetBytes(Valid));
 
         var scan = new RuleDocumentLoader(new RuleDocumentStore(_directory)).Scan();
 

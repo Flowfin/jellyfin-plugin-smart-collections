@@ -37,7 +37,7 @@ public sealed class BrokenDocumentIsolationTests : IDisposable
     /// Initializes a new instance of the <see cref="BrokenDocumentIsolationTests"/> class.
     /// </summary>
     public BrokenDocumentIsolationTests()
-        => _directory = Path.Combine(
+        => _directory = Path.Join(
             Path.GetTempPath(),
             "smart-collections-isolation-" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
 

@@ -42,7 +42,7 @@ public class DcoTests
     /// <returns>The workflow's text.</returns>
     private static string SignOffWorkflow()
         => File.ReadAllText(
-            Path.Combine(RepositoryFiles.Root(), ".github", "workflows", "dco.yml"));
+            Path.Join(RepositoryFiles.Root(), ".github", "workflows", "dco.yml"));
 
     [Fact]
     public void DcoTextIsThePublishedVersion11()
@@ -64,7 +64,7 @@ public class DcoTests
 
         foreach (var named in new[] { "first", "second" }.Select(group => match.Groups[group].Value))
         {
-            var resolved = Path.Combine(RepositoryFiles.Root(), named.TrimStart('.', '/'));
+            var resolved = Path.Join(RepositoryFiles.Root(), named.TrimStart('.', '/'));
 
             Assert.True(
                 File.Exists(resolved),

@@ -32,7 +32,7 @@ public class RuleSortDocumentTests
     [Fact]
     public void ThePageCarriesASectionPerDirectionAndPerFieldWithNoOrder()
     {
-        Assert.True(File.Exists(Path.Combine(RepositoryFiles.Root(), Page)), Page + " is not in the tree.");
+        Assert.True(File.Exists(Path.Join(RepositoryFiles.Root(), Page)), Page + " is not in the tree.");
         Assert.NotEmpty(Documented(Direction));
         Assert.NotEmpty(Documented(WithoutAnOrder));
     }

@@ -83,7 +83,7 @@ public class RuleLanguageReferenceTests
         foreach (var page in named)
         {
             Assert.True(
-                File.Exists(Path.Combine(DocsDirectory(), page)),
+                File.Exists(Path.Join(DocsDirectory(), page)),
                 Reference + " names " + page + " and no such file is under docs/.");
         }
     }
@@ -98,7 +98,7 @@ public class RuleLanguageReferenceTests
     [Fact]
     public void EveryPageTheReferenceGathersIsHeldByATest()
     {
-        var sources = Directory.GetFiles(Path.Combine(RepositoryFiles.Root(), TestProject), "*.cs")
+        var sources = Directory.GetFiles(Path.Join(RepositoryFiles.Root(), TestProject), "*.cs")
             .Where(path => !string.Equals(Path.GetFileName(path), "RuleLanguageReferenceTests.cs", StringComparison.Ordinal))
             .Select(File.ReadAllText)
             .ToArray();
@@ -115,7 +115,7 @@ public class RuleLanguageReferenceTests
         }
     }
 
-    private static string DocsDirectory() => Path.Combine(RepositoryFiles.Root(), "docs");
+    private static string DocsDirectory() => Path.Join(RepositoryFiles.Root(), "docs");
 
     /// <summary>
     /// The rule pages in the tree, by file name, sorted ordinal so the comparison above is over

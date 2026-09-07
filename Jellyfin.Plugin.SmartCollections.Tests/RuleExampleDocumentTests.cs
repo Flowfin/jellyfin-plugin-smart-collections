@@ -74,7 +74,7 @@ public class RuleExampleDocumentTests
     [Fact]
     public void ThePageCarriesWorkedDocuments()
     {
-        Assert.True(File.Exists(Path.Combine(RepositoryFiles.Root(), Page)), Page + " is not in the tree.");
+        Assert.True(File.Exists(Path.Join(RepositoryFiles.Root(), Page)), Page + " is not in the tree.");
         Assert.NotEmpty(Titles());
         Assert.NotEmpty(Documents());
     }
@@ -213,7 +213,7 @@ public class RuleExampleDocumentTests
         {
             Assert.Contains(reference, page, StringComparison.Ordinal);
             Assert.True(
-                File.Exists(Path.Combine(RepositoryFiles.Root(), "docs", reference)),
+                File.Exists(Path.Join(RepositoryFiles.Root(), "docs", reference)),
                 Page + " names " + reference + " and no such file is in the tree.");
         }
     }
@@ -232,7 +232,7 @@ public class RuleExampleDocumentTests
             StringComparison.Ordinal);
 
         Assert.True(
-            File.Exists(Path.Combine(RepositoryFiles.Root(), Page.Replace('/', Path.DirectorySeparatorChar))),
+            File.Exists(Path.Join(RepositoryFiles.Root(), Page.Replace('/', Path.DirectorySeparatorChar))),
             "README.md links " + Page + " and no such file is in the tree.");
     }
 

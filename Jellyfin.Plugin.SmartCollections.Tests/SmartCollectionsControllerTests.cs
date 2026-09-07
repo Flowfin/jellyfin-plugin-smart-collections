@@ -58,7 +58,7 @@ public sealed class SmartCollectionsControllerTests : IDisposable
         }
         """;
 
-    private readonly string _directory = Path.Combine(
+    private readonly string _directory = Path.Join(
         Path.GetTempPath(),
         "smart-collections-api-" + Guid.NewGuid().ToString("N", System.Globalization.CultureInfo.InvariantCulture));
 
@@ -303,7 +303,7 @@ public sealed class SmartCollectionsControllerTests : IDisposable
             : [];
 
         Assert.Equal(before, after);
-        Assert.False(File.Exists(Path.Combine(Path.GetTempPath(), "escaped.json")), "A file was written outside the store.");
+        Assert.False(File.Exists(Path.Join(Path.GetTempPath(), "escaped.json")), "A file was written outside the store.");
     }
 
     // ---- update ----
@@ -326,7 +326,7 @@ public sealed class SmartCollectionsControllerTests : IDisposable
         var result = await Controller(Sound).UpdateRule("../escaped", CancellationToken.None).ConfigureAwait(true);
 
         Assert.IsType<BadRequestObjectResult>(result);
-        Assert.False(File.Exists(Path.Combine(Path.GetTempPath(), "escaped.json")), "A file was written outside the store.");
+        Assert.False(File.Exists(Path.Join(Path.GetTempPath(), "escaped.json")), "A file was written outside the store.");
     }
 
     [Fact]

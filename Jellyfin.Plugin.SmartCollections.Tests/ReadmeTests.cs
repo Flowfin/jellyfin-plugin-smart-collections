@@ -289,7 +289,7 @@ public class ReadmeTests
             StringComparison.Ordinal);
 
         Assert.True(
-            File.Exists(Path.Combine(RepositoryFiles.Root(), "docs", "uninstall.md")),
+            File.Exists(Path.Join(RepositoryFiles.Root(), "docs", "uninstall.md")),
             "README.md links docs/uninstall.md and no such file is in the tree.");
     }
 }
