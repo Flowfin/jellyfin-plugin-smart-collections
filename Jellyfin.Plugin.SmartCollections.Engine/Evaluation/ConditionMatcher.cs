@@ -10,12 +10,14 @@ namespace Jellyfin.Plugin.SmartCollections.Evaluation;
 /// </summary>
 /// <remarks>
 /// THE COMPARISON IS ORDINAL AND CASE-INSENSITIVE, EVERYWHERE, AND IT IS READ FROM #25 RATHER THAN
-/// CHOSEN HERE. That issue declares the default for rule matching in those words, and a per
-/// condition case-sensitivity flag as something a document may later set; this vocabulary declares
-/// no such member, so every comparison below names the one comparison and there is nothing for a
-/// document to vary. Naming it at every site rather than at one is what
+/// CHOSEN HERE. THIS REMARK NAMED A PER-CONDITION CASE-SENSITIVITY FLAG AS SOMETHING A DOCUMENT MAY
+/// LATER SET, AND THAT IS DECIDED AGAINST. The first version carries no such flag: one comparison,
+/// ordinal and case-insensitive, everywhere, and a flag is a rule-language question somebody opens
+/// when a document needs one. So every comparison below names the one comparison because there is
+/// one, rather than while there is one. Naming it at every site rather than at one is what
 /// <c>culture-sensitive-string-comparison</c> refuses the absence of: a comparison that reads the
-/// server's culture makes the same rule collect one set in one locale and another set in the next.
+/// server's culture makes the same rule collect one set in one locale and another set in the next,
+/// which <c>RuleReadUnderAServerLocaleTests</c> holds over items rather than over a call count.
 ///
 /// A VALUE THE LIBRARY DOES NOT HOLD SATISFIES NO COMPARISON, POSITIVE OR NEGATIVE, and that is a
 /// decision rather than a fallthrough. An item with no age classification does not satisfy
