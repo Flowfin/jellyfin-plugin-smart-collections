@@ -29,7 +29,6 @@ public class RuleSortReaderTests
         RuleValueType.Integer,
         [RuleOperator.Equals],
         [RuleItemKind.Series],
-        null,
         "How many seasons the series has.");
 
     /// <summary>

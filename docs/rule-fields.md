@@ -1,12 +1,15 @@
 # The fields a rule may name, and the item kinds it may collect
 
-The field vocabulary is closed. Which fields exist, what type each one holds,
-which operators each one accepts and how each one reaches the library are
-declared in `RuleFieldTable`, and this page is that table written out.
+The field vocabulary is closed. Which fields exist, what type each one holds and
+which operators each one accepts are declared in `RuleFieldTable`, and this page
+is that table written out. Which of those operators the server's own query
+answers is declared one pair at a time in `RuleQueryTable`, and the
+`Answered by the query:` line on each section below is that table read for one
+field.
 
 Each field section below carries a marker line of the form `## Field: <name>`, a
-`Value type:` line, an `Operators:` line, a `Kinds:` line, a
-`Reaches the library:` line and a `Semantics:` line. The names are what a rule
+`Value type:` line, an `Operators:` line, a `Kinds:` line, an
+`Answered by the query:` line and a `Semantics:` line. The names are what a rule
 document writes, and `RuleFieldDocumentTests` holds the page to the table in both
 directions, so a field added without a section reds the suite and a section
 describing a field that does not exist reds it too.
@@ -52,28 +55,34 @@ A declared table can be listed back to whoever mistyped a name, can be
 validated against before anything runs, and changes only when somebody changes
 it in a diff a reader sees.
 
-## What a `Reaches the library` line means
+## What an `Answered by the query` line means
 
-A field reaches the library one of two ways, and the line says which.
+The operators, out of the ones on the `Operators:` line above it, that the
+server's own item query answers for that field. Every other operator on that line
+is answered by the stage that runs over what the query returned. `none` means the
+query answers no way of asking about the field at all, so every condition on it
+is answered by that stage.
 
-`InternalItemsQuery.<Property>` means the field is about that property of the
-server's own query, so the query itself can narrow on it. The property name is
-held to the 10.11 line by `RuleFieldQuerySurfaceTests`, which reflects over the
-`InternalItemsQuery` the suite is compiled against rather than reading a list
-somebody typed. That is the same trap `#11` is about, one surface along: a
-property that exists on the newer line and not on the older one would compile
-here and throw on a 10.11 server.
+THIS LINE USED TO BE ONE QUERY PROPERTY OR THE WORDS `after the query`, AND THAT
+SHAPE COULD NOT BE RIGHT. It came off a column on the field row that named the
+one property the field narrowed on, and a field is answered by the server under
+some of its operators and not under others: `communityRating` accepts four
+comparisons and the query answers one of them, so the old line said "narrowed by
+the query" about three conditions the stage answers. #31 decided on 2026-09-04
+that the mark is a property of the field and operator PAIR, the column is gone,
+and this line is derived from the pair table rather than from a second
+declaration that had to be kept in step with it.
 
-`After the query` means the server's query carries nothing to narrow on, so the
-field is read off each item the query returned. Those fields are the reason the
-post-query stage exists, and how small that stage may be is decided separately
-from this page.
+The properties each pair writes are held to the server this leg is compiled
+against by `RuleFieldQuerySurfaceTests`, which reflects over the
+`InternalItemsQuery` the suite has rather than reading a list somebody typed.
+That is the same trap `#11` is about, one surface along: a property that exists
+on the newer line and not on the older one would compile here and throw on a
+10.11 server.
 
-WHICH OPERATORS NARROW INSIDE THE QUERY IS NOT THIS LINE. A row names the
-property a field is about; whether a particular comparison over that field can
-be pushed into the query or has to be made afterwards is the compiler's
-business, and this page makes no claim about it. `rule-queries.md` is where that
-is declared, pair by pair.
+WHAT EACH PAIR WRITES IS NOT THIS LINE. This one says whether the query answers a
+pair; [`rule-queries.md`](rule-queries.md) says what each answered pair puts on
+the query and what that means, pair by pair.
 
 ## What an `Operators` line means
 
@@ -171,19 +180,28 @@ Semantics: A series, which is the show rather than any of its seasons or episode
 
 ## The fields read after the query
 
-A field reaches the library through a property of the server's own item query or
-it does not, and where it does not the condition is answered by reading each item
-the query returned. Those fields are the whole of what the post-query stage
-exists for, so they are listed here with the reason each one is on the list
-rather than only marked one row at a time: a field arriving on it is a decision
-somebody should have to see, because the stage is where a design like this loses
-its speed if it is allowed to grow.
+THE FIELDS THE QUERY ANSWERS NOTHING ABOUT, which is a narrower set than the
+conditions the post-query stage answers and is worth keeping apart from it. Since
+#31 the mark is a property of the field and operator pair, so most fields on this
+page have some conditions the query answers and some the stage does; the fields
+below have none of the first kind, and a field arriving here is the change that
+takes a whole part of the vocabulary out of the query.
 
-The list is derived from the table rather than typed beside it.
-`RuleFieldDocumentTests` requires the set below to be exactly the rows carrying no
-query property, in both directions, so a field that moves into the stage without a
-section here reds the suite and a section for a field the query narrows on reds it
-too.
+They are listed with the reason each one is here rather than only being derivable
+from the absence of rows, because that is a decision somebody should have to see:
+the stage is where a design like this loses its speed if it is allowed to grow.
+
+The list is derived from the tables rather than typed beside them.
+`RuleFieldDocumentTests` requires the set below to be exactly the fields no
+compiled pair answers, in both directions, so a field whose last pair is taken out
+of the query without a section here reds the suite and a section for a field the
+query answers something about reds it too.
+
+WHICH CONDITIONS THE STAGE ANSWERS IS THE WIDER SET AND IS NOT LISTED ANYWHERE.
+It is every pair the `Operators:` lines above allow that the
+`Answered by the query:` lines do not name, which is most of them. A list of that
+here would be a copy of two tables that drifts against them; what each field
+section carries instead is the half a reader is asking about.
 
 A `Reason:` line says why the query cannot carry the field. It is a fact about the
 server rather than about this plugin, and each one below carries the command that
@@ -233,32 +251,20 @@ So the property does not separate an absent description from a blank one, in
 either direction, and the question this paragraph left for a later reader has an
 answer rather than a gap.
 
-WHAT THE ANSWER DOES NOT DO IS DECLARE THE PAIRS, and the reason has moved from a
-reading nobody had taken to a shape this vocabulary holds. The mark that puts a
-field after the query is a column on the FIELD rather than on the pair, so it
-cannot say that two of a field's six operators compile and the other four do not:
+WHAT STOOD IN FRONT OF THOSE TWO PAIRS IS GONE, AND THEY ARE STILL NOT DECLARED.
+This section said the mark that puts a field after the query is a column on the
+FIELD rather than on the pair, so it could not say that two of a field's six
+operators compile and the other four do not, and that whether the mark should
+move was a decision nobody had taken. It was taken on 2026-09-04 and executed:
+the column is gone and the mark is `RuleQueryTable.AnswersInTheQuery`, which
+takes both halves of the pair.
 
-```
-git grep -n 'IsPostQuery =>' -- Jellyfin.Plugin.SmartCollections.Engine/Rules/RuleFieldRow.cs
-Jellyfin.Plugin.SmartCollections.Engine/Rules/RuleFieldRow.cs:97:    public bool IsPostQuery => QueryProperty is null;
-```
-
-Both directions of that column are held, so neither half of the change passes on
-its own. A pair compiled over a field the table marks post-query reds one test,
-and a field moved off the mark to carry the pair leaves this page's list, which
-reds another:
-
-```
-git grep -n 'public void NoFieldReadAfterTheQueryHasAPairThatCompiles\|public void TheListIsExactlyTheRowsCarryingNoQueryProperty' -- Jellyfin.Plugin.SmartCollections.Tests/
-Jellyfin.Plugin.SmartCollections.Tests/RuleFieldDocumentTests.cs:194:    public void TheListIsExactlyTheRowsCarryingNoQueryProperty()
-Jellyfin.Plugin.SmartCollections.Tests/RuleQueryTableTests.cs:68:    public void NoFieldReadAfterTheQueryHasAPairThatCompiles()
-```
-
-The pairs are therefore still not declared, and what stands in front of them is
-whether the mark becomes a property of the pair rather than of the field. That
-changes every row of both tables and is a decision about the vocabulary rather
-than an entry in it, so it is not taken here. #31 is where the size of this stage
-is argued.
+So `overview isEmpty` and `overview isNotEmpty` are now expressible as answered
+pairs, with the server's translation read above and this page carrying it. They
+are not added here, because adding a pair to the compile table changes what a
+document DOES rather than where a mark lives, and the two do not belong in one
+change. `overview` therefore still reads `none`, and this paragraph is what a
+later reader needs so the opportunity is not found from scratch a third time.
 
 ## Read after the query: runtime
 
@@ -280,7 +286,7 @@ Operators: greaterThan, greaterThanOrEqual, lessThan, lessThanOrEqual
 
 Kinds: movie, series
 
-Reaches the library: InternalItemsQuery.MinCommunityRating
+Answered by the query: greaterThanOrEqual
 
 Semantics: The rating the community gives the item, out of ten.
 
@@ -292,7 +298,7 @@ Operators: before, after, withinLast
 
 Kinds: movie, series
 
-Reaches the library: InternalItemsQuery.MinDateCreated
+Answered by the query: after
 
 Semantics: When the server first saw the item.
 
@@ -304,7 +310,7 @@ Operators: contains, notContains, isEmpty, isNotEmpty
 
 Kinds: movie, series
 
-Reaches the library: InternalItemsQuery.Genres
+Answered by the query: contains
 
 Semantics: The genres the item carries.
 
@@ -316,7 +322,7 @@ Operators: equals, notEquals, contains, notContains, startsWith, endsWith, in, n
 
 Kinds: movie, series
 
-Reaches the library: InternalItemsQuery.Name
+Answered by the query: equals
 
 Semantics: The title the library holds for the item.
 
@@ -328,7 +334,7 @@ Operators: equals, notEquals, in, notIn, isEmpty, isNotEmpty
 
 Kinds: movie, series
 
-Reaches the library: InternalItemsQuery.OfficialRatings
+Answered by the query: equals, in
 
 Semantics: The age classification the item carries.
 
@@ -340,7 +346,7 @@ Operators: contains, notContains, startsWith, endsWith, isEmpty, isNotEmpty
 
 Kinds: movie, series
 
-Reaches the library: after the query
+Answered by the query: none
 
 Semantics: The description the library holds for the item.
 
@@ -352,7 +358,7 @@ Operators: before, after, withinLast
 
 Kinds: movie, series
 
-Reaches the library: InternalItemsQuery.MinPremiereDate
+Answered by the query: before, after, withinLast
 
 Semantics: When the item was first released.
 
@@ -364,7 +370,7 @@ Operators: equals, notEquals, in, notIn, greaterThan, greaterThanOrEqual, lessTh
 
 Kinds: movie, series
 
-Reaches the library: InternalItemsQuery.Years
+Answered by the query: equals, in
 
 Semantics: The year the item was produced.
 
@@ -376,7 +382,7 @@ Operators: greaterThan, greaterThanOrEqual, lessThan, lessThanOrEqual
 
 Kinds: movie, series
 
-Reaches the library: after the query
+Answered by the query: none
 
 Semantics: How long the item runs for.
 
@@ -388,6 +394,6 @@ Operators: contains, notContains, isEmpty, isNotEmpty
 
 Kinds: movie, series
 
-Reaches the library: InternalItemsQuery.Tags
+Answered by the query: contains, notContains
 
 Semantics: The tags the item carries.

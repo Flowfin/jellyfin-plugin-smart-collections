@@ -168,7 +168,6 @@ public static class RuleFieldTable
             RuleValueType.Decimal,
             Ordering,
             EveryKind,
-            "MinCommunityRating",
             "The rating the community gives the item, out of ten."),
         new(
             RuleField.DateAdded,
@@ -176,7 +175,6 @@ public static class RuleFieldTable
             RuleValueType.Date,
             Instant,
             EveryKind,
-            "MinDateCreated",
             "When the server first saw the item."),
         new(
             RuleField.Genres,
@@ -184,7 +182,6 @@ public static class RuleFieldTable
             RuleValueType.String,
             Membership,
             EveryKind,
-            "Genres",
             "The genres the item carries."),
         new(
             RuleField.Name,
@@ -192,7 +189,6 @@ public static class RuleFieldTable
             RuleValueType.String,
             Title,
             EveryKind,
-            "Name",
             "The title the library holds for the item."),
         new(
             RuleField.OfficialRating,
@@ -200,7 +196,6 @@ public static class RuleFieldTable
             RuleValueType.String,
             OptionalText,
             EveryKind,
-            "OfficialRatings",
             "The age classification the item carries."),
         new(
             RuleField.Overview,
@@ -208,7 +203,6 @@ public static class RuleFieldTable
             RuleValueType.String,
             FreeText,
             EveryKind,
-            null,
             "The description the library holds for the item."),
         new(
             RuleField.PremiereDate,
@@ -216,7 +210,6 @@ public static class RuleFieldTable
             RuleValueType.Date,
             Instant,
             EveryKind,
-            "MinPremiereDate",
             "When the item was first released."),
         new(
             RuleField.ProductionYear,
@@ -224,7 +217,6 @@ public static class RuleFieldTable
             RuleValueType.Integer,
             Counted,
             EveryKind,
-            "Years",
             "The year the item was produced."),
         new(
             RuleField.Runtime,
@@ -232,7 +224,6 @@ public static class RuleFieldTable
             RuleValueType.Duration,
             Ordering,
             EveryKind,
-            null,
             "How long the item runs for."),
         new(
             RuleField.Tags,
@@ -240,7 +231,6 @@ public static class RuleFieldTable
             RuleValueType.String,
             Membership,
             EveryKind,
-            "Tags",
             "The tags the item carries.")
     ];
 

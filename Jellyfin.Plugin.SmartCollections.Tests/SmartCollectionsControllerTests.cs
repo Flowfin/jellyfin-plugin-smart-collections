@@ -443,7 +443,9 @@ public sealed class SmartCollectionsControllerTests : IDisposable
             Assert.Equal(row.ValueType.ToString(), field.ValueType);
             Assert.Equal(row.Operators.Select(@operator => RuleOperatorTable.Of(@operator).Name), field.Operators);
             Assert.Equal(row.Kinds.Select(kind => RuleItemKindTable.Of(kind).Name), field.Kinds);
-            Assert.Equal(row.QueryProperty, field.ReachesTheLibrary);
+            Assert.Equal(
+                RuleQueryTable.OperatorsAnswered(row.Field).Select(@operator => RuleOperatorTable.Of(@operator).Name),
+                field.AnsweredByTheQuery);
             Assert.Equal(row.Semantics, field.Semantics);
         }
 

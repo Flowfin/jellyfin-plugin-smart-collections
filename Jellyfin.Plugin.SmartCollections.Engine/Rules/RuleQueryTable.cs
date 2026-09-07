@@ -195,10 +195,63 @@ public static class RuleQueryTable
     }
 
     /// <summary>
+    /// Answers whether the server's own query carries a condition, or the stage after it does.
+    /// </summary>
+    /// <param name="field">The field a condition names.</param>
+    /// <param name="operator">The operator a condition applies.</param>
+    /// <returns>
+    /// <see langword="true"/> where the query answers this pair, and <see langword="false"/> where
+    /// the stage after the query does.
+    /// </returns>
+    /// <remarks>
+    /// THIS IS THE MARK, AND IT TAKES BOTH HALVES OF THE PAIR. It used to be a column on the field
+    /// table naming one query property, and #31 decided on 2026-09-04 that it may not be: a field
+    /// can be answered by the server under one operator and not under another, so a mark on the
+    /// field alone is either too wide for one of its operators or too narrow for another. There is
+    /// nothing to keep in step here - the answer IS the presence of a row - which is the property
+    /// the move was for.
+    /// </remarks>
+    public static bool AnswersInTheQuery(RuleField field, RuleOperator @operator)
+        => Find(field, @operator) is not null;
+
+    /// <summary>
+    /// The operators the query answers a field under, in the order the field table lists them.
+    /// </summary>
+    /// <param name="field">The field to ask about.</param>
+    /// <returns>
+    /// The operators, and empty where every way of asking about this field is answered after the
+    /// query.
+    /// </returns>
+    /// <remarks>
+    /// Ordered off the FIELD table rather than off this one, so the answer reads in the order a
+    /// refusal lists a field's operators and does not move when a row is added here in a different
+    /// place. It is the shape a page and a form want: an operator writing a rule is choosing an
+    /// operator for a field they have already picked.
+    /// </remarks>
+    public static IReadOnlyList<RuleOperator> OperatorsAnswered(RuleField field)
+    {
+        var answered = new List<RuleOperator>();
+        foreach (var @operator in RuleFieldTable.Of(field).Operators)
+        {
+            if (AnswersInTheQuery(field, @operator))
+            {
+                answered.Add(@operator);
+            }
+        }
+
+        return answered;
+    }
+
+    /// <summary>
     /// Answers whether the query narrows on a field at all.
     /// </summary>
     /// <param name="field">The field to ask about.</param>
     /// <returns><see langword="true"/> where at least one pair over this field is compiled.</returns>
+    /// <remarks>
+    /// The weaker question, and the one a reader should not mistake for the mark. A field this
+    /// answers true for still has operators the stage after the query answers, which is exactly
+    /// what the field-level column could not say.
+    /// </remarks>
     public static bool Narrows(RuleField field) => Table.Any(row => row.Field == field);
 
     private static decimal Decimal(RuleValue value) => (decimal)value.Value;

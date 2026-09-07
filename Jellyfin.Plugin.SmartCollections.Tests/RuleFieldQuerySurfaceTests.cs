@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using Jellyfin.Plugin.SmartCollections.Rules;
 using MediaBrowser.Controller.Entities;
@@ -7,7 +8,7 @@ using Xunit;
 namespace Jellyfin.Plugin.SmartCollections.Tests;
 
 /// <summary>
-/// A field row that names a query property is a promise that the property is there on every
+/// A compiled pair that names a query property is a promise that the property is there on every
 /// server this plugin ships for. These tests read that off the <c>InternalItemsQuery</c> the suite
 /// is compiled against rather than off a list somebody typed, so the promise is checked against
 /// the surface the package will actually meet.
@@ -39,59 +40,50 @@ public class RuleFieldQuerySurfaceTests
     }
 
     /// <summary>
-    /// The done condition this test carries: every row naming a query property names one that is
-    /// present.
+    /// The done condition this test carries: every property a compiled pair writes is present on
+    /// the server query this leg is compiled against.
     /// </summary>
+    /// <remarks>
+    /// THIS USED TO READ THE FIELD TABLE, and the column it read is gone. A field row named one
+    /// query property, which was the mark #31 moved onto the field and operator pair on
+    /// 2026-09-04, and the properties are declared one per compiled pair now. The reading is the
+    /// same reading against the same type; what moved is which table it is taken from.
+    /// </remarks>
     [Fact]
-    public void EveryRowThatNamesAQueryPropertyNamesOneTheServerQueryCarries()
+    public void EveryPropertyACompiledPairWritesIsOnTheServerQuery()
     {
-        foreach (var row in RuleFieldTable.Rows)
+        foreach (var row in RuleQueryTable.Rows)
         {
-            if (row.QueryProperty is null)
+            foreach (var property in row.QueryProperties)
             {
-                continue;
+                Assert.True(
+                    typeof(InternalItemsQuery).GetProperty(property, BindingFlags.Public | BindingFlags.Instance) is not null,
+                    RuleFieldTable.Of(row.Field).Name + " " + RuleOperatorTable.Of(row.Operator).Name
+                    + " writes InternalItemsQuery." + property + ", which is not on the "
+                    + ServerLine().ToString(2) + " line the suite is compiled against.");
             }
-
-            Assert.True(
-                typeof(InternalItemsQuery).GetProperty(row.QueryProperty, BindingFlags.Public | BindingFlags.Instance) is not null,
-                row.Name + " names InternalItemsQuery." + row.QueryProperty + ", which is not on the "
-                + ServerLine().ToString(2) + " line the suite is compiled against.");
         }
     }
 
     /// <summary>
-    /// A row narrowed by the query is not read after it, and a row read after the query names no
-    /// property. One column carries both, so this reads the pair the way a caller does rather
-    /// than the way the row stores it.
-    /// </summary>
-    [Fact]
-    public void EveryRowIsEitherNarrowedByTheQueryOrReadAfterItAndNeverBoth()
-    {
-        foreach (var row in RuleFieldTable.Rows)
-        {
-            Assert.True(
-                row.IsPostQuery ^ (row.QueryProperty is not null),
-                row.Name + " is neither narrowed by the query nor read after it, or is both.");
-        }
-    }
-
-    /// <summary>
-    /// A field marked post-query because nobody looked is worse than one that is genuinely
-    /// post-query, because the whole library is walked for it on every refresh. This asks the
+    /// A pair answered after the query because nobody looked is worse than one that is genuinely
+    /// answered there, because the whole scope is walked for it on every refresh. This asks the
     /// server query whether it carries a property under the field's own name.
     /// </summary>
     /// <remarks>
-    /// The bound is the name. A property that narrows the same thing under a name this test
-    /// cannot derive from the field is invisible to it, so this refuses the careless case and not
-    /// every case. What it does refuse is the one that has actually happened elsewhere in this
-    /// tree: a surface read once, written down, and never asked again.
+    /// The bound is the name, and it is a weaker bound than it was. A property that narrows the
+    /// same thing under a name this test cannot derive from the field is invisible to it; so is a
+    /// property that would answer one OPERATOR over a field the query already narrows on under a
+    /// different name, which is the case the pair mark makes expressible and this test does not
+    /// reach. What it refuses is the careless case: a field nothing on the query is asked about at
+    /// all, carrying a property named after it.
     /// </remarks>
     [Fact]
-    public void NoPostQueryRowIsPostQueryUnderANameTheServerQueryAlreadyCarries()
+    public void NoFieldIsLeftEntirelyToTheStageUnderANameTheServerQueryAlreadyCarries()
     {
         foreach (var row in RuleFieldTable.Rows)
         {
-            if (!row.IsPostQuery)
+            if (RuleQueryTable.Narrows(row.Field))
             {
                 continue;
             }
@@ -100,18 +92,22 @@ public class RuleFieldQuerySurfaceTests
 
             Assert.True(
                 typeof(InternalItemsQuery).GetProperty(pascal, BindingFlags.Public | BindingFlags.Instance) is null,
-                row.Name + " is marked as read after the query and InternalItemsQuery carries " + pascal + ".");
+                row.Name + " is answered entirely after the query and InternalItemsQuery carries " + pascal + ".");
         }
     }
 
     /// <summary>
-    /// Both of the ways a field reaches the library are exercised by the table, so neither branch
-    /// of the tests above is passing because no row takes it.
+    /// Both answers the mark can give are exercised by the vocabulary, so neither branch of the
+    /// tests above is passing because no pair takes it.
     /// </summary>
     [Fact]
-    public void TheTableExercisesBothWaysAFieldReachesTheLibrary()
+    public void TheVocabularyExercisesBothAnswersTheMarkCanGive()
     {
-        Assert.Contains(RuleFieldTable.Rows, row => row.IsPostQuery);
-        Assert.Contains(RuleFieldTable.Rows, row => !row.IsPostQuery);
+        var pairs = RuleFieldTable.Rows
+            .SelectMany(field => field.Operators.Select(@operator => (field.Field, Operator: @operator)))
+            .ToArray();
+
+        Assert.Contains(pairs, pair => RuleQueryTable.AnswersInTheQuery(pair.Field, pair.Operator));
+        Assert.Contains(pairs, pair => !RuleQueryTable.AnswersInTheQuery(pair.Field, pair.Operator));
     }
 }
