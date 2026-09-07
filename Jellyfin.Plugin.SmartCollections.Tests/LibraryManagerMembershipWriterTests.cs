@@ -47,7 +47,7 @@ public class LibraryManagerMembershipWriterTests
             ["GetItemList"] = args =>
             {
                 asked = (InternalItemsQuery)args[0]!;
-                return (IReadOnlyList<BaseItem>)[Film(First), Film(Third)];
+                return new BaseItem[] { Film(First), Film(Third) };
             },
         });
 
@@ -70,7 +70,7 @@ public class LibraryManagerMembershipWriterTests
     {
         var (library, _) = FakeServer.For<ILibraryManager>(new()
         {
-            ["GetItemList"] = _ => (IReadOnlyList<BaseItem>)[Film(Third), Film(First), Film(Second)],
+            ["GetItemList"] = _ => new BaseItem[] { Film(Third), Film(First), Film(Second) },
         });
 
         var writer = new LibraryManagerMembershipWriter(library, Collections());
@@ -162,7 +162,7 @@ public class LibraryManagerMembershipWriterTests
             {
                 var wanted = ((InternalItemsQuery)args[0]!).ItemIds;
 
-                return (IReadOnlyList<BaseItem>)[.. wanted.Where(films.ContainsKey).Select(id => films[id])];
+                return wanted.Where(films.ContainsKey).Select(id => films[id]).ToArray();
             },
         });
 

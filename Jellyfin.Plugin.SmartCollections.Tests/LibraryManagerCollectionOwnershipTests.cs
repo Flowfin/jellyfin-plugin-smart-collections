@@ -43,7 +43,7 @@ public class LibraryManagerCollectionOwnershipTests
             ["GetItemList"] = args =>
             {
                 asked = (InternalItemsQuery)args[0]!;
-                return (IReadOnlyList<BaseItem>)[];
+                return Array.Empty<BaseItem>();
             },
         });
 
@@ -67,7 +67,7 @@ public class LibraryManagerCollectionOwnershipTests
 
         var (library, _) = FakeServer.For<ILibraryManager>(new()
         {
-            ["GetItemList"] = _ => (IReadOnlyList<BaseItem>)[first, second],
+            ["GetItemList"] = _ => new BaseItem[] { first, second },
         });
 
         var ownership = new LibraryManagerCollectionOwnership(library, Collections());
