@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using Jellyfin.Plugin.SmartCollections.Rules;
 using Xunit;
@@ -39,6 +40,33 @@ public class RuleCompositionReaderTests
         Assert.Null(read.Group);
         Assert.NotEmpty(read.Errors);
         return read;
+    }
+
+    /// <summary>
+    /// Wraps <paramref name="innermost"/> in <paramref name="levels"/> nested <c>allOf</c> groups,
+    /// so the two depth tests below say how deep they nest instead of each unrolling the wrapping
+    /// by hand. The openers and closers are appended to one builder rather than concatenated onto
+    /// a string per level, which is the shape code scanning reports as string concatenation in a
+    /// loop. The nesting count is held by the tests themselves: one walks the tree it produces and
+    /// counts, the other asserts the pointer and the depth the refusal names.
+    /// </summary>
+    private static string NestedInGroups(string innermost, int levels)
+    {
+        var text = new StringBuilder();
+
+        for (var level = 0; level < levels; level++)
+        {
+            text.Append("{\"allOf\": [");
+        }
+
+        text.Append(innermost);
+
+        for (var level = 0; level < levels; level++)
+        {
+            text.Append("]}");
+        }
+
+        return text.ToString();
     }
 
     [Theory]
@@ -99,14 +127,7 @@ public class RuleCompositionReaderTests
     [Fact]
     public void AGroupAtTheDeepestAllowedLevelIsAccepted()
     {
-        var text = "{\"field\": \"studio\"}";
-
-        for (var level = 0; level < RuleCompositionReader.MaximumNestingDepth; level++)
-        {
-            text = "{\"allOf\": [" + text + "]}";
-        }
-
-        var group = Accepted(text);
+        var group = Accepted(NestedInGroups("{\"field\": \"studio\"}", RuleCompositionReader.MaximumNestingDepth));
 
         var depth = 1;
         while (group.Groups.Count > 0)
@@ -125,12 +146,7 @@ public class RuleCompositionReaderTests
     [Fact]
     public void AGroupPastTheLimitIsRefusedNamingTheLimitAndTheLocation()
     {
-        var text = "{\"field\": \"studio\"}";
-
-        for (var level = 0; level <= RuleCompositionReader.MaximumNestingDepth; level++)
-        {
-            text = "{\"allOf\": [" + text + "]}";
-        }
+        var text = NestedInGroups("{\"field\": \"studio\"}", RuleCompositionReader.MaximumNestingDepth + 1);
 
         var error = Assert.Single(Refused(text).Errors);
 
