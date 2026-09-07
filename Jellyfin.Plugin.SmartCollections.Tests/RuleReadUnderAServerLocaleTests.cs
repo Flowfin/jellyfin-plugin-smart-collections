@@ -367,9 +367,7 @@ public class RuleReadUnderAServerLocaleTests
 
         foreach (var locale in Locales)
         {
-            var collected = UnderLocale(locale, () => Collected(SciFi));
-
-            Assert.Equal(expected, collected);
+            Assert.Equal(expected, UnderLocale(locale, () => Collected(SciFi)));
         }
     }
 
