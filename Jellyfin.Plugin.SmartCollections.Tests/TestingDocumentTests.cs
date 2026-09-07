@@ -56,7 +56,7 @@ public class TestingDocumentTests
         "Jellyfin.Plugin.SmartCollections.Engine",
     };
 
-    private static string Document() => Path.Combine(RepositoryFiles.Root(), "docs", "testing.md");
+    private static string Document() => Path.Join(RepositoryFiles.Root(), "docs", "testing.md");
 
     private static string DocumentText() => File.ReadAllText(Document());
 
@@ -178,7 +178,7 @@ public class TestingDocumentTests
 
     private static IEnumerable<string> SourcesUnder(string project)
     {
-        var directory = Path.Combine(RepositoryFiles.Root(), project);
+        var directory = Path.Join(RepositoryFiles.Root(), project);
 
         if (!Directory.Exists(directory))
         {

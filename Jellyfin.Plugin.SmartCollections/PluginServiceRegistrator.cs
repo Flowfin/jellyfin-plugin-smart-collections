@@ -62,7 +62,7 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
     {
         ArgumentNullException.ThrowIfNull(applicationPaths);
 
-        return Path.Combine(applicationPaths.PluginConfigurationsPath, "SmartCollections", "rules");
+        return Path.Join(applicationPaths.PluginConfigurationsPath, "SmartCollections", "rules");
     }
 
     /// <inheritdoc />

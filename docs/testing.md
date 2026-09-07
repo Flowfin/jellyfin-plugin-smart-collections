@@ -172,6 +172,45 @@ Run it with the rest of the suite:
 dotnet test -c Release --filter FullyQualifiedName~SuitePortabilityTests
 ```
 
+## How a path is composed
+
+Every path this repository composes goes through `Path.Join`. `Path.Combine` is
+refused, everywhere, by
+`PathCompositionTests.NothingInTheTreeComposesAPathWithTheCallThatCanDropItsEarlierArguments`.
+
+The reason is what the refused call does with a rooted argument: it drops
+everything before it, so `Path.Combine(store, name)` returns `name` alone the
+moment `name` is an absolute path, and the caller writes outside the directory it
+believed it was writing in. Nothing at the call site says so. `Path.Join`
+concatenates and roots nothing, so the same site cannot escape.
+
+Twenty-six sites in the test project were reported for it by code scanning. Read
+one at a time, every later argument at those sites is a literal in the source or
+a string read out of a tracked file in this repository, so nothing an operator or
+the environment supplies reaches one and no escape was demonstrated at any of
+them. That is why this is a scan rather than a repair of the reachable ones: a
+site becomes reachable when somebody changes what an argument holds, a long way
+from the line that composes the path.
+
+Its scope is wider than the portability scan above: it reads the plugin project
+and the engine project as well as the test project, because the hazard is about
+what a path composition does rather than about which machine a test runs on. Two
+of the sites it refuses were in the plugin assembly and were reported by nothing
+on the Security tab, `RuleDocumentStore.PathFor` and
+`PluginServiceRegistrator.RulesDirectory`.
+
+Two more legs sit beside it. `TheScanReadsEverySourceInEveryProject` exists
+because a scan that reads nothing passes the first leg silently, and
+`ThePatternMatchesTheShapeItRefuses` exists because a pattern that matches
+nothing passes it silently too. The pattern is written so that it does not match
+its own source, which is what lets the scan read its own file rather than
+excusing it, and it is why no prose in that source spells the refused name.
+
+What it does not reach is anything outside those three projects and anything that
+is not C#: the fuzz project under `tools/`, the workflow scripts, and a path
+composed by a library this repository calls. This sentence is the whole of what
+is claimed about those.
+
 ## Regenerating the rule corpus
 
 `Jellyfin.Plugin.SmartCollections.Tests/rules/` holds one rule document per

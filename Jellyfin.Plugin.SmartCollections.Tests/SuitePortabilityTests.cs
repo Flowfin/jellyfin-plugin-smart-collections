@@ -62,7 +62,7 @@ public class SuitePortabilityTests
     /// <returns>The full path of each source file, ordered so a failure reads the same twice.</returns>
     private static IEnumerable<string> TestSources()
     {
-        var project = Path.Combine(RepositoryFiles.Root(), "Jellyfin.Plugin.SmartCollections.Tests");
+        var project = Path.Join(RepositoryFiles.Root(), "Jellyfin.Plugin.SmartCollections.Tests");
 
         return Directory
             .EnumerateFiles(project, "*.cs", SearchOption.AllDirectories)

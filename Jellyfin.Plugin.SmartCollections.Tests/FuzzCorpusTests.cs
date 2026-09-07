@@ -32,7 +32,7 @@ namespace Jellyfin.Plugin.SmartCollections.Tests;
 public class FuzzCorpusTests
 {
     private static string CorpusDirectory()
-        => Path.Combine(RepositoryFiles.Root(), "tools", "fuzz", "corpus");
+        => Path.Join(RepositoryFiles.Root(), "tools", "fuzz", "corpus");
 
     [Fact]
     public void TheCorpusIsNotEmpty()

@@ -26,33 +26,33 @@ internal sealed class FakeApplicationPaths : IApplicationPaths
 
     public string ProgramDataPath { get; }
 
-    public string WebPath => Path.Combine(ProgramDataPath, "web");
+    public string WebPath => Path.Join(ProgramDataPath, "web");
 
-    public string ProgramSystemPath => Path.Combine(ProgramDataPath, "system");
+    public string ProgramSystemPath => Path.Join(ProgramDataPath, "system");
 
-    public string DataPath => Path.Combine(ProgramDataPath, "data");
+    public string DataPath => Path.Join(ProgramDataPath, "data");
 
-    public string ImageCachePath => Path.Combine(CachePath, "images");
+    public string ImageCachePath => Path.Join(CachePath, "images");
 
-    public string PluginsPath => Path.Combine(ProgramDataPath, "plugins");
+    public string PluginsPath => Path.Join(ProgramDataPath, "plugins");
 
-    public string PluginConfigurationsPath => Path.Combine(PluginsPath, "configurations");
+    public string PluginConfigurationsPath => Path.Join(PluginsPath, "configurations");
 
-    public string LogDirectoryPath => Path.Combine(ProgramDataPath, "log");
+    public string LogDirectoryPath => Path.Join(ProgramDataPath, "log");
 
-    public string ConfigurationDirectoryPath => Path.Combine(ProgramDataPath, "config");
+    public string ConfigurationDirectoryPath => Path.Join(ProgramDataPath, "config");
 
-    public string SystemConfigurationFilePath => Path.Combine(ConfigurationDirectoryPath, "system.xml");
+    public string SystemConfigurationFilePath => Path.Join(ConfigurationDirectoryPath, "system.xml");
 
-    public string CachePath => Path.Combine(ProgramDataPath, "cache");
+    public string CachePath => Path.Join(ProgramDataPath, "cache");
 
-    public string TempDirectory => Path.Combine(ProgramDataPath, "temp");
+    public string TempDirectory => Path.Join(ProgramDataPath, "temp");
 
     public string VirtualDataPath => "%AppDataPath%";
 
-    public string TrickplayPath => Path.Combine(DataPath, "trickplay");
+    public string TrickplayPath => Path.Join(DataPath, "trickplay");
 
-    public string BackupPath => Path.Combine(ProgramDataPath, "backups");
+    public string BackupPath => Path.Join(ProgramDataPath, "backups");
 
     public void MakeSanityCheckOrThrow()
     {

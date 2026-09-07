@@ -21,7 +21,7 @@ internal static class RepositoryFiles
 
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "build.yaml")))
+            if (File.Exists(Path.Join(directory.FullName, "build.yaml")))
             {
                 return directory.FullName;
             }
@@ -39,7 +39,7 @@ internal static class RepositoryFiles
     /// <param name="name">The file name, relative to the root.</param>
     /// <returns>The file's text.</returns>
     public static string ReadFromRoot(string name)
-        => File.ReadAllText(Path.Combine(Root(), name));
+        => File.ReadAllText(Path.Join(Root(), name));
 
     /// <summary>
     /// Gets the shipping manifests, one per supported server line, found by pattern rather than

@@ -22,10 +22,10 @@ public sealed class RuleDocumentStoreTests : IDisposable
 
     public RuleDocumentStoreTests()
     {
-        _root = Path.Combine(
+        _root = Path.Join(
             Path.GetTempPath(),
             "smart-collections-rules-" + Guid.NewGuid().ToString("N", System.Globalization.CultureInfo.InvariantCulture));
-        _directory = Path.Combine(_root, "rules");
+        _directory = Path.Join(_root, "rules");
     }
 
     public void Dispose()
@@ -75,7 +75,7 @@ public sealed class RuleDocumentStoreTests : IDisposable
         store.Write("zulu", Encoding.UTF8.GetBytes("{\"schemaVersion\": 1}"));
         store.Write("Alpha", Encoding.UTF8.GetBytes("{\"schemaVersion\": 1}"));
         store.Write("mike", Encoding.UTF8.GetBytes("{\"schemaVersion\": 1}"));
-        File.WriteAllText(Path.Combine(_directory, "notes.txt"), "not a rule");
+        File.WriteAllText(Path.Join(_directory, "notes.txt"), "not a rule");
 
         Assert.Equal(new[] { "Alpha", "mike", "zulu" }, store.ListNames());
     }
@@ -87,7 +87,7 @@ public sealed class RuleDocumentStoreTests : IDisposable
     [Fact]
     public void ADirectoryThatDoesNotExistListsNothing()
     {
-        var store = new RuleDocumentStore(Path.Combine(_directory, "never-created"));
+        var store = new RuleDocumentStore(Path.Join(_directory, "never-created"));
 
         Assert.Empty(store.ListNames());
         Assert.False(store.Exists("christmas"));
@@ -125,7 +125,7 @@ public sealed class RuleDocumentStoreTests : IDisposable
     public void AnEscapingNameWritesNothingOutsideTheDirectory()
     {
         var store = new RuleDocumentStore(_directory);
-        var outside = Path.Combine(_root, "escaped.json");
+        var outside = Path.Join(_root, "escaped.json");
 
         Assert.Throws<ArgumentException>(
             () => store.Write("../escaped", Encoding.UTF8.GetBytes("{\"schemaVersion\": 1}")));

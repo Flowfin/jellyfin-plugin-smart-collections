@@ -94,7 +94,7 @@ public class RuleCorpusTests
     [Fact]
     public void EveryDocumentHasAnExpectedFileAndEveryExpectedFileHasADocument()
     {
-        var directory = Path.Combine(RepositoryFiles.Root(), RuleCorpus.Directory);
+        var directory = Path.Join(RepositoryFiles.Root(), RuleCorpus.Directory);
 
         var expected = Directory.GetFiles(directory, "*.expected.txt")
             .Select(path => Path.GetFileName(path)!.Replace(".expected.txt", string.Empty, StringComparison.Ordinal))

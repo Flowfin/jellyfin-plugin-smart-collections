@@ -74,7 +74,7 @@ public class RuleOperatorDocumentTests
     [Fact]
     public void ThePageCarriesASectionPerOperator()
     {
-        Assert.True(File.Exists(Path.Combine(RepositoryFiles.Root(), Page)), Page + " is not in the tree.");
+        Assert.True(File.Exists(Path.Join(RepositoryFiles.Root(), Page)), Page + " is not in the tree.");
         Assert.NotEmpty(Documented());
     }
 

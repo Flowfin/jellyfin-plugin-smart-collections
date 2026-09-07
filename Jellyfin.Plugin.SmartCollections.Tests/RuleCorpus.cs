@@ -60,7 +60,7 @@ internal static class RuleCorpus
     public static string[] Names()
     {
         var names = System.IO.Directory
-            .GetFiles(Path.Combine(RepositoryFiles.Root(), Directory), "*.json")
+            .GetFiles(Path.Join(RepositoryFiles.Root(), Directory), "*.json")
             .Select(Path.GetFileNameWithoutExtension)
             .Where(name => name is not null)
             .Select(name => name!)
@@ -77,7 +77,7 @@ internal static class RuleCorpus
     /// <param name="name">The document name without its extension.</param>
     /// <returns>The absolute path.</returns>
     public static string DocumentPath(string name)
-        => Path.Combine(RepositoryFiles.Root(), Directory, name + ".json");
+        => Path.Join(RepositoryFiles.Root(), Directory, name + ".json");
 
     /// <summary>
     /// The path of a document's expected file.
@@ -85,7 +85,7 @@ internal static class RuleCorpus
     /// <param name="name">The document name without its extension.</param>
     /// <returns>The absolute path.</returns>
     public static string ExpectedPath(string name)
-        => Path.Combine(RepositoryFiles.Root(), Directory, name + ".expected.txt");
+        => Path.Join(RepositoryFiles.Root(), Directory, name + ".expected.txt");
 
     /// <summary>
     /// The lines an expected file holds for a document, in the order they are written.

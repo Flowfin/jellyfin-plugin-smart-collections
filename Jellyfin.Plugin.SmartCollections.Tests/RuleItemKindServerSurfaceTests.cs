@@ -46,7 +46,7 @@ public class RuleItemKindServerSurfaceTests
     public void TheExpectedListIsInTheTreeAndCarriesPairs()
     {
         Assert.True(
-            File.Exists(Path.Combine(RepositoryFiles.Root(), Expected)),
+            File.Exists(Path.Join(RepositoryFiles.Root(), Expected)),
             Expected + " is not in the tree.");
 
         Assert.NotEmpty(ExpectedPairs());

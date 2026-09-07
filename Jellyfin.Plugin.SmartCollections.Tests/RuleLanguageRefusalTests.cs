@@ -135,7 +135,7 @@ public class RuleLanguageRefusalTests
             StringComparison.Ordinal);
 
         Assert.True(
-            File.Exists(Path.Combine(RepositoryFiles.Root(), Reference.Replace('/', Path.DirectorySeparatorChar))),
+            File.Exists(Path.Join(RepositoryFiles.Root(), Reference.Replace('/', Path.DirectorySeparatorChar))),
             "README.md links " + Reference + " and no such file is in the tree.");
     }
 

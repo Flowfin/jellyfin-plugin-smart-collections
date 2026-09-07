@@ -77,7 +77,7 @@ public class ServerLineManifestTests
     private static string[] TargetFrameworks()
     {
         var project = File.ReadAllText(
-            Path.Combine(RepositoryFiles.Root(), PluginProject.Replace('/', Path.DirectorySeparatorChar)));
+            Path.Join(RepositoryFiles.Root(), PluginProject.Replace('/', Path.DirectorySeparatorChar)));
         var match = ProjectTargetFrameworks.Match(project);
 
         Assert.True(match.Success, PluginProject + " declares no TargetFrameworks.");
